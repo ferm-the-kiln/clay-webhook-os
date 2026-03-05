@@ -1,0 +1,5 @@
+name: score-and-email
+description: Score prospect → Generate email (skip angle selection)
+steps:
+  - skill: icp-scorer
+  - skill: email-gen
