@@ -147,6 +147,9 @@ class JobQueue:
                 self._queue.task_done()
 
     async def _send_callback(self, job: Job):
+        if not job.callback_url:
+            return
+
         payload = {
             "job_id": job.id,
             "skill": job.skill,

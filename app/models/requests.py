@@ -10,6 +10,13 @@ class WebhookRequest(BaseModel):
     row_id: str | None = Field(None, description="Row identifier for matching callback results")
 
 
+class BatchRequest(BaseModel):
+    skill: str = Field(..., description="Skill name to run on all rows")
+    rows: list[dict] = Field(..., description="Array of row data objects")
+    model: str | None = Field(None, description="Model override: opus, sonnet, haiku")
+    instructions: str | None = Field(None, description="Optional instructions for all rows")
+
+
 class PipelineStep(BaseModel):
     skill: str
     filter: str | None = Field(None, description="JSONPath expression to check before running")

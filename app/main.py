@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.core.cache import ResultCache
@@ -9,7 +10,7 @@ from app.core.skill_loader import list_skills
 from app.core.worker_pool import WorkerPool
 from app.middleware.auth import ApiKeyMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
-from app.routers import health, pipeline, webhook
+from app.routers import batch, health, pipeline, webhook
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,14 +25,22 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Middleware (order matters: error handler wraps auth wraps routes)
+# Middleware (order matters: error handler wraps auth wraps CORS wraps routes)
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(ApiKeyMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Routers
 app.include_router(health.router)
 app.include_router(webhook.router)
 app.include_router(pipeline.router)
+app.include_router(batch.router)
 
 
 @app.on_event("startup")

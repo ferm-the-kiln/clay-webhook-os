@@ -58,8 +58,33 @@ async def job_status(job_id: str, request: Request):
         "status": job.status,
         "duration_ms": job.duration_ms,
         "error": job.error,
+        "result": job.result,
         "created_at": job.created_at,
         "completed_at": job.completed_at,
+    }
+
+
+@router.get("/stats")
+async def stats(request: Request):
+    pool = request.app.state.pool
+    cache = request.app.state.cache
+    queue = request.app.state.job_queue
+    jobs = queue._jobs.values()
+
+    completed = [j for j in jobs if j.status == "completed"]
+    failed = [j for j in jobs if j.status == "failed"]
+    total_duration = sum(j.duration_ms for j in completed)
+    avg_duration = round(total_duration / len(completed)) if completed else 0
+
+    return {
+        "total_processed": len(jobs),
+        "total_completed": len(completed),
+        "total_failed": len(failed),
+        "active_workers": pool.max_workers - pool.available,
+        "queue_depth": queue.pending,
+        "avg_duration_ms": avg_duration,
+        "success_rate": round(len(completed) / len(jobs), 3) if jobs else 1.0,
+        "cache_entries": cache.size,
     }
 
 

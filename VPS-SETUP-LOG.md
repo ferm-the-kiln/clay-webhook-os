@@ -147,6 +147,31 @@ curl -X POST https://clay.nomynoms.com/webhook \
 # → Valid JSON response in ~5 seconds
 ```
 
+## 13. Async Queue Architecture (2026-03-05)
+
+- **Pattern:** POST /webhook with `callback_url` → enqueues job → returns 202 with `job_id` → workers process → POST result to callback_url
+- **Workers:** `MAX_WORKERS=3` (down from 10 to avoid OOM on CX22 with Opus)
+- **Semaphore:** WorkerPool uses `asyncio.Semaphore` to limit concurrent `claude --print` subprocesses
+- **Callback guard:** `_send_callback()` skips when `callback_url` is empty (batch jobs)
+
+## 14. New Endpoints (2026-03-05)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/stats` | Aggregate metrics: processed/completed/failed counts, active workers, queue depth, avg duration, success rate, cache entries |
+| POST | `/batch` | Enqueue multiple rows at once: `{skill, rows: [...], model?, instructions?}` → returns `{batch_id, total_rows, job_ids}` |
+| GET | `/jobs/{id}` | Now includes `result` field for dashboard display |
+
+**CORS:** Enabled with `allow_origins=["*"]` for dashboard access. Tighten to Vercel domain after deploy.
+
+## 15. Dashboard (2026-03-05)
+
+- **Framework:** Next.js 15, React 19, Tailwind v4, TypeScript
+- **Location:** `dashboard/` directory in repo
+- **Pages:** Dashboard (stats + jobs), Playground (skill tester), Batch (CSV upload → process → download)
+- **Deployment:** Vercel (connect GitHub repo, set root to `dashboard/`)
+- **Env vars for Vercel:** `NEXT_PUBLIC_API_URL=https://clay.nomynoms.com`, `NEXT_PUBLIC_API_KEY=<key>`
+
 ## Key Info for Future Reference
 
 | Item | Value |
