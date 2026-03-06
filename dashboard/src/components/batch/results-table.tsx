@@ -13,16 +13,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Download, RotateCcw } from "lucide-react";
+import { Download, RotateCcw, Send } from "lucide-react";
 
 export function ResultsTable({
   jobs,
   originalRows,
   onRetryFailed,
+  onPushToDestination,
 }: {
   jobs: Job[];
   originalRows: Record<string, string>[];
   onRetryFailed?: () => void;
+  onPushToDestination?: () => void;
 }) {
   const failedCount = jobs.filter(
     (j) => j.status === "failed" || j.status === "dead_letter"
@@ -72,6 +74,17 @@ export function ResultsTable({
             >
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               Retry failed rows ({failedCount})
+            </Button>
+          )}
+          {onPushToDestination && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPushToDestination}
+              className="bg-kiln-mustard/10 text-kiln-mustard border-kiln-mustard/30 hover:bg-kiln-mustard/20 hover:text-kiln-mustard"
+            >
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              Push to Destination
             </Button>
           )}
           <Button

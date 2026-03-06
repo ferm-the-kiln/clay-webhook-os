@@ -12,7 +12,8 @@ from app.core.skill_loader import list_skills
 from app.core.worker_pool import WorkerPool
 from app.middleware.auth import ApiKeyMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
-from app.routers import batch, health, pipeline, webhook
+from app.core.destination_store import DestinationStore
+from app.routers import batch, destinations, health, pipeline, webhook
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,6 +44,7 @@ app.include_router(health.router)
 app.include_router(webhook.router)
 app.include_router(pipeline.router)
 app.include_router(batch.router)
+app.include_router(destinations.router)
 
 
 @app.on_event("startup")
@@ -56,6 +58,8 @@ async def startup():
         event_bus=app.state.event_bus,
     )
     app.state.scheduler = BatchScheduler()
+    app.state.destination_store = DestinationStore(data_dir=settings.data_dir)
+    app.state.destination_store.load()
     await app.state.job_queue.start_workers(num_workers=settings.max_workers)
     await app.state.scheduler.start(app.state.job_queue)
 

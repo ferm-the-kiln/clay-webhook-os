@@ -12,6 +12,7 @@ const PAGE_ASSETS: Record<string, string> = {
   Dashboard: "/brand-assets/v2-dashboard.png",
   Playground: "/brand-assets/v2-playground.png",
   "Batch Processing": "/brand-assets/v2-batch.png",
+  Settings: "",
 };
 
 export function Header({ title }: { title: string }) {

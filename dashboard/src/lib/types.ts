@@ -18,6 +18,9 @@ export interface Job {
   completed_at: number | null;
   retry_count?: number;
   priority?: "high" | "normal" | "low";
+  input_tokens_est?: number;
+  output_tokens_est?: number;
+  cost_est_usd?: number;
 }
 
 export interface JobListItem {
@@ -46,6 +49,13 @@ export interface Stats {
   cache_misses: number;
   cache_hit_rate: number;
   jobs_by_priority: { high: number; normal: number; low: number };
+  tokens?: { total_input_est: number; total_output_est: number; total_est: number };
+  cost?: {
+    total_equivalent_usd: number;
+    subscription_monthly_usd: number;
+    total_savings_usd: number;
+    cache_savings_usd: number;
+  };
 }
 
 export interface HealthResponse {
@@ -76,6 +86,52 @@ export interface ScheduledBatch {
   created_at: number;
   status: "scheduled" | "enqueued" | "cancelled";
   job_ids: string[];
+}
+
+export type DestinationType = "clay_webhook" | "generic_webhook";
+
+export interface Destination {
+  id: string;
+  name: string;
+  type: DestinationType;
+  url: string;
+  auth_header_name: string;
+  auth_header_value: string;
+  client_slug: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface PushResult {
+  destination_id: string;
+  destination_name: string;
+  total: number;
+  success: number;
+  failed: number;
+  errors: { job_id: string; error: string }[];
+}
+
+export interface BatchStatus {
+  batch_id: string;
+  total_rows: number;
+  completed: number;
+  failed: number;
+  processing: number;
+  queued: number;
+  done: boolean;
+  avg_duration_ms: number;
+  tokens: { input_est: number; output_est: number; total_est: number };
+  cost: { equivalent_api_usd: number; subscription_usd: number; net_savings_usd: number };
+  cache: { hits: number; hit_rate: number };
+  jobs: {
+    id: string;
+    row_id: string | null;
+    status: JobStatus;
+    duration_ms: number;
+    input_tokens_est: number;
+    output_tokens_est: number;
+    cost_est_usd: number;
+  }[];
 }
 
 export interface WebhookResponse {

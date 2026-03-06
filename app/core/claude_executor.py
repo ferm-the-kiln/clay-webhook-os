@@ -73,7 +73,18 @@ class ClaudeExecutor:
         envelope = json.loads(raw)
         content = self._extract_content(envelope)
         parsed = self._parse_json(content)
-        return {"result": parsed, "duration_ms": duration_ms, "raw_length": len(raw)}
+
+        # Token usage: prefer real data from CLI if available, else return char counts for estimation
+        usage = envelope.get("usage") if isinstance(envelope, dict) else None
+
+        return {
+            "result": parsed,
+            "duration_ms": duration_ms,
+            "raw_length": len(raw),
+            "prompt_chars": len(prompt),
+            "response_chars": len(content),
+            "usage": usage,
+        }
 
     @staticmethod
     def _extract_content(envelope: dict | list) -> str:

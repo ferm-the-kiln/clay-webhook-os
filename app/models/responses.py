@@ -6,6 +6,9 @@ class Meta(BaseModel):
     model: str
     duration_ms: int
     cached: bool
+    input_tokens_est: int = 0
+    output_tokens_est: int = 0
+    cost_est_usd: float = 0.0
 
 
 class WebhookResponse(BaseModel):

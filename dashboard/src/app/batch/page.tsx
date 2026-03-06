@@ -9,11 +9,20 @@ import { BatchProgress } from "@/components/batch/batch-progress";
 import { ResultsTable } from "@/components/batch/results-table";
 import { SkillSelector } from "@/components/playground/skill-selector";
 import { ModelSelector } from "@/components/playground/model-selector";
-import { runBatch, fetchJob, fetchScheduledBatches } from "@/lib/api";
-import type { Job, ScheduledBatch } from "@/lib/types";
+import { PushDialog } from "@/components/batch/push-dialog";
+import { runBatch, fetchJob, fetchScheduledBatches, fetchDestinations, fetchBatchStatus, pushToDestination } from "@/lib/api";
+import type { BatchStatus, Destination, Job, ScheduledBatch } from "@/lib/types";
 import type { Model } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
-import { Rocket, RotateCcw, Clock, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Rocket, RotateCcw, Clock, CheckCircle, ChevronDown, ChevronUp, Send } from "lucide-react";
 import { toast } from "sonner";
 
 type Phase = "upload" | "configure" | "processing" | "done" | "scheduled";
@@ -30,6 +39,12 @@ export default function BatchPage() {
   const [scheduledAt, setScheduledAt] = useState("");
   const [scheduledBatches, setScheduledBatches] = useState<ScheduledBatch[]>([]);
   const [scheduledCollapsed, setScheduledCollapsed] = useState(true);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [selectedDestId, setSelectedDestId] = useState("");
+  const [autoPushResult, setAutoPushResult] = useState<{ success: number; failed: number } | null>(null);
+  const [pushOpen, setPushOpen] = useState(false);
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [costSummary, setCostSummary] = useState<Pick<BatchStatus, "tokens" | "cost"> | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleParsed = useCallback(
@@ -112,6 +127,7 @@ export default function BatchPage() {
         model,
       });
       setJobIds(res.job_ids || []);
+      setBatchId(res.batch_id);
     } catch (e) {
       setPhase("configure");
       toast.error("Batch failed", {
@@ -140,18 +156,46 @@ export default function BatchPage() {
       if (allDone) {
         setPhase("done");
         if (pollingRef.current) clearInterval(pollingRef.current);
-        const completed = updated.filter((j) => j.status === "completed").length;
-        const failed = updated.filter(
+        if (batchId) {
+          fetchBatchStatus(batchId)
+            .then((bs) => setCostSummary({ tokens: bs.tokens, cost: bs.cost }))
+            .catch(() => {});
+        }
+        const completedJobs = updated.filter((j) => j.status === "completed");
+        const failedCount = updated.filter(
           (j) => j.status === "failed" || j.status === "dead_letter"
         ).length;
-        if (failed === 0) {
+        if (failedCount === 0) {
           toast.success("Batch complete", {
-            description: `All ${completed} rows processed successfully.`,
+            description: `All ${completedJobs.length} rows processed successfully.`,
           });
         } else {
           toast.warning(`Batch complete with errors`, {
-            description: `${completed} succeeded, ${failed} failed.`,
+            description: `${completedJobs.length} succeeded, ${failedCount} failed.`,
           });
+        }
+
+        // Auto-push if a destination was selected upfront
+        if (selectedDestId && completedJobs.length > 0) {
+          pushToDestination(selectedDestId, completedJobs.map((j) => j.id))
+            .then((result) => {
+              setAutoPushResult({ success: result.success, failed: result.failed });
+              if (result.failed === 0) {
+                toast.success("Auto-push complete", {
+                  description: `${result.success} rows sent to ${result.destination_name}`,
+                });
+              } else {
+                toast.warning("Auto-push completed with errors", {
+                  description: `${result.success} succeeded, ${result.failed} failed`,
+                });
+              }
+            })
+            .catch((e) => {
+              setAutoPushResult(null);
+              toast.error("Auto-push failed", {
+                description: (e as Error).message,
+              });
+            });
         }
       }
     };
@@ -161,7 +205,7 @@ export default function BatchPage() {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [phase, jobIds]);
+  }, [phase, jobIds, selectedDestId]);
 
   const loadScheduledBatches = () => {
     fetchScheduledBatches()
@@ -171,6 +215,9 @@ export default function BatchPage() {
 
   useEffect(() => {
     loadScheduledBatches();
+    fetchDestinations()
+      .then((res) => setDestinations(res.destinations))
+      .catch(() => {});
   }, []);
 
   const completed = jobs.filter((j) => j?.status === "completed").length;
@@ -244,6 +291,10 @@ export default function BatchPage() {
     setJobIds([]);
     setJobs([]);
     setScheduledAt("");
+    setBatchId(null);
+    setCostSummary(null);
+    setSelectedDestId("");
+    setAutoPushResult(null);
   };
 
   return (
@@ -258,9 +309,27 @@ export default function BatchPage() {
 
             {phase === "configure" && (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <SkillSelector value={skill} onChange={handleSkillChange} />
                   <ModelSelector value={model} onChange={setModel} />
+                  <div>
+                    <label className="block text-xs text-clay-500 uppercase tracking-wide mb-1.5">
+                      Destination (optional)
+                    </label>
+                    <Select value={selectedDestId} onValueChange={(v) => setSelectedDestId(v === "none" ? "" : v)}>
+                      <SelectTrigger className="w-full border-clay-700 bg-clay-900 text-clay-200">
+                        <SelectValue placeholder="None — manual push" />
+                      </SelectTrigger>
+                      <SelectContent className="border-clay-700 bg-clay-900">
+                        <SelectItem value="none">None — manual push</SelectItem>
+                        {destinations.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.name} ({d.type === "clay_webhook" ? "Clay" : "Webhook"})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 {skill && (
@@ -312,12 +381,50 @@ export default function BatchPage() {
                   completed={completed}
                   failed={failed}
                   done={phase === "done"}
+                  costSummary={costSummary}
                 />
+                {selectedDestId && (() => {
+                  const destName = destinations.find((d) => d.id === selectedDestId)?.name || "destination";
+                  if (phase === "processing") {
+                    return (
+                      <Badge variant="outline" className="border-kiln-teal/30 bg-kiln-teal/5 text-kiln-teal w-fit">
+                        <Send className="h-3 w-3 mr-1.5" />
+                        Results will auto-push to {destName}
+                      </Badge>
+                    );
+                  }
+                  if (phase === "done" && autoPushResult) {
+                    return (
+                      <Badge
+                        variant="outline"
+                        className={`w-fit ${
+                          autoPushResult.failed === 0
+                            ? "border-kiln-teal/30 bg-kiln-teal/5 text-kiln-teal"
+                            : "border-kiln-mustard/30 bg-kiln-mustard/5 text-kiln-mustard"
+                        }`}
+                      >
+                        <Send className="h-3 w-3 mr-1.5" />
+                        Pushed {autoPushResult.success} rows to {destName}
+                        {autoPushResult.failed > 0 && ` (${autoPushResult.failed} failed)`}
+                      </Badge>
+                    );
+                  }
+                  if (phase === "done" && !autoPushResult) {
+                    return (
+                      <Badge variant="outline" className="border-clay-700 bg-clay-900/50 text-clay-400 w-fit">
+                        <Send className="h-3 w-3 mr-1.5" />
+                        Auto-pushing to {destName}...
+                      </Badge>
+                    );
+                  }
+                  return null;
+                })()}
                 {jobs.some((j) => j !== null) && (
                   <ResultsTable
                     jobs={jobs.filter((j): j is Job => j !== null)}
                     originalRows={rows}
                     onRetryFailed={phase === "done" && failed > 0 ? handleRetryFailed : undefined}
+                    onPushToDestination={phase === "done" && completed > 0 ? () => setPushOpen(true) : undefined}
                   />
                 )}
                 {phase === "done" && (
@@ -352,6 +459,13 @@ export default function BatchPage() {
             </Button>
           </div>
         )}
+
+        <PushDialog
+          open={pushOpen}
+          onOpenChange={setPushOpen}
+          destinations={destinations}
+          jobs={jobs.filter((j): j is Job => j !== null)}
+        />
 
         {/* Scheduled Batches - Collapsible */}
         {scheduledBatches.length > 0 && (

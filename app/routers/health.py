@@ -4,8 +4,10 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
+from app.config import settings
 from app.core.pipeline_runner import list_pipelines
 from app.core.skill_loader import list_skills
+from app.core.token_estimator import estimate_cost
 
 router = APIRouter()
 
@@ -95,6 +97,9 @@ async def job_status(job_id: str, request: Request):
         "completed_at": job.completed_at,
         "retry_count": job.retry_count,
         "priority": job.priority,
+        "input_tokens_est": job.input_tokens_est,
+        "output_tokens_est": job.output_tokens_est,
+        "cost_est_usd": job.cost_est_usd,
     }
 
 
@@ -119,6 +124,16 @@ async def stats(request: Request):
         if p in jobs_by_priority:
             jobs_by_priority[p] += 1
 
+    # Token and cost aggregation
+    total_input_est = sum(j.input_tokens_est for j in all_jobs)
+    total_output_est = sum(j.output_tokens_est for j in all_jobs)
+    total_equivalent_usd = sum(j.cost_est_usd for j in all_jobs)
+
+    # Cache savings: avg cost per completed job * cache hits
+    avg_cost_per_job = total_equivalent_usd / len(completed) if completed else 0.0
+    cache_savings_usd = round(avg_cost_per_job * cache.hits, 6)
+    total_savings_usd = round(total_equivalent_usd + cache_savings_usd, 6)
+
     return {
         "total_processed": len(all_jobs),
         "total_completed": len(completed),
@@ -134,6 +149,17 @@ async def stats(request: Request):
         "cache_misses": cache.misses,
         "cache_hit_rate": cache.hit_rate,
         "jobs_by_priority": jobs_by_priority,
+        "tokens": {
+            "total_input_est": total_input_est,
+            "total_output_est": total_output_est,
+            "total_est": total_input_est + total_output_est,
+        },
+        "cost": {
+            "total_equivalent_usd": round(total_equivalent_usd, 6),
+            "subscription_monthly_usd": settings.max_subscription_monthly_usd,
+            "total_savings_usd": total_savings_usd,
+            "cache_savings_usd": cache_savings_usd,
+        },
     }
 
 

@@ -11,6 +11,7 @@ import httpx
 from app.config import settings
 from app.core.context_assembler import build_prompt
 from app.core.skill_loader import load_context_files, load_skill
+from app.core.token_estimator import estimate_cost, estimate_tokens
 from app.core.worker_pool import WorkerPool
 
 if TYPE_CHECKING:
@@ -51,6 +52,10 @@ class Job:
     retry_count: int = 0
     max_retries: int = 3
     next_retry_at: float | None = None
+    input_tokens_est: int = 0
+    output_tokens_est: int = 0
+    cost_est_usd: float = 0.0
+    batch_id: str | None = None
 
     def __lt__(self, other: "Job") -> bool:
         return PRIORITY_WEIGHTS.get(self.priority, 1) < PRIORITY_WEIGHTS.get(other.priority, 1)
@@ -72,6 +77,16 @@ class JobQueue:
         self._queue: asyncio.PriorityQueue[Job] = asyncio.PriorityQueue()
         self._jobs: dict[str, Job] = {}
         self._workers: list[asyncio.Task] = []
+        self._batches: dict[str, list[str]] = {}
+
+    def register_batch(self, batch_id: str, job_ids: list[str]) -> None:
+        self._batches[batch_id] = job_ids
+
+    def get_batch_jobs(self, batch_id: str) -> list[Job] | None:
+        job_ids = self._batches.get(batch_id)
+        if job_ids is None:
+            return None
+        return [self._jobs[jid] for jid in job_ids if jid in self._jobs]
 
     @property
     def pending(self) -> int:
@@ -96,6 +111,10 @@ class JobQueue:
                 "created_at": j.created_at,
                 "retry_count": j.retry_count,
                 "priority": j.priority,
+                "input_tokens_est": j.input_tokens_est,
+                "output_tokens_est": j.output_tokens_est,
+                "cost_est_usd": j.cost_est_usd,
+                "batch_id": j.batch_id,
             }
             for j in jobs
         ]
@@ -111,6 +130,7 @@ class JobQueue:
         priority: str = "normal",
         max_retries: int = 3,
         skills: list[str] | None = None,
+        batch_id: str | None = None,
     ) -> str:
         # Cache dedup: check cache before creating job
         if self._cache is not None:
@@ -131,6 +151,7 @@ class JobQueue:
                     status=JobStatus.completed,
                     result=cached,
                     completed_at=time.time(),
+                    batch_id=batch_id,
                 )
                 self._jobs[job_id] = job
                 # Send callback immediately for cached results
@@ -152,6 +173,7 @@ class JobQueue:
             priority=priority,
             max_retries=max_retries,
             skills=skills,
+            batch_id=batch_id,
         )
         self._jobs[job_id] = job
         await self._queue.put(job)
@@ -195,6 +217,9 @@ class JobQueue:
                     job.result = result
                     job.duration_ms = result.get("total_duration_ms", 0)
                     job.completed_at = time.time()
+                    job.input_tokens_est = estimate_tokens(result.get("total_prompt_chars", 0))
+                    job.output_tokens_est = estimate_tokens(result.get("total_response_chars", 0))
+                    job.cost_est_usd = estimate_cost(job.model, job.input_tokens_est, job.output_tokens_est)
                     if self._event_bus:
                         self._event_bus.publish("job_updated", {"job_id": job.id, "status": "completed"})
                     await self._send_callback(job)
@@ -214,6 +239,9 @@ class JobQueue:
                     job.result = parsed
                     job.duration_ms = result["duration_ms"]
                     job.completed_at = time.time()
+                    job.input_tokens_est = estimate_tokens(result.get("prompt_chars", 0))
+                    job.output_tokens_est = estimate_tokens(result.get("response_chars", 0))
+                    job.cost_est_usd = estimate_cost(job.model, job.input_tokens_est, job.output_tokens_est)
 
                     # Cache the result
                     if self._cache is not None:

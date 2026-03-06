@@ -12,7 +12,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { LayoutDashboard, FlaskConical, Layers } from "lucide-react";
+import { LayoutDashboard, FlaskConical, Layers, Settings } from "lucide-react";
 
 const NAV = [
   {
@@ -36,6 +36,13 @@ const NAV = [
     asset: "/brand-assets/v2-batch.png",
     shortcut: "3",
   },
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: Settings,
+    asset: "",
+    shortcut: "4",
+  },
 ];
 
 export function Sidebar() {
@@ -53,7 +60,7 @@ export function Sidebar() {
   // Keyboard shortcuts for navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3"].includes(e.key)) {
+      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4"].includes(e.key)) {
         e.preventDefault();
         const nav = NAV[parseInt(e.key) - 1];
         if (nav) window.location.href = nav.href;
@@ -81,13 +88,17 @@ export function Sidebar() {
             )}
           >
             <Link href={item.href} onClick={onNavigate}>
-              <Image
-                src={item.asset}
-                alt={item.label}
-                width={24}
-                height={24}
-                className="shrink-0 rounded-sm"
-              />
+              {item.asset ? (
+                <Image
+                  src={item.asset}
+                  alt={item.label}
+                  width={24}
+                  height={24}
+                  className="shrink-0 rounded-sm"
+                />
+              ) : (
+                <item.icon className="h-6 w-6 shrink-0" />
+              )}
               {!compact && (
                 <>
                   <span className="flex-1">{item.label}</span>

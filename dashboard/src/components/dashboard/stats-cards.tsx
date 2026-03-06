@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { fetchStats, createJobStream } from "@/lib/api";
 import type { Stats } from "@/lib/types";
-import { formatSmartDuration, formatNumber, formatPercent } from "@/lib/utils";
+import { formatSmartDuration, formatNumber, formatPercent, formatCost } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -20,14 +20,16 @@ const METRIC_TOOLTIPS: Record<string, string> = {
   avg_duration_ms: "Average time to complete a job, from queue pickup to response.",
   success_rate: "Percentage of jobs that completed without errors.",
   cache_hit_rate: "Percentage of requests served from cache instead of calling Claude.",
+  api_equivalent: "What you would pay using the Anthropic API for the same usage.",
+  net_savings: "Total savings vs. API pricing, including cache savings.",
 };
 
 interface CardDef {
   key: string;
   label: string;
   asset: string;
-  format: "number" | "duration" | "percent";
-  group: "health" | "volume" | "performance";
+  format: "number" | "duration" | "percent" | "cost";
+  group: "health" | "volume" | "performance" | "cost";
 }
 
 const CARDS: CardDef[] = [
@@ -37,11 +39,14 @@ const CARDS: CardDef[] = [
   { key: "queue_depth", label: "Queue Depth", asset: "/brand-assets/v2-funnel.png", format: "number", group: "volume" },
   { key: "avg_duration_ms", label: "Avg Duration", asset: "/brand-assets/v2-hourglass.png", format: "duration", group: "performance" },
   { key: "cache_hit_rate", label: "Cache Hit Rate", asset: "/brand-assets/v2-compass.png", format: "percent", group: "performance" },
+  { key: "api_equivalent", label: "API Equivalent", asset: "/brand-assets/v2-chart.png", format: "cost", group: "cost" },
+  { key: "net_savings", label: "Net Savings", asset: "/brand-assets/v2-target.png", format: "cost", group: "cost" },
 ];
 
 function formatValue(value: number, format: string): string {
   if (format === "duration") return formatSmartDuration(value);
   if (format === "percent") return formatPercent(value);
+  if (format === "cost") return formatCost(value);
   return formatNumber(value);
 }
 
@@ -102,6 +107,12 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   );
 }
 
+function getStatValue(stats: Stats, key: string): number {
+  if (key === "api_equivalent") return stats.cost?.total_equivalent_usd ?? 0;
+  if (key === "net_savings") return stats.cost?.total_savings_usd ?? 0;
+  return (stats[key as keyof Stats] as number) ?? 0;
+}
+
 export function StatsCards() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [stale, setStale] = useState(false);
@@ -125,7 +136,7 @@ export function StatsCards() {
           setHistory((prev) => {
             const next: Record<string, number[]> = {};
             for (const c of CARDS) {
-              const val = s[c.key as keyof Stats] as number;
+              const val = getStatValue(s, c.key);
               const arr = prev[c.key] || [];
               next[c.key] = [...arr.slice(-11), val];
             }
@@ -170,8 +181,8 @@ export function StatsCards() {
 
   if (!stats) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4" aria-live="polite">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4" aria-live="polite">
+        {Array.from({ length: 8 }).map((_, i) => (
           <Card key={i} className="border-clay-800 bg-clay-900">
             <CardContent className="p-4">
               <Skeleton className="h-3 w-20 mb-3 bg-clay-800 rounded" />
@@ -185,11 +196,11 @@ export function StatsCards() {
 
   return (
     <div
-      className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 transition-opacity duration-300 ${stale ? "opacity-70" : ""}`}
+      className={`grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 transition-opacity duration-300 ${stale ? "opacity-70" : ""}`}
       aria-live="polite"
     >
       {CARDS.map((c) => {
-        const value = stats[c.key as keyof Stats] as number;
+        const value = getStatValue(stats, c.key);
         const isFail =
           (c.key === "success_rate" && value < 0.9) ||
           (c.key === "cache_hit_rate" && value < 0.1);

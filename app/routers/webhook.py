@@ -7,6 +7,7 @@ from app.config import settings
 from app.core.context_assembler import build_prompt
 from app.core.pipeline_runner import run_skill_chain
 from app.core.skill_loader import load_context_files, load_skill
+from app.core.token_estimator import estimate_cost, estimate_tokens
 from app.models.requests import WebhookRequest
 
 router = APIRouter()
@@ -95,6 +96,9 @@ async def webhook(body: WebhookRequest, request: Request):
                 "model": model,
                 "duration_ms": 0,
                 "cached": True,
+                "input_tokens_est": 0,
+                "output_tokens_est": 0,
+                "cost_est_usd": 0.0,
             },
         }
 
@@ -120,6 +124,9 @@ async def webhook(body: WebhookRequest, request: Request):
         return _error(f"Execution error: {e}", primary_skill)
 
     parsed = result["result"]
+    input_tokens = estimate_tokens(result.get("prompt_chars", 0))
+    output_tokens = estimate_tokens(result.get("response_chars", 0))
+    cost_usd = estimate_cost(model, input_tokens, output_tokens)
 
     # Cache result
     cache.put(primary_skill, body.data, body.instructions, parsed)
@@ -131,5 +138,8 @@ async def webhook(body: WebhookRequest, request: Request):
             "model": model,
             "duration_ms": result["duration_ms"],
             "cached": False,
+            "input_tokens_est": input_tokens,
+            "output_tokens_est": output_tokens,
+            "cost_est_usd": cost_usd,
         },
     }

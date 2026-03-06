@@ -60,6 +60,8 @@ async def run_skill_chain(
                     "success": True,
                     "duration_ms": 0,
                     "output": cached,
+                    "prompt_chars": 0,
+                    "response_chars": 0,
                 })
                 current_data.update(cached)
                 continue
@@ -81,6 +83,8 @@ async def run_skill_chain(
                 "success": True,
                 "duration_ms": duration_ms,
                 "output": parsed,
+                "prompt_chars": result.get("prompt_chars", 0),
+                "response_chars": result.get("response_chars", 0),
             })
         except Exception as e:
             duration_ms = int((time.monotonic() - step_start) * 1000)
@@ -89,14 +93,20 @@ async def run_skill_chain(
                 "success": False,
                 "duration_ms": duration_ms,
                 "error": str(e),
+                "prompt_chars": 0,
+                "response_chars": 0,
             })
 
     total_ms = int((time.monotonic() - total_start) * 1000)
+    total_prompt_chars = sum(s.get("prompt_chars", 0) for s in results)
+    total_response_chars = sum(s.get("response_chars", 0) for s in results)
     return {
         "chain": [s for s in skills],
         "steps": results,
         "final_output": current_data,
         "total_duration_ms": total_ms,
+        "total_prompt_chars": total_prompt_chars,
+        "total_response_chars": total_response_chars,
     }
 
 
@@ -140,6 +150,8 @@ async def run_pipeline(
                 "success": True,
                 "duration_ms": 0,
                 "output": cached,
+                "prompt_chars": 0,
+                "response_chars": 0,
             })
             current_data.update(cached)
             continue
@@ -161,6 +173,8 @@ async def run_pipeline(
                 "success": True,
                 "duration_ms": duration_ms,
                 "output": parsed,
+                "prompt_chars": result.get("prompt_chars", 0),
+                "response_chars": result.get("response_chars", 0),
             })
         except Exception as e:
             duration_ms = int((time.monotonic() - step_start) * 1000)
@@ -169,13 +183,19 @@ async def run_pipeline(
                 "success": False,
                 "duration_ms": duration_ms,
                 "error": str(e),
+                "prompt_chars": 0,
+                "response_chars": 0,
             })
             # Continue pipeline even on failure — downstream skills use what's available
 
     total_ms = int((time.monotonic() - total_start) * 1000)
+    total_prompt_chars = sum(s.get("prompt_chars", 0) for s in results)
+    total_response_chars = sum(s.get("response_chars", 0) for s in results)
     return {
         "pipeline": name,
         "steps": results,
         "final_output": current_data,
         "total_duration_ms": total_ms,
+        "total_prompt_chars": total_prompt_chars,
+        "total_response_chars": total_response_chars,
     }

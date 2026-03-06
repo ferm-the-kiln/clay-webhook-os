@@ -1,8 +1,11 @@
 import type {
   BatchResponse,
+  BatchStatus,
+  Destination,
   HealthResponse,
   Job,
   JobListItem,
+  PushResult,
   ScheduledBatch,
   Stats,
   WebhookResponse,
@@ -78,10 +81,63 @@ export function runBatch(body: {
   });
 }
 
+export function fetchBatchStatus(batchId: string): Promise<BatchStatus> {
+  return apiFetch(`/batch/${batchId}`);
+}
+
 export function fetchScheduledBatches(): Promise<{
   batches: ScheduledBatch[];
 }> {
   return apiFetch("/scheduled");
+}
+
+// Destinations
+export function fetchDestinations(): Promise<{ destinations: Destination[] }> {
+  return apiFetch("/destinations");
+}
+
+export function createDestination(body: {
+  name: string;
+  type: string;
+  url: string;
+  auth_header_name?: string;
+  auth_header_value?: string;
+  client_slug?: string | null;
+}): Promise<Destination> {
+  return apiFetch("/destinations", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateDestination(
+  id: string,
+  body: Record<string, unknown>
+): Promise<Destination> {
+  return apiFetch(`/destinations/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteDestination(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/destinations/${id}`, { method: "DELETE" });
+}
+
+export function pushToDestination(
+  id: string,
+  jobIds: string[]
+): Promise<PushResult> {
+  return apiFetch(`/destinations/${id}/push`, {
+    method: "POST",
+    body: JSON.stringify({ job_ids: jobIds }),
+  });
+}
+
+export function testDestination(
+  id: string
+): Promise<{ ok: boolean; status_code?: number; error?: string }> {
+  return apiFetch(`/destinations/${id}/test`, { method: "POST" });
 }
 
 export function createJobStream(
