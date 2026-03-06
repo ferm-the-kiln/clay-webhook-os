@@ -17,6 +17,9 @@ import {
   deleteClient,
   fetchKnowledgeBase,
   updateKnowledgeFile,
+  createKnowledgeFile,
+  deleteKnowledgeFile,
+  fetchContextUsageMap,
 } from "@/lib/api";
 import {
   Dialog,
@@ -52,6 +55,10 @@ export default function ContextPage() {
     name: string;
   } | null>(null);
 
+  // Usage map & KB delete
+  const [usageMap, setUsageMap] = useState<Record<string, string[]>>({});
+  const [kbDeleteConfirm, setKbDeleteConfirm] = useState<KnowledgeBaseFile | null>(null);
+
   const loadClients = useCallback(() => {
     fetchClients()
       .then((res) => setClients(res.clients))
@@ -64,10 +71,17 @@ export default function ContextPage() {
       .catch(() => toast.error("Failed to load knowledge base"));
   }, []);
 
+  const loadUsageMap = useCallback(() => {
+    fetchContextUsageMap()
+      .then((res) => setUsageMap(res.usage_map))
+      .catch(() => {}); // silent - non-critical
+  }, []);
+
   useEffect(() => {
     loadClients();
     loadKb();
-  }, [loadClients, loadKb]);
+    loadUsageMap();
+  }, [loadClients, loadKb, loadUsageMap]);
 
   const handleAddClient = () => {
     setEditingClient(null);
@@ -115,6 +129,44 @@ export default function ContextPage() {
       loadClients();
     } catch (e) {
       toast.error("Failed to delete client", {
+        description: (e as Error).message,
+      });
+    }
+  };
+
+  const handleAddKb = () => {
+    setEditingKb(null);
+    setKbEditorOpen(true);
+  };
+
+  const handleCreateKb = async (category: string, filename: string, content: string) => {
+    setKbSaving(true);
+    try {
+      await createKnowledgeFile({ category, filename, content });
+      toast.success("Knowledge base file created");
+      setKbEditorOpen(false);
+      loadKb();
+    } catch (e) {
+      toast.error("Failed to create file", {
+        description: (e as Error).message,
+      });
+    } finally {
+      setKbSaving(false);
+    }
+  };
+
+  const handleDeleteKb = async () => {
+    if (!kbDeleteConfirm) return;
+    try {
+      const parts = kbDeleteConfirm.path.split("/");
+      const cat = parts[0];
+      const fname = parts[parts.length - 1];
+      await deleteKnowledgeFile(cat, fname);
+      toast.success("Knowledge base file deleted");
+      setKbDeleteConfirm(null);
+      loadKb();
+    } catch (e) {
+      toast.error("Failed to delete file", {
         description: (e as Error).message,
       });
     }
@@ -181,7 +233,13 @@ export default function ContextPage() {
           </TabsContent>
 
           <TabsContent value="knowledge">
-            <KnowledgeBrowser files={kbFiles} onSelect={handleSelectKb} />
+            <KnowledgeBrowser
+              files={kbFiles}
+              onSelect={handleSelectKb}
+              onAdd={handleAddKb}
+              onDelete={(file) => setKbDeleteConfirm(file)}
+              usageMap={usageMap}
+            />
           </TabsContent>
 
           <TabsContent value="preview">
@@ -206,7 +264,40 @@ export default function ContextPage() {
         file={editingKb}
         saving={kbSaving}
         onSave={handleSaveKb}
+        onCreate={handleCreateKb}
+        categories={Object.keys(kbFiles).sort()}
       />
+
+      {/* KB Delete Confirmation Dialog */}
+      <Dialog
+        open={kbDeleteConfirm !== null}
+        onOpenChange={(open) => !open && setKbDeleteConfirm(null)}
+      >
+        <DialogContent className="border-clay-800 bg-clay-950">
+          <DialogHeader>
+            <DialogTitle className="text-clay-100">Delete Knowledge Base File</DialogTitle>
+            <DialogDescription className="text-clay-500">
+              Are you sure you want to delete &quot;{kbDeleteConfirm?.name}&quot; from{" "}
+              {kbDeleteConfirm?.category}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setKbDeleteConfirm(null)}
+              className="border-clay-700 text-clay-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteKb}
+              className="bg-kiln-coral text-white hover:bg-kiln-coral/80"
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog
