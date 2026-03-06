@@ -4,6 +4,16 @@ import Papa from "papaparse";
 import type { Job } from "@/lib/types";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { formatDuration } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Download } from "lucide-react";
 
 export function ResultsTable({
   jobs,
@@ -41,49 +51,63 @@ export function ResultsTable({
   };
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-      <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
-        <span className="text-xs text-zinc-500 uppercase tracking-wide">
+    <div className="rounded-xl border border-clay-800 bg-clay-900 overflow-hidden">
+      <div className="flex items-center justify-between border-b border-clay-800 px-4 py-2">
+        <span className="text-xs text-clay-500 uppercase tracking-wide font-[family-name:var(--font-sans)]">
           Results ({jobs.length} rows)
         </span>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={downloadCsv}
-          className="rounded-lg bg-teal-500/20 px-3 py-1 text-xs font-medium text-teal-400 hover:bg-teal-500/30 transition-colors"
+          className="bg-kiln-teal/10 text-kiln-teal border-kiln-teal/30 hover:bg-kiln-teal/20 hover:text-kiln-teal"
         >
+          <Download className="h-3.5 w-3.5 mr-1.5" />
           Download CSV
-        </button>
+        </Button>
       </div>
       <div className="overflow-x-auto max-h-96">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
-              <th className="px-3 py-2">#</th>
-              <th className="px-3 py-2">Row ID</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Duration</th>
-              <th className="px-3 py-2">Output</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-clay-800 hover:bg-transparent">
+              <TableHead className="text-clay-500 text-xs">#</TableHead>
+              <TableHead className="text-clay-500 text-xs">Row ID</TableHead>
+              <TableHead className="text-clay-500 text-xs">Status</TableHead>
+              <TableHead className="text-clay-500 text-xs">Duration</TableHead>
+              <TableHead className="text-clay-500 text-xs">Output</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {jobs.map((job, i) => (
-              <tr key={job.id} className="hover:bg-zinc-800/50">
-                <td className="px-3 py-2 text-zinc-500 font-mono text-xs">{i + 1}</td>
-                <td className="px-3 py-2 text-zinc-400 font-mono text-xs">{job.row_id || "—"}</td>
-                <td className="px-3 py-2"><StatusBadge status={job.status} /></td>
-                <td className="px-3 py-2 font-mono text-xs">
-                  {job.duration_ms ? formatDuration(job.duration_ms) : "—"}
-                </td>
-                <td className="px-3 py-2 text-zinc-300 text-xs max-w-md truncate">
-                  {job.error
-                    ? <span className="text-red-400">{job.error}</span>
-                    : job.result
-                      ? JSON.stringify(job.result).slice(0, 120) + "..."
-                      : "—"}
-                </td>
-              </tr>
+              <TableRow
+                key={job.id}
+                className="border-clay-800 hover:bg-clay-800/50"
+              >
+                <TableCell className="text-clay-500 font-[family-name:var(--font-mono)] text-xs">
+                  {i + 1}
+                </TableCell>
+                <TableCell className="text-clay-400 font-[family-name:var(--font-mono)] text-xs">
+                  {job.row_id || "\u2014"}
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={job.status} />
+                </TableCell>
+                <TableCell className="font-[family-name:var(--font-mono)] text-xs">
+                  {job.duration_ms ? formatDuration(job.duration_ms) : "\u2014"}
+                </TableCell>
+                <TableCell className="text-clay-300 text-xs max-w-md truncate">
+                  {job.error ? (
+                    <span className="text-kiln-coral">{job.error}</span>
+                  ) : job.result ? (
+                    JSON.stringify(job.result).slice(0, 120) + "..."
+                  ) : (
+                    "\u2014"
+                  )}
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

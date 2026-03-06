@@ -9,6 +9,8 @@ import { ResultViewer } from "@/components/playground/result-viewer";
 import { SKILL_SAMPLES, type Model } from "@/lib/constants";
 import { runWebhook } from "@/lib/api";
 import type { WebhookResponse } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Play } from "lucide-react";
 
 export default function PlaygroundPage() {
   const [skill, setSkill] = useState("");
@@ -59,13 +61,14 @@ export default function PlaygroundPage() {
             <SkillSelector value={skill} onChange={handleSkillChange} />
             <JsonEditor value={json} onChange={setJson} />
             <ModelSelector value={model} onChange={setModel} />
-            <button
+            <Button
               onClick={handleRun}
               disabled={!skill || loading}
-              className="rounded-lg bg-teal-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-teal-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold transition-all duration-200"
             >
+              <Play className="h-4 w-4 mr-2" />
               {loading ? "Processing..." : "Run"}
-            </button>
+            </Button>
           </div>
 
           {/* Right: Output */}

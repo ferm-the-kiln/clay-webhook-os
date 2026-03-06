@@ -9,7 +9,7 @@ export default function DashboardPage() {
       <div className="flex-1 overflow-auto p-6 space-y-6">
         <StatsCards />
         <div>
-          <h3 className="text-sm text-zinc-500 uppercase tracking-wide mb-3">
+          <h3 className="text-sm text-clay-500 uppercase tracking-wide mb-3 font-[family-name:var(--font-sans)]">
             Recent Jobs
           </h3>
           <JobList />

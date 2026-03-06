@@ -1,6 +1,8 @@
 "use client";
 
 import { MODELS, type Model } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function ModelSelector({
   value,
@@ -11,22 +13,25 @@ export function ModelSelector({
 }) {
   return (
     <div>
-      <label className="block text-xs text-zinc-500 uppercase tracking-wide mb-1.5">
+      <label className="block text-xs text-clay-500 uppercase tracking-wide mb-1.5 font-[family-name:var(--font-sans)]">
         Model
       </label>
       <div className="flex gap-2">
         {MODELS.map((m) => (
-          <button
+          <Button
             key={m}
+            variant="outline"
+            size="sm"
             onClick={() => onChange(m)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={cn(
+              "transition-all duration-200",
               value === m
-                ? "bg-teal-500/20 text-teal-400 border border-teal-500/40"
-                : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600"
-            }`}
+                ? "bg-kiln-teal/15 text-kiln-teal border-kiln-teal/40 hover:bg-kiln-teal/20 hover:text-kiln-teal"
+                : "bg-clay-900 text-clay-400 border-clay-700 hover:border-clay-600 hover:text-clay-200"
+            )}
           >
             {m}
-          </button>
+          </Button>
         ))}
       </div>
     </div>

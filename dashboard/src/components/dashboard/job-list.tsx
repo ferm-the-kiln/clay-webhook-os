@@ -5,6 +5,15 @@ import { fetchJobs } from "@/lib/api";
 import type { JobListItem } from "@/lib/types";
 import { formatDuration, formatTimestamp } from "@/lib/utils";
 import { StatusBadge } from "./status-badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export function JobList() {
   const [jobs, setJobs] = useState<JobListItem[]>([]);
@@ -25,40 +34,54 @@ export function JobList() {
 
   if (jobs.length === 0) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center text-zinc-500">
-        No jobs yet. Run a webhook or batch to see results here.
-      </div>
+      <EmptyState
+        title="No jobs yet"
+        description="Run a webhook or batch to see results here."
+      />
     );
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500 uppercase tracking-wide">
-            <th className="px-4 py-3">Job ID</th>
-            <th className="px-4 py-3">Skill</th>
-            <th className="px-4 py-3">Row ID</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Duration</th>
-            <th className="px-4 py-3">Time</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-800">
+    <div className="rounded-xl border border-clay-800 bg-clay-900 overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="border-clay-800 hover:bg-transparent">
+            <TableHead className="text-clay-500 text-xs uppercase tracking-wide">Job ID</TableHead>
+            <TableHead className="text-clay-500 text-xs uppercase tracking-wide">Skill</TableHead>
+            <TableHead className="text-clay-500 text-xs uppercase tracking-wide">Row ID</TableHead>
+            <TableHead className="text-clay-500 text-xs uppercase tracking-wide">Status</TableHead>
+            <TableHead className="text-clay-500 text-xs uppercase tracking-wide">Duration</TableHead>
+            <TableHead className="text-clay-500 text-xs uppercase tracking-wide">Time</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {jobs.map((job) => (
-            <tr key={job.id} className="hover:bg-zinc-800/50 transition-colors">
-              <td className="px-4 py-3 font-mono text-xs text-zinc-400">{job.id}</td>
-              <td className="px-4 py-3 text-teal-400">{job.skill}</td>
-              <td className="px-4 py-3 text-zinc-500 font-mono text-xs">{job.row_id || "—"}</td>
-              <td className="px-4 py-3"><StatusBadge status={job.status} /></td>
-              <td className="px-4 py-3 font-mono text-xs">
-                {job.duration_ms ? formatDuration(job.duration_ms) : "—"}
-              </td>
-              <td className="px-4 py-3 text-zinc-500 text-xs">{formatTimestamp(job.created_at)}</td>
-            </tr>
+            <TableRow
+              key={job.id}
+              className="border-clay-800 hover:bg-clay-800/50 transition-colors"
+            >
+              <TableCell className="font-[family-name:var(--font-mono)] text-xs text-clay-400">
+                {job.id}
+              </TableCell>
+              <TableCell className="text-kiln-teal font-medium">
+                {job.skill}
+              </TableCell>
+              <TableCell className="text-clay-500 font-[family-name:var(--font-mono)] text-xs">
+                {job.row_id || "\u2014"}
+              </TableCell>
+              <TableCell>
+                <StatusBadge status={job.status} />
+              </TableCell>
+              <TableCell className="font-[family-name:var(--font-mono)] text-xs">
+                {job.duration_ms ? formatDuration(job.duration_ms) : "\u2014"}
+              </TableCell>
+              <TableCell className="text-clay-500 text-xs">
+                {formatTimestamp(job.created_at)}
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

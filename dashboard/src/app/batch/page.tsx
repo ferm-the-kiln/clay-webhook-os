@@ -12,6 +12,8 @@ import { ModelSelector } from "@/components/playground/model-selector";
 import { runBatch, fetchJob } from "@/lib/api";
 import type { Job } from "@/lib/types";
 import type { Model } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
+import { Rocket, RotateCcw } from "lucide-react";
 
 type Phase = "upload" | "configure" | "processing" | "done";
 
@@ -72,7 +74,6 @@ export default function BatchPage() {
     }
   };
 
-  // Poll job statuses
   useEffect(() => {
     if (phase !== "processing" || jobIds.length === 0) return;
 
@@ -135,13 +136,14 @@ export default function BatchPage() {
                   />
                 )}
 
-                <button
+                <Button
                   onClick={handleProcess}
                   disabled={!skill}
-                  className="rounded-lg bg-teal-500 px-6 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-teal-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold transition-all duration-200"
                 >
+                  <Rocket className="h-4 w-4 mr-2" />
                   Process All ({rows.length} rows)
-                </button>
+                </Button>
               </>
             )}
 
@@ -159,12 +161,14 @@ export default function BatchPage() {
                   />
                 )}
                 {phase === "done" && (
-                  <button
+                  <Button
+                    variant="outline"
                     onClick={handleReset}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 transition-colors"
+                    className="border-clay-700 bg-clay-900 text-clay-300 hover:bg-clay-800 hover:text-clay-100"
                   >
+                    <RotateCcw className="h-4 w-4 mr-2" />
                     Start New Batch
-                  </button>
+                  </Button>
                 )}
               </>
             )}

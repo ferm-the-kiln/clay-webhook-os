@@ -1,44 +1,98 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { LayoutDashboard, FlaskConical, Layers } from "lucide-react";
 
 const NAV = [
-  { href: "/", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-  { href: "/playground", label: "Playground", icon: "M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-  { href: "/batch", label: "Batch", icon: "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" },
+  {
+    href: "/",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    asset: "/brand-assets/v2-dashboard.png",
+  },
+  {
+    href: "/playground",
+    label: "Playground",
+    icon: FlaskConical,
+    asset: "/brand-assets/v2-playground.png",
+  },
+  {
+    href: "/batch",
+    label: "Batch",
+    icon: Layers,
+    asset: "/brand-assets/v2-batch.png",
+  },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-56 shrink-0 border-r border-zinc-800 bg-zinc-900 p-4 flex flex-col gap-1">
-      <div className="mb-6 px-3">
-        <h1 className="text-lg font-semibold text-teal-400 font-mono">Clay OS</h1>
-        <p className="text-xs text-zinc-500">Webhook Dashboard</p>
+    <aside className="relative z-10 w-56 shrink-0 border-r border-clay-800 bg-[#151413] p-4 flex flex-col gap-1">
+      {/* Logo */}
+      <div className="mb-6 px-3 flex items-center gap-3">
+        <Image
+          src="/brand-assets/v2-the-kiln-logo.png"
+          alt="Kiln"
+          width={32}
+          height={32}
+          className="animate-float-slow"
+        />
+        <div>
+          <h1 className="text-lg font-bold text-kiln-cream font-[family-name:var(--font-sans)]">
+            Clay OS
+          </h1>
+          <p className="text-[10px] text-clay-500 tracking-wider uppercase">
+            Webhook Dashboard
+          </p>
+        </div>
       </div>
-      {NAV.map((item) => {
-        const active = pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-              active
-                ? "bg-teal-500/10 text-teal-400"
-                : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-            )}
-          >
-            <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
-            </svg>
-            {item.label}
-          </Link>
-        );
-      })}
+
+      {/* Nav */}
+      <nav className="flex flex-col gap-1">
+        {NAV.map((item) => {
+          const active = pathname === item.href;
+          return (
+            <Button
+              key={item.href}
+              variant="ghost"
+              asChild
+              className={cn(
+                "justify-start gap-3 h-10 px-3 transition-all duration-200",
+                active
+                  ? "bg-kiln-teal/10 text-kiln-teal hover:bg-kiln-teal/15 hover:text-kiln-teal"
+                  : "text-clay-400 hover:bg-clay-800 hover:text-clay-200"
+              )}
+            >
+              <Link href={item.href}>
+                <Image
+                  src={item.asset}
+                  alt={item.label}
+                  width={24}
+                  height={24}
+                  className="shrink-0 rounded-sm"
+                />
+                {item.label}
+              </Link>
+            </Button>
+          );
+        })}
+      </nav>
+
+      {/* Decorative star */}
+      <div className="mt-auto flex justify-center pb-2 opacity-30">
+        <Image
+          src="/brand-assets/decor-star.png"
+          alt=""
+          width={24}
+          height={24}
+          className="animate-float"
+        />
+      </div>
     </aside>
   );
 }

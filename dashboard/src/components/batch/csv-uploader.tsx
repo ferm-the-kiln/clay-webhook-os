@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import Image from "next/image";
 import Papa from "papaparse";
+import { Card, CardContent } from "@/components/ui/card";
+import { Upload } from "lucide-react";
 
 export function CsvUploader({
   onParsed,
@@ -26,39 +29,50 @@ export function CsvUploader({
   );
 
   return (
-    <div
+    <Card
       onClick={() => inputRef.current?.click()}
       onDragOver={(e) => {
         e.preventDefault();
-        e.currentTarget.classList.add("border-teal-500");
+        e.currentTarget.classList.add("border-kiln-teal");
       }}
       onDragLeave={(e) => {
-        e.currentTarget.classList.remove("border-teal-500");
+        e.currentTarget.classList.remove("border-kiln-teal");
       }}
       onDrop={(e) => {
         e.preventDefault();
-        e.currentTarget.classList.remove("border-teal-500");
+        e.currentTarget.classList.remove("border-kiln-teal");
         const file = e.dataTransfer.files[0];
         if (file) handleFile(file);
       }}
-      className="cursor-pointer rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900 p-12 text-center transition-colors hover:border-zinc-600"
+      className="cursor-pointer border-2 border-dashed border-clay-700 bg-clay-900/50 hover:border-kiln-teal/50 transition-all duration-200"
     >
-      <svg className="mx-auto h-10 w-10 text-zinc-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-      </svg>
-      <p className="text-zinc-400 text-sm">
-        Drop a CSV here or <span className="text-teal-400">click to upload</span>
-      </p>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".csv"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleFile(file);
-        }}
-      />
-    </div>
+      <CardContent className="flex flex-col items-center justify-center py-14 text-center">
+        <Image
+          src="/brand-assets/v2-batch.png"
+          alt=""
+          width={80}
+          height={80}
+          className="mb-4 animate-float opacity-70 rounded-lg"
+        />
+        <Upload className="h-8 w-8 text-clay-600 mb-3" />
+        <p className="text-clay-300 text-sm font-[family-name:var(--font-sans)]">
+          Drop a CSV here or{" "}
+          <span className="text-kiln-teal font-medium">click to upload</span>
+        </p>
+        <p className="text-xs text-clay-600 mt-1">
+          Supports .csv files with headers
+        </p>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".csv"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFile(file);
+          }}
+        />
+      </CardContent>
+    </Card>
   );
 }

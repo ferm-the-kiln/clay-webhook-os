@@ -1,6 +1,14 @@
 "use client";
 
 import { SKILL_FIELDS } from "@/lib/constants";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function ColumnMapper({
   skill,
@@ -16,34 +24,52 @@ export function ColumnMapper({
   const fields = SKILL_FIELDS[skill] || [];
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-      <h3 className="text-xs text-zinc-500 uppercase tracking-wide mb-3">
-        Column Mapping
-      </h3>
-      <div className="grid grid-cols-2 gap-3">
-        {fields.map((field) => (
-          <div key={field} className="flex items-center gap-2">
-            <span className="w-36 text-sm text-zinc-300 font-mono truncate">
-              {field}
-            </span>
-            <select
-              value={mapping[field] || ""}
-              onChange={(e) =>
-                onMappingChange({ ...mapping, [field]: e.target.value })
-              }
-              className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-sm text-zinc-100 focus:border-teal-500 focus:outline-none"
-            >
-              <option value="">— skip —</option>
-              {csvHeaders.map((h) => (
-                <option key={h} value={h}>
-                  {h}
-                </option>
-              ))}
-            </select>
-          </div>
-        ))}
-      </div>
-    </div>
+    <Card className="border-clay-800 bg-clay-900">
+      <CardContent className="p-4">
+        <h3 className="text-xs text-clay-500 uppercase tracking-wide mb-3 font-[family-name:var(--font-sans)]">
+          Column Mapping
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          {fields.map((field) => (
+            <div key={field} className="flex items-center gap-2">
+              <span className="w-36 text-sm text-clay-300 font-[family-name:var(--font-mono)] truncate">
+                {field}
+              </span>
+              <Select
+                value={mapping[field] || "__skip__"}
+                onValueChange={(v) =>
+                  onMappingChange({
+                    ...mapping,
+                    [field]: v === "__skip__" ? "" : v,
+                  })
+                }
+              >
+                <SelectTrigger className="flex-1 border-clay-700 bg-clay-850 text-clay-100 text-sm h-8 focus:ring-kiln-teal">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="border-clay-700 bg-clay-900">
+                  <SelectItem
+                    value="__skip__"
+                    className="text-clay-500 focus:bg-clay-800"
+                  >
+                    -- skip --
+                  </SelectItem>
+                  {csvHeaders.map((h) => (
+                    <SelectItem
+                      key={h}
+                      value={h}
+                      className="text-clay-200 focus:bg-kiln-teal/10 focus:text-kiln-teal"
+                    >
+                      {h}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

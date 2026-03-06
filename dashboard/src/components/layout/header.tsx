@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { fetchHealth } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+
+const PAGE_ASSETS: Record<string, string> = {
+  Dashboard: "/brand-assets/v2-dashboard.png",
+  Playground: "/brand-assets/v2-playground.png",
+  "Batch Processing": "/brand-assets/v2-batch.png",
+};
 
 export function Header({ title }: { title: string }) {
   const [healthy, setHealthy] = useState<boolean | null>(null);
@@ -20,21 +28,47 @@ export function Header({ title }: { title: string }) {
     };
   }, []);
 
+  const asset = PAGE_ASSETS[title];
+
   return (
-    <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900 px-6 py-4">
-      <h2 className="text-xl font-semibold">{title}</h2>
-      <div className="flex items-center gap-2 text-sm text-zinc-400">
+    <header className="flex items-center justify-between border-b border-clay-800 bg-clay-900/80 backdrop-blur-sm px-6 py-4">
+      <div className="flex items-center gap-3">
+        {asset && (
+          <Image
+            src={asset}
+            alt=""
+            width={28}
+            height={28}
+            className="rounded-sm"
+          />
+        )}
+        <h2 className="text-xl font-semibold font-[family-name:var(--font-sans)] text-kiln-cream">
+          {title}
+        </h2>
+      </div>
+      <Badge
+        variant={
+          healthy === null ? "secondary" : healthy ? "default" : "destructive"
+        }
+        className={
+          healthy === true
+            ? "bg-kiln-teal/15 text-kiln-teal border-kiln-teal/30 hover:bg-kiln-teal/20"
+            : healthy === false
+              ? "bg-kiln-coral/15 text-kiln-coral border-kiln-coral/30"
+              : ""
+        }
+      >
         <span
-          className={`h-2.5 w-2.5 rounded-full ${
+          className={`mr-1.5 h-2 w-2 rounded-full ${
             healthy === null
-              ? "bg-zinc-600"
+              ? "bg-clay-500"
               : healthy
-                ? "bg-green-500"
-                : "bg-red-500"
+                ? "bg-kiln-teal animate-pulse"
+                : "bg-kiln-coral"
           }`}
         />
         {healthy === null ? "Checking..." : healthy ? "Connected" : "Offline"}
-      </div>
+      </Badge>
     </header>
   );
 }

@@ -2,6 +2,10 @@
 
 import type { WebhookResponse } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export function ResultViewer({
   result,
@@ -12,22 +16,29 @@ export function ResultViewer({
 }) {
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 p-8">
-        <div className="flex items-center gap-3 text-zinc-400">
-          <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          Processing...
-        </div>
-      </div>
+      <Card className="border-clay-800 bg-clay-900 h-full">
+        <CardContent className="flex h-full items-center justify-center">
+          <div className="space-y-3 w-full max-w-sm">
+            <Skeleton className="h-4 w-full bg-clay-800" />
+            <Skeleton className="h-4 w-3/4 bg-clay-800" />
+            <Skeleton className="h-4 w-5/6 bg-clay-800" />
+            <p className="text-sm text-clay-500 text-center mt-4">
+              Processing...
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   if (!result) {
     return (
-      <div className="flex h-full items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 p-8">
-        <p className="text-zinc-500">Select a skill and click Run to see results.</p>
+      <div className="h-full flex items-center">
+        <EmptyState
+          title="Ready to test"
+          description="Select a skill and click Run to see results."
+          asset="/brand-assets/v2-playground.png"
+        />
       </div>
     );
   }
@@ -38,21 +49,37 @@ export function ResultViewer({
   delete display._meta;
 
   return (
-    <div className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+    <Card className="border-clay-800 bg-clay-900 flex flex-col h-full overflow-hidden">
       {meta && (
-        <div className="flex items-center gap-4 border-b border-zinc-800 px-4 py-2 text-xs text-zinc-500">
-          <span>Model: <span className="text-zinc-300">{meta.model}</span></span>
-          <span>Duration: <span className="text-zinc-300">{formatDuration(meta.duration_ms)}</span></span>
-          {meta.cached && <span className="text-yellow-400">cached</span>}
-        </div>
+        <CardHeader className="flex-row items-center gap-3 border-b border-clay-800 px-4 py-2.5 space-y-0">
+          <Badge
+            variant="outline"
+            className="bg-kiln-teal/10 text-kiln-teal border-kiln-teal/30"
+          >
+            {meta.model}
+          </Badge>
+          <span className="text-xs text-clay-500">
+            {formatDuration(meta.duration_ms)}
+          </span>
+          {meta.cached && (
+            <Badge
+              variant="outline"
+              className="bg-kiln-mustard/10 text-kiln-mustard border-kiln-mustard/30"
+            >
+              cached
+            </Badge>
+          )}
+        </CardHeader>
       )}
-      <pre
-        className={`flex-1 overflow-auto p-4 font-mono text-sm leading-relaxed ${
-          isError ? "text-red-400" : "text-zinc-200"
-        }`}
-      >
-        {JSON.stringify(display, null, 2)}
-      </pre>
-    </div>
+      <CardContent className="flex-1 overflow-auto p-0">
+        <pre
+          className={`p-4 font-[family-name:var(--font-mono)] text-sm leading-relaxed ${
+            isError ? "text-kiln-coral" : "text-clay-200"
+          }`}
+        >
+          {JSON.stringify(display, null, 2)}
+        </pre>
+      </CardContent>
+    </Card>
   );
 }
