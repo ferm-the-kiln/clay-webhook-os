@@ -91,7 +91,7 @@ export function DestinationForm({ initial, onSubmit, loading }: DestinationFormP
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs text-clay-500 uppercase tracking-wide mb-1.5">
-            Auth Header Name
+            Auth Header Name (optional)
           </label>
           <Input
             value={authName}
@@ -102,7 +102,7 @@ export function DestinationForm({ initial, onSubmit, loading }: DestinationFormP
         </div>
         <div>
           <label className="block text-xs text-clay-500 uppercase tracking-wide mb-1.5">
-            Auth Header Value
+            Auth Header Value (optional)
           </label>
           <Input
             type="password"
