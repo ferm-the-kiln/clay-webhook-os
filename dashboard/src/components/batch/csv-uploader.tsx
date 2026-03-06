@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import Image from "next/image";
 import Papa from "papaparse";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload } from "lucide-react";
@@ -47,14 +46,7 @@ export function CsvUploader({
       className="cursor-pointer border-2 border-dashed border-clay-700 bg-clay-900/50 hover:border-kiln-teal/50 transition-all duration-200"
     >
       <CardContent className="flex flex-col items-center justify-center py-14 text-center">
-        <Image
-          src="/brand-assets/v2-batch.png"
-          alt=""
-          width={80}
-          height={80}
-          className="mb-4 motion-safe:animate-float opacity-70 rounded-lg"
-        />
-        <Upload className="h-8 w-8 text-clay-600 mb-3" />
+        <Upload className="h-8 w-8 text-clay-500 mb-3" />
         <p className="text-clay-300 text-sm font-[family-name:var(--font-sans)]">
           Drop a CSV here to process hundreds of rows through any skill
         </p>

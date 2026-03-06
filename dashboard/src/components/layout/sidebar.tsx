@@ -19,70 +19,60 @@ const NAV = [
     href: "/",
     label: "Dashboard",
     icon: LayoutDashboard,
-    asset: "/brand-assets/v2-dashboard.png",
     shortcut: "1",
   },
   {
     href: "/playground",
     label: "Playground",
     icon: FlaskConical,
-    asset: "/brand-assets/v2-playground.png",
     shortcut: "2",
   },
   {
     href: "/batch",
     label: "Batch",
     icon: Layers,
-    asset: "/brand-assets/v2-batch.png",
     shortcut: "3",
   },
   {
     href: "/context",
     label: "Context",
     icon: BookOpen,
-    asset: "",
     shortcut: "4",
   },
   {
     href: "/pipelines",
     label: "Pipelines",
     icon: GitBranch,
-    asset: "",
     shortcut: "5",
   },
   {
     href: "/lab",
     label: "Skills Lab",
     icon: TestTubes,
-    asset: "",
     shortcut: "6",
   },
   {
     href: "/campaigns",
     label: "Campaigns",
     icon: Rocket,
-    asset: "",
     shortcut: "7",
   },
   {
     href: "/review",
     label: "Review",
     icon: ClipboardCheck,
-    asset: "",
     shortcut: "8",
   },
   {
     href: "/analytics",
     label: "Analytics",
     icon: BarChart3,
-    asset: "",
     shortcut: "9",
   },
   {
     href: "/settings",
     label: "Settings",
     icon: Settings,
-    asset: "",
     shortcut: "0",
   },
 ];
@@ -131,17 +121,7 @@ export function Sidebar() {
             )}
           >
             <Link href={item.href} onClick={onNavigate}>
-              {item.asset ? (
-                <Image
-                  src={item.asset}
-                  alt={item.label}
-                  width={24}
-                  height={24}
-                  className="shrink-0 rounded-sm"
-                />
-              ) : (
-                <item.icon className="h-6 w-6 shrink-0" />
-              )}
+              <item.icon className="h-5 w-5 shrink-0" />
               {!compact && (
                 <>
                   <span className="flex-1">{item.label}</span>
@@ -160,15 +140,15 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar: full width on lg, icon-only on md */}
-      <aside className="relative z-10 hidden md:flex shrink-0 border-r border-clay-800 bg-[#151413] p-4 flex-col gap-1 lg:w-56 w-16">
+      <aside className="relative z-10 hidden md:flex shrink-0 border-r border-clay-800 bg-white p-4 flex-col gap-1 lg:w-56 w-16">
         {/* Logo */}
         <div className="mb-6 px-3 flex items-center gap-3">
           <Image
-            src="/brand-assets/v2-the-kiln-logo.png"
-            alt="Kiln"
+            src="/brand-assets/the-kiln-logo.avif"
+            alt="The Kiln"
             width={32}
             height={32}
-            className="motion-safe:animate-float-slow"
+            className="rounded-md"
           />
           <div className="hidden lg:block">
             <h1 className="text-lg font-bold text-kiln-cream font-[family-name:var(--font-sans)]">
@@ -183,30 +163,20 @@ export function Sidebar() {
         {/* Nav - compact on md, full on lg */}
         <div className="hidden lg:block">{navContent(false)}</div>
         <div className="lg:hidden">{navContent(true)}</div>
-
-        {/* Decorative star */}
-        <div className="mt-auto flex justify-center pb-2 opacity-30">
-          <Image
-            src="/brand-assets/decor-star.png"
-            alt=""
-            width={24}
-            height={24}
-            className="motion-safe:animate-float"
-          />
-        </div>
       </aside>
 
       {/* Mobile drawer */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-64 bg-[#151413] border-clay-800 p-4">
+        <SheetContent side="left" className="w-64 bg-white border-clay-800 p-4">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
           <div className="mb-6 px-3 flex items-center gap-3">
             <Image
-              src="/brand-assets/v2-the-kiln-logo.png"
-              alt="Kiln"
+              src="/brand-assets/the-kiln-logo.avif"
+              alt="The Kiln"
               width={32}
               height={32}
+              className="rounded-md"
             />
             <div>
               <h1 className="text-lg font-bold text-kiln-cream font-[family-name:var(--font-sans)]">
@@ -222,7 +192,7 @@ export function Sidebar() {
       </Sheet>
 
       {/* Mobile bottom nav - fixed at bottom on small screens */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-clay-800 bg-[#151413]/95 backdrop-blur-sm">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-clay-800 bg-white/95 backdrop-blur-sm">
         <nav className="flex items-center justify-around py-2">
           {NAV.map((item) => {
             const active = pathname === item.href;

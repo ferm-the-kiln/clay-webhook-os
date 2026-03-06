@@ -4,35 +4,35 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ── Kiln Dark Theme ── */
+/* ── The Kiln Light Theme ── */
 @theme {
-  /* Warm dark palette (replaces cold zinc) */
-  --color-clay-950: #0f0e0d;
-  --color-clay-900: #1a1918;
-  --color-clay-850: #1f1e1c;
-  --color-clay-800: #2a2826;
-  --color-clay-700: #3d3a37;
-  --color-clay-600: #5a5651;
-  --color-clay-500: #8a8580;
-  --color-clay-400: #a8a29e;
-  --color-clay-300: #d6d3cd;
-  --color-clay-200: #e8e5df;
-  --color-clay-100: #f5f0e8;
+  /* Light palette — clay scale inverted so existing class names work */
+  --color-clay-950: #ffffff;
+  --color-clay-900: #fafaf9;
+  --color-clay-850: #f5f5f3;
+  --color-clay-800: #e5e5e3;
+  --color-clay-700: #d4d4d2;
+  --color-clay-600: #a8a8a5;
+  --color-clay-500: #737371;
+  --color-clay-400: #525251;
+  --color-clay-300: #3a3a39;
+  --color-clay-200: #1f1f1e;
+  --color-clay-100: #111111;
 
-  /* Brand accents */
-  --color-kiln-teal: #5B9A8B;
-  --color-kiln-teal-light: #6fb3a2;
-  --color-kiln-teal-dark: #4a8374;
+  /* Brand accents — thekiln.com */
+  --color-kiln-teal: #0099ff;
+  --color-kiln-teal-light: #33aaff;
+  --color-kiln-teal-dark: #0077cc;
   --color-kiln-rose: #C4A093;
-  --color-kiln-mustard: #C9A84C;
-  --color-kiln-coral: #C16F6F;
-  --color-kiln-cream: #F5F0E8;
+  --color-kiln-mustard: #ca8a04;
+  --color-kiln-coral: #dc2626;
+  --color-kiln-cream: #111111;
 
-  /* Status colors (warm tinted) */
-  --color-status-success: #5B9A8B;
-  --color-status-warning: #C9A84C;
-  --color-status-error: #C16F6F;
-  --color-status-info: #7BA7C2;
+  /* Status colors */
+  --color-status-success: #16a34a;
+  --color-status-warning: #ca8a04;
+  --color-status-error: #dc2626;
+  --color-status-info: #0099ff;
 
   /* Typography */
   --font-sans: "DM Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -55,8 +55,8 @@
 }
 
 body {
-  background-color: var(--color-clay-950);
-  color: var(--color-clay-100);
+  background-color: #ffffff;
+  color: #111111;
   font-family: var(--font-body);
 }
 
@@ -102,75 +102,74 @@ body {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Kiln dark is the only mode — applied to :root directly */
 :root {
   --radius: 0.625rem;
-  --background: #0f0e0d;
-  --foreground: #F5F0E8;
-  --card: #1a1918;
-  --card-foreground: #F5F0E8;
-  --popover: #1a1918;
-  --popover-foreground: #F5F0E8;
-  --primary: #5B9A8B;
-  --primary-foreground: #0f0e0d;
-  --secondary: #1f1e1c;
-  --secondary-foreground: #F5F0E8;
-  --muted: #2a2826;
-  --muted-foreground: #8a8580;
-  --accent: #5B9A8B;
-  --accent-foreground: #0f0e0d;
-  --destructive: #C16F6F;
-  --border: #2a2826;
-  --input: #2a2826;
-  --ring: #5B9A8B;
-  --chart-1: #5B9A8B;
+  --background: #ffffff;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #0099ff;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f3;
+  --secondary-foreground: #111111;
+  --muted: #f5f5f3;
+  --muted-foreground: #737371;
+  --accent: #0099ff;
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
+  --border: #e5e5e3;
+  --input: #e5e5e3;
+  --ring: #0099ff;
+  --chart-1: #0099ff;
   --chart-2: #C4A093;
-  --chart-3: #C9A84C;
-  --chart-4: #C16F6F;
+  --chart-3: #ca8a04;
+  --chart-4: #dc2626;
   --chart-5: #7BA7C2;
-  --sidebar: #151413;
-  --sidebar-foreground: #F5F0E8;
-  --sidebar-primary: #5B9A8B;
-  --sidebar-primary-foreground: #0f0e0d;
-  --sidebar-accent: #1f1e1c;
-  --sidebar-accent-foreground: #F5F0E8;
-  --sidebar-border: #2a2826;
-  --sidebar-ring: #5B9A8B;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #0099ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f5f3;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #e5e5e3;
+  --sidebar-ring: #0099ff;
 }
 
-/* Keep .dark for shadcn compat — same values */
+/* Keep .dark for shadcn compat — same values in light mode */
 .dark {
-  --background: #0f0e0d;
-  --foreground: #F5F0E8;
-  --card: #1a1918;
-  --card-foreground: #F5F0E8;
-  --popover: #1a1918;
-  --popover-foreground: #F5F0E8;
-  --primary: #5B9A8B;
-  --primary-foreground: #0f0e0d;
-  --secondary: #1f1e1c;
-  --secondary-foreground: #F5F0E8;
-  --muted: #2a2826;
-  --muted-foreground: #8a8580;
-  --accent: #5B9A8B;
-  --accent-foreground: #0f0e0d;
-  --destructive: #C16F6F;
-  --border: #2a2826;
-  --input: #2a2826;
-  --ring: #5B9A8B;
-  --chart-1: #5B9A8B;
+  --background: #ffffff;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #0099ff;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f3;
+  --secondary-foreground: #111111;
+  --muted: #f5f5f3;
+  --muted-foreground: #737371;
+  --accent: #0099ff;
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
+  --border: #e5e5e3;
+  --input: #e5e5e3;
+  --ring: #0099ff;
+  --chart-1: #0099ff;
   --chart-2: #C4A093;
-  --chart-3: #C9A84C;
-  --chart-4: #C16F6F;
+  --chart-3: #ca8a04;
+  --chart-4: #dc2626;
   --chart-5: #7BA7C2;
-  --sidebar: #151413;
-  --sidebar-foreground: #F5F0E8;
-  --sidebar-primary: #5B9A8B;
-  --sidebar-primary-foreground: #0f0e0d;
-  --sidebar-accent: #1f1e1c;
-  --sidebar-accent-foreground: #F5F0E8;
-  --sidebar-border: #2a2826;
-  --sidebar-ring: #5B9A8B;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #0099ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f5f3;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #e5e5e3;
+  --sidebar-ring: #0099ff;
 }
 
 @layer base {

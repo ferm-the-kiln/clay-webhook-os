@@ -91,46 +91,46 @@ export function ActivityChart() {
           <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
             <defs>
               <linearGradient id="tealFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#5B9A8B" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#5B9A8B" stopOpacity={0} />
+                <stop offset="5%" stopColor="#0099ff" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#0099ff" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="coralFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#C16F6F" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#C16F6F" stopOpacity={0} />
+                <stop offset="5%" stopColor="#dc2626" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#dc2626" stopOpacity={0} />
               </linearGradient>
             </defs>
             <XAxis
               dataKey="time"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#8a8580", fontSize: 10 }}
+              tick={{ fill: "#a8a8a5", fontSize: 10 }}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#8a8580", fontSize: 10 }}
+              tick={{ fill: "#a8a8a5", fontSize: 10 }}
               allowDecimals={false}
             />
             <RechartsTooltip
               contentStyle={{
-                backgroundColor: "#1a1918",
-                border: "1px solid #2a2826",
+                backgroundColor: "#ffffff",
+                border: "1px solid #e5e5e3",
                 borderRadius: "8px",
                 fontSize: "12px",
               }}
-              labelStyle={{ color: "#8a8580" }}
+              labelStyle={{ color: "#737371" }}
             />
             <Area
               type="monotone"
               dataKey="completed"
-              stroke="#5B9A8B"
+              stroke="#0099ff"
               fill="url(#tealFill)"
               strokeWidth={2}
             />
             <Area
               type="monotone"
               dataKey="failed"
-              stroke="#C16F6F"
+              stroke="#dc2626"
               fill="url(#coralFill)"
               strokeWidth={2}
             />

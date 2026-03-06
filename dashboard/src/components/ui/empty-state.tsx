@@ -1,28 +1,24 @@
-import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
+import { Inbox } from "lucide-react";
 import { type ReactNode } from "react";
 
 export function EmptyState({
   title,
   description,
-  asset = "/brand-assets/hero-empty-bowl.png",
+  icon: Icon = Inbox,
   children,
 }: {
   title: string;
   description: string;
-  asset?: string;
+  icon?: React.ComponentType<{ className?: string }>;
   children?: ReactNode;
 }) {
   return (
     <Card className="border-clay-800 bg-clay-900/50">
       <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-        <Image
-          src={asset}
-          alt=""
-          width={120}
-          height={120}
-          className="mb-4 motion-safe:animate-float opacity-80 rounded-lg"
-        />
+        <div className="mb-4 flex items-center justify-center h-16 w-16 rounded-2xl bg-clay-800/50">
+          <Icon className="h-8 w-8 text-clay-500" />
+        </div>
         <p className="text-clay-300 font-medium font-[family-name:var(--font-sans)]">
           {title}
         </p>

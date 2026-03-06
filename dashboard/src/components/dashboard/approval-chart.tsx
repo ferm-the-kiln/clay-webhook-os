@@ -18,9 +18,9 @@ interface ApprovalChartProps {
 }
 
 function getBarColor(rate: number): string {
-  if (rate >= 80) return "#5B9A8B"; // kiln-teal
-  if (rate >= 60) return "#C9A84C"; // kiln-mustard
-  return "#C16F6F"; // kiln-coral
+  if (rate >= 80) return "#0099ff";
+  if (rate >= 60) return "#ca8a04";
+  return "#dc2626";
 }
 
 interface ChartEntry {
@@ -100,7 +100,7 @@ export function ApprovalChart({ feedback }: ApprovalChartProps) {
                 dataKey="skill"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "#8a8580", fontSize: 11 }}
+                tick={{ fill: "#a8a8a5", fontSize: 11 }}
                 interval={0}
                 angle={data.length > 5 ? -30 : 0}
                 textAnchor={data.length > 5 ? "end" : "middle"}
@@ -109,7 +109,7 @@ export function ApprovalChart({ feedback }: ApprovalChartProps) {
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "#8a8580", fontSize: 11 }}
+                tick={{ fill: "#a8a8a5", fontSize: 11 }}
                 domain={[0, 100]}
                 tickFormatter={(v: number) => `${v}%`}
               />

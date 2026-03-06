@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import Image from "next/image";
 import { fetchStats, createJobStream } from "@/lib/api";
 import type { Stats } from "@/lib/types";
 import { formatSmartDuration, formatNumber, formatPercent, formatCost } from "@/lib/utils";
@@ -12,6 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Rocket, Target, BarChart3, Filter, Clock, Compass, DollarSign, TrendingUp, type LucideIcon } from "lucide-react";
 
 const METRIC_TOOLTIPS: Record<string, string> = {
   total_processed: "Total number of webhook jobs processed since the server started.",
@@ -27,20 +27,20 @@ const METRIC_TOOLTIPS: Record<string, string> = {
 interface CardDef {
   key: string;
   label: string;
-  asset: string;
+  icon: LucideIcon;
   format: "number" | "duration" | "percent" | "cost";
   group: "health" | "volume" | "performance" | "cost";
 }
 
 const CARDS: CardDef[] = [
-  { key: "active_workers", label: "Active Workers", asset: "/brand-assets/v2-rocket.png", format: "number", group: "health" },
-  { key: "success_rate", label: "Success Rate", asset: "/brand-assets/v2-target.png", format: "percent", group: "health" },
-  { key: "total_processed", label: "Processed", asset: "/brand-assets/v2-chart.png", format: "number", group: "volume" },
-  { key: "queue_depth", label: "Queue Depth", asset: "/brand-assets/v2-funnel.png", format: "number", group: "volume" },
-  { key: "avg_duration_ms", label: "Avg Duration", asset: "/brand-assets/v2-hourglass.png", format: "duration", group: "performance" },
-  { key: "cache_hit_rate", label: "Cache Hit Rate", asset: "/brand-assets/v2-compass.png", format: "percent", group: "performance" },
-  { key: "api_equivalent", label: "API Equivalent", asset: "/brand-assets/v2-chart.png", format: "cost", group: "cost" },
-  { key: "net_savings", label: "Net Savings", asset: "/brand-assets/v2-target.png", format: "cost", group: "cost" },
+  { key: "active_workers", label: "Active Workers", icon: Rocket, format: "number", group: "health" },
+  { key: "success_rate", label: "Success Rate", icon: Target, format: "percent", group: "health" },
+  { key: "total_processed", label: "Processed", icon: BarChart3, format: "number", group: "volume" },
+  { key: "queue_depth", label: "Queue Depth", icon: Filter, format: "number", group: "volume" },
+  { key: "avg_duration_ms", label: "Avg Duration", icon: Clock, format: "duration", group: "performance" },
+  { key: "cache_hit_rate", label: "Cache Hit Rate", icon: Compass, format: "percent", group: "performance" },
+  { key: "api_equivalent", label: "API Equivalent", icon: DollarSign, format: "cost", group: "cost" },
+  { key: "net_savings", label: "Net Savings", icon: TrendingUp, format: "cost", group: "cost" },
 ];
 
 function formatValue(value: number, format: string): string {
@@ -205,7 +205,8 @@ export function StatsCards() {
           (c.key === "success_rate" && value < 0.9) ||
           (c.key === "cache_hit_rate" && value < 0.1);
         const sparkData = history[c.key] || [];
-        const sparkColor = isFail ? "#C16F6F" : "#5B9A8B";
+        const sparkColor = isFail ? "#dc2626" : "#0099ff";
+        const Icon = c.icon;
 
         return (
           <Tooltip key={c.key}>
@@ -220,13 +221,7 @@ export function StatsCards() {
                     <p className="text-xs text-clay-500 uppercase tracking-wide font-[family-name:var(--font-sans)]">
                       {c.label}
                     </p>
-                    <Image
-                      src={c.asset}
-                      alt=""
-                      width={28}
-                      height={28}
-                      className="rounded-sm opacity-60 group-hover:opacity-90 transition-opacity"
-                    />
+                    <Icon className="h-5 w-5 text-clay-600 opacity-60 group-hover:opacity-90 group-hover:text-clay-400 transition-all" />
                   </div>
                   <p
                     className={`text-2xl font-semibold font-[family-name:var(--font-mono)] ${

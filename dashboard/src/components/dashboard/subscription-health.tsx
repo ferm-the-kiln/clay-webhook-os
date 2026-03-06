@@ -162,8 +162,8 @@ export function SubscriptionHealth() {
                 <YAxis hide />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#1a1a2e",
-                    border: "1px solid #374151",
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #e5e5e3",
                     borderRadius: 8,
                     fontSize: 12,
                   }}
@@ -173,9 +173,9 @@ export function SubscriptionHealth() {
                     return [name === "tokens" ? formatTokens(v) : formatNumber(v), label];
                   }}
                 />
-                <Bar dataKey="tokens" fill="#5B9A8B" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="tokens" fill="#0099ff" radius={[3, 3, 0, 0]} />
                 {chartData.some((d) => d.errors > 0) && (
-                  <Bar dataKey="errors" fill="#C16F6F" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="errors" fill="#dc2626" radius={[3, 3, 0, 0]} />
                 )}
               </BarChart>
             </ResponsiveContainer>

@@ -1,20 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { fetchHealth } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu, Search, Wifi, WifiOff } from "lucide-react";
 import { CommandPalette } from "@/components/command-palette";
-
-const PAGE_ASSETS: Record<string, string> = {
-  Dashboard: "/brand-assets/v2-dashboard.png",
-  Playground: "/brand-assets/v2-playground.png",
-  "Batch Processing": "/brand-assets/v2-batch.png",
-  "Context Hub": "",
-  Settings: "",
-};
 
 export function Header({ title }: { title: string }) {
   const [healthy, setHealthy] = useState<boolean | null>(null);
@@ -46,8 +37,6 @@ export function Header({ title }: { title: string }) {
       clearInterval(id);
     };
   }, []);
-
-  const asset = PAGE_ASSETS[title];
 
   return (
     <>
@@ -87,15 +76,6 @@ export function Header({ title }: { title: string }) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          {asset && (
-            <Image
-              src={asset}
-              alt=""
-              width={28}
-              height={28}
-              className="rounded-sm"
-            />
-          )}
           <h2 className="text-xl font-semibold font-[family-name:var(--font-sans)] text-kiln-cream">
             {title}
           </h2>

@@ -12,15 +12,15 @@ import {
 } from "recharts";
 
 const COLORS = [
-  "#5B9A8B",
+  "#0099ff",
   "#C4A093",
-  "#C9A84C",
-  "#C16F6F",
+  "#ca8a04",
+  "#dc2626",
   "#7BA7C2",
-  "#6fb3a2",
-  "#8a8580",
-  "#d6d3cd",
-  "#4a8374",
+  "#33aaff",
+  "#737371",
+  "#d4d4d2",
+  "#0077cc",
 ];
 
 interface SkillCount {
@@ -97,8 +97,8 @@ export function SkillDistribution() {
                 </Pie>
                 <RechartsTooltip
                   contentStyle={{
-                    backgroundColor: "#1a1918",
-                    border: "1px solid #2a2826",
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #e5e5e3",
                     borderRadius: "8px",
                     fontSize: "12px",
                   }}

@@ -6,7 +6,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Clay OS — Webhook Dashboard",
-  description: "Kiln-branded dashboard for Clay Webhook OS",
+  description: "Dashboard for Clay Webhook OS",
 };
 
 export default function RootLayout({
@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -28,11 +28,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="flex h-screen overflow-hidden bg-[url('/brand-assets/bg-clay-texture.png')] bg-repeat bg-[length:400px]">
-        <div className="absolute inset-0 bg-clay-950/95 pointer-events-none" />
+      <body className="flex h-screen overflow-hidden bg-white">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:rounded-md focus:bg-kiln-teal focus:px-4 focus:py-2 focus:text-clay-950 focus:font-medium"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:rounded-md focus:bg-kiln-teal focus:px-4 focus:py-2 focus:text-white focus:font-medium"
         >
           Skip to main content
         </a>
@@ -44,9 +43,9 @@ export default function RootLayout({
           position="bottom-right"
           toastOptions={{
             classNames: {
-              success: "!bg-kiln-teal/15 !border-kiln-teal/30 !text-kiln-teal",
-              error: "!bg-kiln-coral/15 !border-kiln-coral/30 !text-kiln-coral",
-              info: "!bg-kiln-mustard/15 !border-kiln-mustard/30 !text-kiln-mustard",
+              success: "!bg-kiln-teal/10 !border-kiln-teal/20 !text-kiln-teal",
+              error: "!bg-kiln-coral/10 !border-kiln-coral/20 !text-kiln-coral",
+              info: "!bg-kiln-mustard/10 !border-kiln-mustard/20 !text-kiln-mustard",
             },
           }}
         />

@@ -106,7 +106,6 @@ export function ResultViewer({
         <EmptyState
           title="Ready to test"
           description="Pick a skill, tweak the data, and hit Run. Results appear here instantly."
-          asset="/brand-assets/v2-playground.png"
         />
       </div>
     );
