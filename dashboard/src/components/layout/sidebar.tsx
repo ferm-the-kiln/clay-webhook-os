@@ -12,7 +12,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { LayoutDashboard, FlaskConical, Layers, BookOpen, GitBranch, TestTubes, BarChart3, Settings } from "lucide-react";
+import { LayoutDashboard, FlaskConical, Layers, BookOpen, GitBranch, TestTubes, BarChart3, Settings, Rocket, ClipboardCheck } from "lucide-react";
 
 const NAV = [
   {
@@ -58,18 +58,32 @@ const NAV = [
     shortcut: "6",
   },
   {
+    href: "/campaigns",
+    label: "Campaigns",
+    icon: Rocket,
+    asset: "",
+    shortcut: "7",
+  },
+  {
+    href: "/review",
+    label: "Review",
+    icon: ClipboardCheck,
+    asset: "",
+    shortcut: "8",
+  },
+  {
     href: "/analytics",
     label: "Analytics",
     icon: BarChart3,
     asset: "",
-    shortcut: "7",
+    shortcut: "9",
   },
   {
     href: "/settings",
     label: "Settings",
     icon: Settings,
     asset: "",
-    shortcut: "8",
+    shortcut: "0",
   },
 ];
 
@@ -88,9 +102,10 @@ export function Sidebar() {
   // Keyboard shortcuts for navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4", "5", "6", "7", "8"].includes(e.key)) {
+      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].includes(e.key)) {
         e.preventDefault();
-        const nav = NAV[parseInt(e.key) - 1];
+        const idx = e.key === "0" ? 9 : parseInt(e.key) - 1;
+        const nav = NAV[idx];
         if (nav) window.location.href = nav.href;
       }
     };

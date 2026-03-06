@@ -17,7 +17,10 @@ from app.core.destination_store import DestinationStore
 from app.core.feedback_store import FeedbackStore
 from app.core.pipeline_store import PipelineStore
 from app.core.experiment_store import ExperimentStore
-from app.routers import batch, context, destinations, experiments, feedback, health, pipeline, pipelines, webhook
+from app.core.campaign_store import CampaignStore
+from app.core.review_queue import ReviewQueue
+from app.core.campaign_runner import CampaignRunner
+from app.routers import batch, campaigns, context, destinations, experiments, feedback, health, pipeline, pipelines, review_queue, webhook
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,8 +31,8 @@ logger = logging.getLogger("clay-webhook-os")
 
 app = FastAPI(
     title="Clay Webhook OS",
-    description="AI-powered webhook server for Clay HTTP Actions",
-    version="2.0.0",
+    description="The autopilot for outbound GTM — AI-powered campaigns with smart pipelines and confidence routing",
+    version="3.0.0",
 )
 
 # Middleware (order matters: error handler wraps auth wraps CORS wraps routes)
@@ -53,6 +56,8 @@ app.include_router(context.router)
 app.include_router(feedback.router)
 app.include_router(pipelines.router)
 app.include_router(experiments.router)
+app.include_router(campaigns.router)
+app.include_router(review_queue.router)
 
 
 @app.on_event("startup")
@@ -83,15 +88,31 @@ async def startup():
     )
     app.state.experiment_store.load()
     app.state.job_queue._experiment_store = app.state.experiment_store
+
+    # Phase 3: Campaign system
+    app.state.campaign_store = CampaignStore(data_dir=settings.data_dir)
+    app.state.campaign_store.load()
+    app.state.review_queue = ReviewQueue(data_dir=settings.data_dir)
+    app.state.review_queue.load()
+    app.state.campaign_runner = CampaignRunner(
+        campaign_store=app.state.campaign_store,
+        review_queue=app.state.review_queue,
+        pool=app.state.pool,
+        cache=app.state.cache,
+        destination_store=app.state.destination_store,
+        job_queue=app.state.job_queue,
+    )
+
     await app.state.job_queue.start_workers(num_workers=settings.max_workers)
     await app.state.scheduler.start(app.state.job_queue)
+    await app.state.campaign_runner.start()
 
     skills = list_skills()
-    logger.info("Clay Webhook OS v2.0 started")
+    logger.info("Clay Webhook OS v3.0 started — Autopilot Mode")
     logger.info("  Engine: claude --print (Max subscription)")
     logger.info("  Workers: %d", settings.max_workers)
     logger.info("  Queue workers: %d", settings.max_workers)
     logger.info("  Skills: %s", ", ".join(skills) if skills else "none")
     logger.info("  Auth: %s", "enabled" if settings.webhook_api_key else "disabled")
     logger.info("  Cache TTL: %ds", settings.cache_ttl)
-    logger.info("  Features: retry, priority, cache-dedup, SSE, chains, scheduling")
+    logger.info("  Features: campaigns, review-queue, smart-pipelines, feedback-loops, retry, SSE")

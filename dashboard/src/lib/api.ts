@@ -1,6 +1,8 @@
 import type {
   BatchResponse,
+  BatchRunResult,
   BatchStatus,
+  Campaign,
   ClientProfile,
   ClientSummary,
   Destination,
@@ -11,11 +13,15 @@ import type {
   Job,
   JobListItem,
   KnowledgeBaseFile,
+  OutcomeDashboard,
   PipelineDefinition,
   PipelineStepConfig,
   PipelineTestResult,
   PromptPreview,
   PushResult,
+  QualityAlert,
+  ReviewItem,
+  ReviewStats,
   ScheduledBatch,
   Stats,
   VariantDef,
@@ -439,6 +445,153 @@ export function fetchFeedbackAnalytics(params?: {
 
 export function deleteFeedback(feedbackId: string): Promise<{ ok: boolean }> {
   return apiFetch(`/feedback/${feedbackId}`, { method: "DELETE" });
+}
+
+// Campaigns
+export function fetchCampaigns(status?: string): Promise<{ campaigns: Campaign[] }> {
+  const qs = status ? `?status=${status}` : "";
+  return apiFetch(`/campaigns${qs}`);
+}
+
+export function fetchCampaign(id: string): Promise<Campaign> {
+  return apiFetch(`/campaigns/${id}`);
+}
+
+export function createCampaign(body: {
+  name: string;
+  description?: string;
+  pipeline: string;
+  destination_id?: string | null;
+  client_slug?: string | null;
+  goal?: { description?: string; target_count?: number; metric?: string };
+  schedule?: { frequency?: string; batch_size?: number };
+  audience?: Record<string, unknown>[];
+  confidence_threshold?: number;
+  instructions?: string;
+  model?: string;
+}): Promise<Campaign> {
+  return apiFetch("/campaigns", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateCampaign(
+  id: string,
+  body: Record<string, unknown>
+): Promise<Campaign> {
+  return apiFetch(`/campaigns/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteCampaign(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/campaigns/${id}`, { method: "DELETE" });
+}
+
+export function addCampaignAudience(
+  id: string,
+  rows: Record<string, unknown>[]
+): Promise<{ ok: boolean; total_audience: number; rows_added: number }> {
+  return apiFetch(`/campaigns/${id}/audience`, {
+    method: "POST",
+    body: JSON.stringify({ rows }),
+  });
+}
+
+export function activateCampaign(
+  id: string
+): Promise<{ ok: boolean; status: string }> {
+  return apiFetch(`/campaigns/${id}/activate`, { method: "POST" });
+}
+
+export function pauseCampaign(
+  id: string
+): Promise<{ ok: boolean; status: string }> {
+  return apiFetch(`/campaigns/${id}/pause`, { method: "POST" });
+}
+
+export function runCampaignBatch(id: string): Promise<BatchRunResult> {
+  return apiFetch(`/campaigns/${id}/run-batch`, { method: "POST" });
+}
+
+export function fetchCampaignProgress(
+  id: string
+): Promise<{
+  campaign_id: string;
+  status: string;
+  progress: Campaign["progress"];
+  audience_total: number;
+  audience_cursor: number;
+  audience_remaining: number;
+  goal: Campaign["goal"];
+  review_stats: ReviewStats;
+}> {
+  return apiFetch(`/campaigns/${id}/progress`);
+}
+
+// Review Queue
+export function fetchReviewItems(params?: {
+  status?: string;
+  campaign_id?: string;
+  skill?: string;
+  limit?: number;
+}): Promise<{ items: ReviewItem[]; total: number }> {
+  const searchParams = new URLSearchParams();
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.campaign_id) searchParams.set("campaign_id", params.campaign_id);
+  if (params?.skill) searchParams.set("skill", params.skill);
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const qs = searchParams.toString();
+  return apiFetch(`/review${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchReviewItem(id: string): Promise<ReviewItem> {
+  return apiFetch(`/review/${id}`);
+}
+
+export function fetchReviewStats(
+  campaignId?: string
+): Promise<ReviewStats> {
+  const qs = campaignId ? `?campaign_id=${campaignId}` : "";
+  return apiFetch(`/review/stats${qs}`);
+}
+
+export function reviewAction(
+  id: string,
+  body: { action: string; note?: string; revised_instructions?: string }
+): Promise<{ ok: boolean; status: string; push_result?: unknown; new_output?: Record<string, unknown>; confidence?: number }> {
+  return apiFetch(`/review/${id}/action`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function rerunReviewItem(
+  id: string
+): Promise<{ ok: boolean; output: Record<string, unknown>; confidence: number }> {
+  return apiFetch(`/review/${id}/rerun`, { method: "POST" });
+}
+
+// Outcomes (Phase 4)
+export function fetchOutcomes(): Promise<OutcomeDashboard> {
+  return apiFetch("/outcomes");
+}
+
+// Quality Alerts (Phase 2)
+export function fetchQualityAlerts(
+  threshold?: number
+): Promise<{ alerts: QualityAlert[]; threshold: number }> {
+  const qs = threshold ? `?threshold=${threshold}` : "";
+  return apiFetch(`/feedback/alerts${qs}`);
+}
+
+// Feedback re-run (Phase 2)
+export function rerunWithFeedback(
+  jobId: string
+): Promise<{ ok: boolean; original_job_id: string; skill: string; result: Record<string, unknown>; duration_ms: number; corrections_applied: number }> {
+  return apiFetch(`/feedback/rerun/${jobId}`, { method: "POST" });
 }
 
 export function createJobStream(

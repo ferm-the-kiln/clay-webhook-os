@@ -200,3 +200,99 @@ async def skills():
     return {"skills": list_skills()}
 
 
+@router.get("/outcomes")
+async def outcomes(request: Request):
+    """Phase 4: Outcome-focused stats for the autopilot dashboard."""
+    campaign_store = request.app.state.campaign_store
+    review_queue = request.app.state.review_queue
+    feedback_store = request.app.state.feedback_store
+
+    campaigns = campaign_store.list_all()
+    active_campaigns = [c for c in campaigns if c.status == "active"]
+    completed_campaigns = [c for c in campaigns if c.status == "completed"]
+
+    # Aggregate campaign progress
+    total_sent = sum(c.progress.total_sent for c in campaigns)
+    total_approved = sum(c.progress.total_approved for c in campaigns)
+    total_processed = sum(c.progress.total_processed for c in campaigns)
+    total_rejected = sum(c.progress.total_rejected for c in campaigns)
+    overall_approval_rate = round(total_approved / (total_approved + total_rejected), 3) if (total_approved + total_rejected) > 0 else 0.0
+
+    # Review queue stats
+    review_stats = review_queue.get_stats()
+
+    # Feedback quality
+    feedback_summary = feedback_store.get_analytics(days=7)
+
+    # Quality alerts
+    alerts = []
+    for skill in feedback_summary.by_skill:
+        if skill.total >= 5 and skill.approval_rate < 0.7:
+            alerts.append({
+                "type": "quality",
+                "skill": skill.skill,
+                "approval_rate": skill.approval_rate,
+                "message": f"{skill.skill} approval rate dropped to {skill.approval_rate:.0%}",
+            })
+
+    # Campaign progress alerts
+    for campaign in active_campaigns:
+        if campaign.goal.target_count > 0:
+            progress_pct = campaign.progress.total_sent / campaign.goal.target_count
+            if progress_pct >= 0.9 and campaign.progress.total_sent < campaign.goal.target_count:
+                alerts.append({
+                    "type": "campaign",
+                    "campaign_id": campaign.id,
+                    "campaign_name": campaign.name,
+                    "message": f"'{campaign.name}' is {progress_pct:.0%} to goal ({campaign.progress.total_sent}/{campaign.goal.target_count})",
+                })
+
+    # Recommendations
+    recommendations = []
+    if review_stats["pending"] > 10:
+        recommendations.append({
+            "type": "action",
+            "message": f"{review_stats['pending']} items awaiting review — clear the queue to keep campaigns flowing",
+        })
+    if feedback_summary.overall_approval_rate > 0 and feedback_summary.overall_approval_rate < 0.8:
+        recommendations.append({
+            "type": "quality",
+            "message": f"Overall approval rate is {feedback_summary.overall_approval_rate:.0%} — review low-performing skills",
+        })
+    for skill in feedback_summary.by_skill:
+        if skill.total >= 10 and skill.approval_rate >= 0.95:
+            recommendations.append({
+                "type": "promote",
+                "message": f"{skill.skill} has {skill.approval_rate:.0%} approval — consider raising its confidence threshold",
+            })
+
+    return {
+        "overview": {
+            "total_campaigns": len(campaigns),
+            "active_campaigns": len(active_campaigns),
+            "completed_campaigns": len(completed_campaigns),
+            "total_sent": total_sent,
+            "total_approved": total_approved,
+            "total_processed": total_processed,
+            "overall_approval_rate": overall_approval_rate,
+        },
+        "review_queue": review_stats,
+        "feedback_7d": feedback_summary.model_dump(),
+        "campaigns": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "status": c.status,
+                "pipeline": c.pipeline,
+                "progress": c.progress.model_dump(),
+                "goal": c.goal.model_dump(),
+                "audience_total": len(c.audience),
+                "audience_remaining": max(0, len(c.audience) - c.audience_cursor),
+            }
+            for c in active_campaigns
+        ],
+        "alerts": alerts,
+        "recommendations": recommendations,
+    }
+
+

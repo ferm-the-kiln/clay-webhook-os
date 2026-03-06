@@ -30,6 +30,7 @@ class PipelineStore:
                     name=raw.get("name", f.stem),
                     description=raw.get("description", ""),
                     steps=steps,
+                    confidence_threshold=raw.get("confidence_threshold", 0.8),
                 )
                 self._pipelines[pipeline.name] = pipeline
             except Exception as e:
@@ -44,6 +45,7 @@ class PipelineStore:
             "name": pipeline.name,
             "description": pipeline.description,
             "steps": [s.model_dump(exclude_none=True) for s in pipeline.steps],
+            "confidence_threshold": pipeline.confidence_threshold,
         }
         path = self._dir / f"{name}.yaml"
         path.write_text(yaml.dump(data, default_flow_style=False, sort_keys=False))
@@ -59,6 +61,7 @@ class PipelineStore:
             name=data.name,
             description=data.description,
             steps=data.steps,
+            confidence_threshold=data.confidence_threshold,
         )
         self._pipelines[pipeline.name] = pipeline
         self._save(pipeline.name)

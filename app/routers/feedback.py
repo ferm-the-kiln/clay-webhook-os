@@ -52,6 +52,78 @@ async def get_skill_analytics(skill: str, request: Request, days: int | None = N
     return summary.model_dump()
 
 
+@router.get("/alerts")
+async def get_quality_alerts(request: Request, threshold: float = 0.7):
+    """Phase 2: Quality alerts — skills with approval rate below threshold."""
+    store = request.app.state.feedback_store
+    summary = store.get_analytics(days=7)
+    alerts = []
+    for skill_analytics in summary.by_skill:
+        if skill_analytics.total >= 5 and skill_analytics.approval_rate < threshold:
+            alerts.append({
+                "skill": skill_analytics.skill,
+                "approval_rate": skill_analytics.approval_rate,
+                "total_ratings": skill_analytics.total,
+                "thumbs_down": skill_analytics.thumbs_down,
+                "severity": "critical" if skill_analytics.approval_rate < 0.5 else "warning",
+                "recommendation": f"Review {skill_analytics.skill} skill — approval rate is {skill_analytics.approval_rate:.0%}",
+            })
+    return {"alerts": alerts, "threshold": threshold}
+
+
+@router.post("/rerun/{job_id}")
+async def rerun_with_feedback(job_id: str, request: Request):
+    """Phase 2: Re-execute a job incorporating feedback corrections."""
+    queue = request.app.state.job_queue
+    store = request.app.state.feedback_store
+    pool = request.app.state.pool
+    cache = request.app.state.cache
+
+    job = queue.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    feedback_entries = store.get_job_feedback(job_id)
+    corrections = [e for e in feedback_entries if e.rating == "thumbs_down" and e.note]
+
+    if not corrections:
+        raise HTTPException(status_code=400, detail="No thumbs-down feedback with notes found for this job")
+
+    # Build correction instructions from feedback
+    correction_notes = "\n".join(f"- {e.note}" for e in corrections)
+    enhanced_instructions = f"""IMPORTANT CORRECTIONS (based on reviewer feedback):
+{correction_notes}
+
+Please regenerate the output incorporating these corrections."""
+
+    original_instructions = job.instructions or ""
+    if original_instructions:
+        enhanced_instructions = f"{original_instructions}\n\n{enhanced_instructions}"
+
+    from app.core.context_assembler import build_prompt
+    from app.core.skill_loader import load_context_files, load_skill
+
+    skill_content = load_skill(job.skill)
+    if skill_content is None:
+        raise HTTPException(status_code=400, detail=f"Skill '{job.skill}' not found")
+
+    context_files = load_context_files(skill_content, job.data)
+    prompt = build_prompt(skill_content, context_files, job.data, enhanced_instructions)
+
+    try:
+        result = await pool.submit(prompt, job.model)
+        return {
+            "ok": True,
+            "original_job_id": job_id,
+            "skill": job.skill,
+            "result": result["result"],
+            "duration_ms": result["duration_ms"],
+            "corrections_applied": len(corrections),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Re-execution failed: {e}")
+
+
 @router.get("/{job_id}")
 async def get_job_feedback(job_id: str, request: Request):
     store = request.app.state.feedback_store
