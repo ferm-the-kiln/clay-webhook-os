@@ -223,6 +223,32 @@ export function updateKnowledgeFile(
   });
 }
 
+export function createKnowledgeFile(body: {
+  category: string;
+  filename: string;
+  content: string;
+}): Promise<KnowledgeBaseFile> {
+  return apiFetch("/knowledge-base", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteKnowledgeFile(
+  category: string,
+  filename: string
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/knowledge-base/${category}/${filename}`, {
+    method: "DELETE",
+  });
+}
+
+export function fetchContextUsageMap(): Promise<{
+  usage_map: Record<string, string[]>;
+}> {
+  return apiFetch("/context/usage-map");
+}
+
 export function previewPrompt(body: {
   skill: string;
   client_slug: string;

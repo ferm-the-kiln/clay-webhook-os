@@ -77,6 +77,12 @@ class UpdateKnowledgeBaseRequest(BaseModel):
     content: str
 
 
+class CreateKnowledgeBaseRequest(BaseModel):
+    category: str
+    filename: str
+    content: str
+
+
 class PromptPreviewRequest(BaseModel):
     skill: str
     client_slug: str

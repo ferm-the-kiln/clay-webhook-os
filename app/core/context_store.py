@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.config import settings
 from app.core.context_assembler import build_prompt
-from app.core.skill_loader import load_context_files, load_skill
+from app.core.skill_loader import list_skills, load_context_files, load_skill, parse_context_refs
 from app.models.context import (
     ClientProfile,
     ClientSummary,
@@ -146,6 +146,77 @@ class ContextStore:
             name=f.stem,
             content=content,
         )
+
+    def create_knowledge_file(
+        self, category: str, filename: str, content: str
+    ) -> KnowledgeBaseFile:
+        # Sanitize inputs
+        if ".." in category or ".." in filename:
+            raise ValueError("Invalid path component")
+        for ch in ("/", "\\"):
+            if ch in category or ch in filename:
+                raise ValueError("Invalid path component")
+
+        # Slugify category
+        category = re.sub(r"[^a-z0-9]+", "-", category.lower()).strip("-")
+
+        # Ensure .md extension
+        if not filename.endswith(".md"):
+            filename = filename + ".md"
+
+        path = self._knowledge_dir / category / filename
+        if path.exists():
+            raise ValueError("File already exists")
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+        logger.info("[context] Created KB file: %s/%s", category, filename)
+        return KnowledgeBaseFile(
+            path=f"{category}/{filename}",
+            category=category,
+            name=path.stem,
+            content=content,
+        )
+
+    def delete_knowledge_file(self, category: str, filename: str) -> bool:
+        # Sanitize inputs
+        if ".." in category or ".." in filename:
+            raise ValueError("Invalid path component")
+        for ch in ("/", "\\"):
+            if ch in category or ch in filename:
+                raise ValueError("Invalid path component")
+
+        path = self._knowledge_dir / category / filename
+        if not path.exists():
+            return False
+
+        path.unlink()
+        logger.info("[context] Deleted KB file: %s/%s", category, filename)
+
+        # Remove empty category directory
+        cat_dir = self._knowledge_dir / category
+        if cat_dir.exists() and not any(cat_dir.iterdir()):
+            cat_dir.rmdir()
+
+        return True
+
+    def list_categories(self) -> list[str]:
+        if not self._knowledge_dir.exists():
+            return []
+        return sorted(
+            d.name for d in self._knowledge_dir.iterdir() if d.is_dir()
+        )
+
+    def get_context_usage_map(self) -> dict[str, list[str]]:
+        usage: dict[str, list[str]] = {}
+        for skill_name in list_skills():
+            content = load_skill(skill_name)
+            if content is None:
+                continue
+            refs = parse_context_refs(content)
+            for ref in refs:
+                usage.setdefault(ref, []).append(skill_name)
+        return usage
 
     # ── Prompt Preview ───────────────────────────────────────────
 

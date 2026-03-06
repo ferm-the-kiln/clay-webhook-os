@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 
 from app.models.context import (
     CreateClientRequest,
+    CreateKnowledgeBaseRequest,
     PromptPreviewRequest,
     UpdateClientRequest,
     UpdateKnowledgeBaseRequest,
@@ -75,6 +76,23 @@ async def list_knowledge_base(request: Request):
     return {"knowledge_base": grouped}
 
 
+@router.post("/knowledge-base")
+async def create_knowledge_file(body: CreateKnowledgeBaseRequest, request: Request):
+    store = request.app.state.context_store
+    try:
+        f = store.create_knowledge_file(body.category, body.filename, body.content)
+        return f.model_dump()
+    except ValueError as e:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=409, content={"error": True, "error_message": str(e)})
+
+
+@router.get("/knowledge-base/categories")
+async def list_categories(request: Request):
+    store = request.app.state.context_store
+    return {"categories": store.list_categories()}
+
+
 @router.get("/knowledge-base/{category}/{filename}")
 async def get_knowledge_file(category: str, filename: str, request: Request):
     store = request.app.state.context_store
@@ -93,6 +111,20 @@ async def update_knowledge_file(
     if f is None:
         return {"error": True, "error_message": f"File '{category}/{filename}' not found"}
     return f.model_dump()
+
+
+@router.delete("/knowledge-base/{category}/{filename}")
+async def delete_knowledge_file(category: str, filename: str, request: Request):
+    store = request.app.state.context_store
+    if not store.delete_knowledge_file(category, filename):
+        return {"error": True, "error_message": f"File '{category}/{filename}' not found"}
+    return {"ok": True}
+
+
+@router.get("/context/usage-map")
+async def get_usage_map(request: Request):
+    store = request.app.state.context_store
+    return {"usage_map": store.get_context_usage_map()}
 
 
 # ── Prompt Preview ───────────────────────────────────────────
