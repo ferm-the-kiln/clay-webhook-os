@@ -5,7 +5,6 @@ from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
 from app.config import settings
-from app.core.pipeline_runner import list_pipelines
 from app.core.skill_loader import list_skills
 from app.core.token_estimator import estimate_cost
 
@@ -85,6 +84,8 @@ async def job_status(job_id: str, request: Request):
     job = queue.get_job(job_id)
     if job is None:
         return {"error": True, "error_message": f"Job {job_id} not found"}
+    feedback_store = request.app.state.feedback_store
+    feedback_entries = feedback_store.get_job_feedback(job_id)
     return {
         "id": job.id,
         "skill": job.skill,
@@ -100,6 +101,7 @@ async def job_status(job_id: str, request: Request):
         "input_tokens_est": job.input_tokens_est,
         "output_tokens_est": job.output_tokens_est,
         "cost_est_usd": job.cost_est_usd,
+        "feedback": [e.model_dump() for e in feedback_entries],
     }
 
 
@@ -134,6 +136,9 @@ async def stats(request: Request):
     cache_savings_usd = round(avg_cost_per_job * cache.hits, 6)
     total_savings_usd = round(total_equivalent_usd + cache_savings_usd, 6)
 
+    feedback_store = request.app.state.feedback_store
+    feedback_summary = feedback_store.get_analytics()
+
     return {
         "total_processed": len(all_jobs),
         "total_completed": len(completed),
@@ -160,6 +165,7 @@ async def stats(request: Request):
             "total_savings_usd": total_savings_usd,
             "cache_savings_usd": cache_savings_usd,
         },
+        "feedback": feedback_summary.model_dump(),
     }
 
 
@@ -194,6 +200,3 @@ async def skills():
     return {"skills": list_skills()}
 
 
-@router.get("/pipelines")
-async def pipelines():
-    return {"pipelines": list_pipelines()}

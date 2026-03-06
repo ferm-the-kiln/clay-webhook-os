@@ -32,6 +32,16 @@ def load_skill(name: str) -> str | None:
     return content
 
 
+def load_skill_variant(name: str, variant_id: str) -> str | None:
+    """Load a specific variant of a skill. Returns None if not found."""
+    if variant_id == "default":
+        return load_skill(name)
+    variant_file = settings.skills_dir / name / "variants" / f"{variant_id}.md"
+    if not variant_file.exists():
+        return None
+    return variant_file.read_text()
+
+
 def parse_context_refs(skill_content: str) -> list[str]:
     pattern = re.compile(
         r"^[-*]\s+(knowledge_base/\S+|clients/\S+|00_foundation/\S+)",

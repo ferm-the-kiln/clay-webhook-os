@@ -128,7 +128,11 @@ async def run_pipeline(
     total_start = time.monotonic()
 
     for step in steps:
-        skill_name = step["skill"]
+        skill_name = step["skill"] if isinstance(step, dict) else step
+        step_model = step.get("model") if isinstance(step, dict) else None
+        step_instructions = step.get("instructions") if isinstance(step, dict) else None
+        effective_model = step_model or model
+        effective_instructions = step_instructions or instructions
         step_start = time.monotonic()
 
         # Load and validate skill
@@ -143,7 +147,7 @@ async def run_pipeline(
             continue
 
         # Check cache
-        cached = cache.get(skill_name, current_data, instructions)
+        cached = cache.get(skill_name, current_data, effective_instructions)
         if cached is not None:
             results.append({
                 "skill": skill_name,
@@ -158,14 +162,14 @@ async def run_pipeline(
 
         # Build prompt and execute
         context_files = load_context_files(skill_content, current_data)
-        prompt = build_prompt(skill_content, context_files, current_data, instructions)
+        prompt = build_prompt(skill_content, context_files, current_data, effective_instructions)
 
         try:
-            result = await pool.submit(prompt, model)
+            result = await pool.submit(prompt, effective_model)
             parsed = result["result"]
             duration_ms = result["duration_ms"]
 
-            cache.put(skill_name, current_data, instructions, parsed)
+            cache.put(skill_name, current_data, effective_instructions, parsed)
             current_data.update(parsed)
 
             results.append({

@@ -4,14 +4,21 @@ import type {
   ClientProfile,
   ClientSummary,
   Destination,
+  Experiment,
+  FeedbackEntry,
+  FeedbackSummary,
   HealthResponse,
   Job,
   JobListItem,
   KnowledgeBaseFile,
+  PipelineDefinition,
+  PipelineStepConfig,
+  PipelineTestResult,
   PromptPreview,
   PushResult,
   ScheduledBatch,
   Stats,
+  VariantDef,
   WebhookResponse,
 } from "./types";
 
@@ -225,6 +232,187 @@ export function previewPrompt(body: {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+// Experiments / Lab
+export function fetchVariants(
+  skill: string
+): Promise<{ skill: string; variants: VariantDef[] }> {
+  return apiFetch(`/skills/${skill}/variants`);
+}
+
+export function createVariant(
+  skill: string,
+  body: { label: string; content: string }
+): Promise<VariantDef> {
+  return apiFetch(`/skills/${skill}/variants`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function forkVariant(skill: string): Promise<VariantDef> {
+  return apiFetch(`/skills/${skill}/variants/fork`, { method: "POST" });
+}
+
+export function getVariant(
+  skill: string,
+  variantId: string
+): Promise<VariantDef> {
+  return apiFetch(`/skills/${skill}/variants/${variantId}`);
+}
+
+export function updateVariant(
+  skill: string,
+  variantId: string,
+  body: { label: string; content: string }
+): Promise<VariantDef> {
+  return apiFetch(`/skills/${skill}/variants/${variantId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteVariant(
+  skill: string,
+  variantId: string
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/skills/${skill}/variants/${variantId}`, {
+    method: "DELETE",
+  });
+}
+
+export function fetchExperiments(): Promise<{ experiments: Experiment[] }> {
+  return apiFetch("/experiments");
+}
+
+export function createExperiment(body: {
+  skill: string;
+  name: string;
+  variant_ids: string[];
+}): Promise<Experiment> {
+  return apiFetch("/experiments", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getExperiment(expId: string): Promise<Experiment> {
+  return apiFetch(`/experiments/${expId}`);
+}
+
+export function deleteExperiment(expId: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/experiments/${expId}`, { method: "DELETE" });
+}
+
+export function runExperiment(
+  expId: string,
+  body: {
+    rows: Record<string, unknown>[];
+    model?: string;
+    instructions?: string;
+  }
+): Promise<{
+  experiment_id: string;
+  total_rows: number;
+  distribution: { job_id: string; variant_id: string }[];
+}> {
+  return apiFetch(`/experiments/${expId}/run`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function promoteVariant(
+  expId: string,
+  variantId: string
+): Promise<{ ok: boolean; promoted: string; skill: string }> {
+  return apiFetch(`/experiments/${expId}/promote`, {
+    method: "POST",
+    body: JSON.stringify({ variant_id: variantId }),
+  });
+}
+
+// Pipelines
+export function fetchPipelines(): Promise<{ pipelines: PipelineDefinition[] }> {
+  return apiFetch("/pipelines");
+}
+
+export function fetchPipeline(name: string): Promise<PipelineDefinition> {
+  return apiFetch(`/pipelines/${name}`);
+}
+
+export function createPipeline(body: {
+  name: string;
+  description?: string;
+  steps: PipelineStepConfig[];
+}): Promise<PipelineDefinition> {
+  return apiFetch("/pipelines", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updatePipeline(
+  name: string,
+  body: { description?: string; steps?: PipelineStepConfig[] }
+): Promise<PipelineDefinition> {
+  return apiFetch(`/pipelines/${name}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deletePipeline(name: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/pipelines/${name}`, { method: "DELETE" });
+}
+
+export function testPipeline(
+  name: string,
+  body: { data: Record<string, unknown>; model?: string; instructions?: string }
+): Promise<PipelineTestResult> {
+  return apiFetch(`/pipelines/${name}/test`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// Feedback
+export function submitFeedback(body: {
+  job_id: string;
+  skill?: string;
+  model?: string;
+  client_slug?: string | null;
+  rating: "thumbs_up" | "thumbs_down";
+  note?: string;
+}): Promise<FeedbackEntry> {
+  return apiFetch("/feedback", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchJobFeedback(
+  jobId: string
+): Promise<{ job_id: string; feedback: FeedbackEntry[] }> {
+  return apiFetch(`/feedback/${jobId}`);
+}
+
+export function fetchFeedbackAnalytics(params?: {
+  skill?: string;
+  client_slug?: string;
+  days?: number;
+}): Promise<FeedbackSummary> {
+  const searchParams = new URLSearchParams();
+  if (params?.skill) searchParams.set("skill", params.skill);
+  if (params?.client_slug) searchParams.set("client_slug", params.client_slug);
+  if (params?.days) searchParams.set("days", String(params.days));
+  const qs = searchParams.toString();
+  return apiFetch(`/feedback/analytics/summary${qs ? `?${qs}` : ""}`);
+}
+
+export function deleteFeedback(feedbackId: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/feedback/${feedbackId}`, { method: "DELETE" });
 }
 
 export function createJobStream(

@@ -14,7 +14,10 @@ from app.middleware.auth import ApiKeyMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
 from app.core.context_store import ContextStore
 from app.core.destination_store import DestinationStore
-from app.routers import batch, context, destinations, health, pipeline, webhook
+from app.core.feedback_store import FeedbackStore
+from app.core.pipeline_store import PipelineStore
+from app.core.experiment_store import ExperimentStore
+from app.routers import batch, context, destinations, experiments, feedback, health, pipeline, pipelines, webhook
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,6 +50,9 @@ app.include_router(pipeline.router)
 app.include_router(batch.router)
 app.include_router(destinations.router)
 app.include_router(context.router)
+app.include_router(feedback.router)
+app.include_router(pipelines.router)
+app.include_router(experiments.router)
 
 
 @app.on_event("startup")
@@ -67,6 +73,16 @@ async def startup():
         knowledge_dir=settings.knowledge_dir,
         skills_dir=settings.skills_dir,
     )
+    app.state.feedback_store = FeedbackStore(data_dir=settings.data_dir)
+    app.state.feedback_store.load()
+    app.state.pipeline_store = PipelineStore(pipelines_dir=settings.pipelines_dir)
+    app.state.pipeline_store.load()
+    app.state.experiment_store = ExperimentStore(
+        skills_dir=settings.skills_dir,
+        data_dir=settings.data_dir,
+    )
+    app.state.experiment_store.load()
+    app.state.job_queue._experiment_store = app.state.experiment_store
     await app.state.job_queue.start_workers(num_workers=settings.max_workers)
     await app.state.scheduler.start(app.state.job_queue)
 

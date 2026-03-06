@@ -17,6 +17,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { CheckCircle, Loader2, Send, Sparkles, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { FeedbackButtons } from "@/components/feedback/feedback-buttons";
 
 const STEPS = [
   { label: "Queued", icon: Send },
@@ -64,12 +65,14 @@ export function ResultViewer({
   skill,
   model,
   destinations = [],
+  jobId,
 }: {
   result: WebhookResponse | null;
   loading: boolean;
   skill?: string;
   model?: string;
   destinations?: Destination[];
+  jobId?: string;
 }) {
   const [elapsed, setElapsed] = useState(0);
   const [pushDestId, setPushDestId] = useState("");
@@ -152,6 +155,15 @@ export function ResultViewer({
           {JSON.stringify(display, null, 2)}
         </pre>
       </CardContent>
+      {!isError && skill && (
+        <div className="border-t border-clay-800 px-4 py-3">
+          <FeedbackButtons
+            jobId={jobId || "playground"}
+            skill={skill}
+            model={model}
+          />
+        </div>
+      )}
       {!isError && destinations.length > 0 && (
         <CardFooter className="border-t border-clay-800 px-4 py-3 gap-2">
           <Select value={pushDestId} onValueChange={setPushDestId}>

@@ -10,7 +10,7 @@ import httpx
 
 from app.config import settings
 from app.core.context_assembler import build_prompt
-from app.core.skill_loader import load_context_files, load_skill
+from app.core.skill_loader import load_context_files, load_skill, load_skill_variant
 from app.core.token_estimator import estimate_cost, estimate_tokens
 from app.core.worker_pool import WorkerPool
 
@@ -56,6 +56,8 @@ class Job:
     output_tokens_est: int = 0
     cost_est_usd: float = 0.0
     batch_id: str | None = None
+    experiment_id: str | None = None
+    variant_id: str | None = None
 
     def __lt__(self, other: "Job") -> bool:
         return PRIORITY_WEIGHTS.get(self.priority, 1) < PRIORITY_WEIGHTS.get(other.priority, 1)
@@ -131,6 +133,8 @@ class JobQueue:
         max_retries: int = 3,
         skills: list[str] | None = None,
         batch_id: str | None = None,
+        experiment_id: str | None = None,
+        variant_id: str | None = None,
     ) -> str:
         # Cache dedup: check cache before creating job
         if self._cache is not None:
@@ -152,6 +156,8 @@ class JobQueue:
                     result=cached,
                     completed_at=time.time(),
                     batch_id=batch_id,
+                    experiment_id=experiment_id,
+                    variant_id=variant_id,
                 )
                 self._jobs[job_id] = job
                 # Send callback immediately for cached results
@@ -174,6 +180,8 @@ class JobQueue:
             max_retries=max_retries,
             skills=skills,
             batch_id=batch_id,
+            experiment_id=experiment_id,
+            variant_id=variant_id,
         )
         self._jobs[job_id] = job
         await self._queue.put(job)
@@ -224,8 +232,11 @@ class JobQueue:
                         self._event_bus.publish("job_updated", {"job_id": job.id, "status": "completed"})
                     await self._send_callback(job)
                 else:
-                    # Single skill execution
-                    skill_content = load_skill(job.skill)
+                    # Single skill execution (load variant if set)
+                    if job.variant_id and job.variant_id != "default":
+                        skill_content = load_skill_variant(job.skill, job.variant_id)
+                    else:
+                        skill_content = load_skill(job.skill)
                     if skill_content is None:
                         raise ValueError(f"Skill '{job.skill}' not found")
 
@@ -250,6 +261,22 @@ class JobQueue:
                     if self._event_bus:
                         self._event_bus.publish("job_updated", {"job_id": job.id, "status": "completed"})
                     await self._send_callback(job)
+
+                # Update experiment results if this job is part of an experiment
+                if job.experiment_id and job.variant_id and job.status == JobStatus.completed:
+                    try:
+                        from app.core.experiment_store import ExperimentStore
+                        # Access store via import — it's set on app.state but we don't have app ref here
+                        # Instead we'll use a reference stored on the queue
+                        if hasattr(self, '_experiment_store') and self._experiment_store:
+                            self._experiment_store.update_experiment_results(
+                                job.experiment_id,
+                                job.variant_id,
+                                job.duration_ms,
+                                job.input_tokens_est + job.output_tokens_est,
+                            )
+                    except Exception:
+                        pass  # Non-critical
 
             except Exception as e:
                 if job.retry_count < job.max_retries:

@@ -34,6 +34,7 @@ import {
   Minus,
   X,
 } from "lucide-react";
+import { FeedbackButtons } from "@/components/feedback/feedback-buttons";
 
 const PRIORITY_ICONS: Record<string, typeof ArrowUp> = {
   high: ArrowUp,
@@ -408,6 +409,19 @@ export function JobList() {
                     <pre className="rounded-lg bg-clay-950 border border-clay-800 p-3 text-xs text-clay-200 font-[family-name:var(--font-mono)] overflow-x-auto max-h-96 whitespace-pre-wrap">
                       {JSON.stringify(selectedJob.result, null, 2)}
                     </pre>
+                  </div>
+                )}
+
+                {selectedJob.status === "completed" && (
+                  <div>
+                    <p className="text-xs text-clay-500 uppercase tracking-wide mb-2 font-[family-name:var(--font-sans)]">
+                      Rate Output
+                    </p>
+                    <FeedbackButtons
+                      jobId={selectedJob.id}
+                      skill={selectedJob.skill}
+                      existing={selectedJob.feedback}
+                    />
                   </div>
                 )}
 

@@ -21,6 +21,7 @@ export interface Job {
   input_tokens_est?: number;
   output_tokens_est?: number;
   cost_est_usd?: number;
+  feedback?: FeedbackEntry[];
 }
 
 export interface JobListItem {
@@ -56,6 +57,7 @@ export interface Stats {
     total_savings_usd: number;
     cache_savings_usd: number;
   };
+  feedback?: FeedbackSummary;
 }
 
 export interface HealthResponse {
@@ -184,6 +186,92 @@ export interface PromptPreview {
   assembled_prompt: string;
   context_files_loaded: string[];
   estimated_tokens: number;
+}
+
+// Feedback types
+export type FeedbackRating = "thumbs_up" | "thumbs_down";
+
+export interface FeedbackEntry {
+  id: string;
+  job_id: string;
+  skill: string;
+  model: string;
+  client_slug: string | null;
+  rating: FeedbackRating;
+  note: string;
+  created_at: number;
+}
+
+export interface SkillAnalytics {
+  skill: string;
+  total: number;
+  thumbs_up: number;
+  thumbs_down: number;
+  approval_rate: number;
+}
+
+export interface FeedbackSummary {
+  total_ratings: number;
+  overall_approval_rate: number;
+  by_skill: SkillAnalytics[];
+  by_client: Record<string, { total: number; thumbs_up: number; approval_rate: number }>;
+}
+
+// Experiment / Lab types
+export interface VariantDef {
+  id: string;
+  skill: string;
+  label: string;
+  content: string;
+  created_at: number;
+}
+
+export interface VariantResults {
+  variant_id: string;
+  runs: number;
+  avg_duration_ms: number;
+  total_tokens: number;
+  thumbs_up: number;
+  thumbs_down: number;
+}
+
+export type ExperimentStatus = "draft" | "running" | "completed";
+
+export interface Experiment {
+  id: string;
+  skill: string;
+  name: string;
+  variant_ids: string[];
+  status: ExperimentStatus;
+  results: Record<string, VariantResults>;
+  created_at: number;
+  completed_at: number | null;
+}
+
+// Pipeline types
+export interface PipelineStepConfig {
+  skill: string;
+  model?: string | null;
+  instructions?: string | null;
+}
+
+export interface PipelineDefinition {
+  name: string;
+  description: string;
+  steps: PipelineStepConfig[];
+}
+
+export interface PipelineTestResult {
+  pipeline: string;
+  steps: {
+    skill: string;
+    success: boolean;
+    duration_ms: number;
+    output?: Record<string, unknown>;
+    error?: string;
+  }[];
+  final_output: Record<string, unknown>;
+  total_duration_ms: number;
 }
 
 export interface WebhookResponse {
