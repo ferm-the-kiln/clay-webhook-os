@@ -3,10 +3,15 @@
 ## Company
 - **Domain:** twelvelabs.io
 - **Industry:** AI / Video Intelligence / Developer Tools
-- **Size:** ~50-100 employees (Series B startup)
-- **Stage:** Series B ($107M total raised, $300M valuation)
+- **Size:** ~150+ employees (doubled headcount in 2025)
+- **Stage:** Series A ($30M led by NEA + NVIDIA NVentures, Dec 2024). ~$110-130M total raised across all rounds.
 - **HQ:** San Francisco, CA
 - **Founded:** 2021
+
+## Key People
+- **CEO:** Jae Lee (founder)
+- **President & CSO:** Yoon Kim (ex-Apple Siri architect, ex-SK Telecom CTO — joined Dec 2025)
+- **Co-founders:** Soyoung Lee, Dave Chung, Aiden Lee, SJ Kim
 
 ## Sales Motion
 - **Model:** Product-led growth (free tier → developer adoption → enterprise deal)
@@ -58,11 +63,11 @@ speech, and temporal relationships simultaneously.
 - **Image-to-Video Search** — find similar scenes using an image as query
 
 **Models:**
-- Marengo 2.7 — search + indexing (best-in-class semantic video retrieval)
-- Pegasus 1.2 — generation (summaries, captions, Q&A from video)
-- Both available on AWS Bedrock as managed services
+- Marengo 3.0 (Dec 2025) — search + indexing. New: composed text+image search in a single query, Embed API v2 with async/sync endpoints, supports text/images/audio/video embeddings. Auto-reindexing rolling out March 2026.
+- Pegasus 1.2 — generation (summaries, captions, Q&A from video). Supports long videos up to 1 hour. 36,000x cheaper than Google Gemini 1.5 Pro. Timestamp grounding. Available in 7 regions.
+- Both available on AWS Bedrock as fully managed services (since July 2025)
 
-**Pricing:** Usage-based. Free tier = 600 minutes. Developer plan starts ~$0.033/min.
+**Pricing:** Usage-based. Free tier = 600 minutes. Indexed storage ~$0.09/video-hour/month.
 SDKs for Python and Node.js.
 
 ## Positioning
@@ -140,19 +145,26 @@ that treat video as a series of image frames.
 - **Use case:** Surgical training, procedure documentation, research
 
 ## Competitive Landscape
-- **Direct:** Moments Lab, Mantis AI, LiveLink AI
+- **Direct:** Moments Lab, Mantis AI, LiveLink AI, Azure Video Indexer
 - **Adjacent:** OpenAI (GPT-4V for video), Google (Gemini multimodal), Amazon Rekognition
 - **Twelve Labs' edge:** Video-FIRST foundation models (not image models applied to video frames).
   Purpose-built for temporal relationships + multimodal understanding. Better accuracy
   on actual video comprehension benchmarks (not just frame-by-frame analysis).
+- **Cost advantage:** Pegasus 1.2 is 36,000x cheaper than Google Gemini 1.5 Pro — powerful ammo for build-vs-buy and competitive conversations.
 
 ## Recent News & Signals (good for personalization)
-- Series B: $103M raised at $300M valuation (Dec 2024)
-- AWS Bedrock integration: Marengo + Pegasus available as managed services
+- VAST Data partnership for unified video intelligence (Feb 2026)
+- Marengo 3.0 launched with composed text+image search, Embed API v2 (Dec 2025)
+- Yoon Kim hired as President & CSO — ex-Apple Siri architect, ex-SK Telecom CTO (Dec 2025)
+- Firstman Studio (Squid Game creator Hwang Dong-hyuk) strategic investment (Oct 2025)
+- LG CNS partnership for enterprise video intelligence (July 2025)
+- AWS Bedrock: fully managed Marengo + Pegasus (July 2025)
+- Naver Ventures strategic investment (June 2025)
+- Pegasus 1.2 launched — long video (up to 1hr), 36,000x cheaper than Gemini 1.5 Pro (Feb 2025)
+- Series A: $30M led by NEA + NVIDIA NVentures (Dec 2024)
 - 30,000+ developers on the platform
-- Partners: AWS, Databricks, Snowflake, Adobe, Mimir, Iconik
+- Partners: AWS, Databricks, Snowflake, Adobe, LG CNS, VAST Data, Naver
 - Moving toward "agentic video intelligence" (autonomous video understanding agents)
-- Presented at AWS re:Invent 2025
 
 ## Messaging Hierarchy
 
@@ -169,11 +181,12 @@ that treat video as a series of image frames.
 
 ## Social Proof
 - 30,000+ developers on the platform
-- $107M total raised (Series B, Dec 2024)
-- $300M valuation
-- Partners: AWS, Databricks, Snowflake, Adobe
-- Available on AWS Bedrock (managed service)
-- Presented at AWS re:Invent 2025
+- ~$110-130M total raised across all rounds
+- Named customers: MLSE (Toronto sports franchise), Washington Post
+- Partners: AWS, Databricks, Snowflake, Adobe, LG CNS, VAST Data, Naver
+- Fully managed on AWS Bedrock (since July 2025)
+- ~150+ employees, doubled headcount in 2025
+- Strategic investors: NVIDIA NVentures, Naver Ventures, Firstman Studio (Squid Game creator)
 
 ## ROI Framework
 Use these comparisons to make the business case concrete in outbound:
@@ -269,10 +282,10 @@ Use these anonymized patterns in outbound. Replace with real case studies as the
 
 ### vs Google (Gemini multimodal)
 - **Their pitch:** Massive multimodal model that handles text, images, audio, and video
-- **Our edge:** Twelve Labs is purpose-built for video with dedicated search and generation APIs. Gemini is a generalist — good at many things, best-in-class at none for video-specific tasks.
+- **Our edge:** Twelve Labs is purpose-built for video with dedicated search and generation APIs. Gemini is a generalist — good at many things, best-in-class at none for video-specific tasks. Pegasus 1.2 is **36,000x cheaper** than Gemini 1.5 Pro for video generation tasks.
 - **When they win:** Customer is already deep in Google Cloud ecosystem and needs "good enough" video analysis
-- **When we win:** Customer needs best-in-class video search accuracy, dedicated video APIs, or runs on AWS/multi-cloud
-- **Trap question:** "Have you benchmarked video search accuracy specifically, or are you evaluating general multimodal capabilities?"
+- **When we win:** Customer needs best-in-class video search accuracy, dedicated video APIs, cost efficiency, or runs on AWS/multi-cloud
+- **Trap question:** "Have you benchmarked video search accuracy specifically, or are you evaluating general multimodal capabilities? And have you compared cost per video-hour?"
 
 ### vs Amazon Rekognition
 - **Their pitch:** AWS-native video analysis — object detection, face recognition, content moderation
