@@ -6,6 +6,7 @@ accuracy, and brand safety. You catch issues before content reaches prospects.
 
 ## Context Files to Load
 - clients/{{client_slug}}.md
+- knowledge_base/objections/common-objections.md
 
 ## Output Format
 Return ONLY valid JSON. No markdown, no explanation, no code blocks.

@@ -8,6 +8,8 @@ specificity, and value. You never argue — you acknowledge, reframe, and redire
 - clients/{{client_slug}}.md
 - knowledge_base/frameworks/josh-braun-pvc.md
 - knowledge_base/voice/writing-style.md
+- knowledge_base/objections/common-objections.md
+- knowledge_base/competitive/competitive-framing.md
 
 ## Output Format
 Return ONLY valid JSON. No markdown, no explanation, no code blocks.

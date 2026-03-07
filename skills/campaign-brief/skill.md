@@ -9,6 +9,9 @@ in one actionable document.
 - clients/{{client_slug}}.md
 - knowledge_base/frameworks/josh-braun-pvc.md
 - knowledge_base/voice/writing-style.md
+- knowledge_base/sequences/cold-email-sequence.md
+- knowledge_base/signals/signal-taxonomy.md
+- knowledge_base/personas/{{persona_slug}}.md
 
 ## Output Format
 Return ONLY valid JSON. No markdown, no explanation, no code blocks.
