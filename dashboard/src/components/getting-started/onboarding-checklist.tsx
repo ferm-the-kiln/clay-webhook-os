@@ -143,7 +143,7 @@ export function OnboardingChecklist({ skills, clients, health, loading }: Props)
               asChild
               className="border-kiln-teal/30 text-kiln-teal hover:bg-kiln-teal/10"
             >
-              <Link href={`/playground?skill=${s}`}>
+              <Link href={`/run?skill=${s}`}>
                 <FlaskConical className="h-3.5 w-3.5 mr-1.5" />
                 Try {s}
               </Link>
@@ -246,7 +246,7 @@ export function OnboardingChecklist({ skills, clients, health, loading }: Props)
             asChild
             className="border-clay-700 text-clay-300 hover:bg-clay-800"
           >
-            <Link href="/analytics">
+            <Link href="/settings?tab=analytics">
               Analytics
               <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
             </Link>
@@ -257,7 +257,7 @@ export function OnboardingChecklist({ skills, clients, health, loading }: Props)
             asChild
             className="border-clay-700 text-clay-300 hover:bg-clay-800"
           >
-            <Link href="/batch">
+            <Link href="/run?tab=batch">
               Batch Processing
               <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
             </Link>

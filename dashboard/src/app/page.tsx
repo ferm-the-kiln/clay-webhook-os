@@ -72,7 +72,7 @@ export default function DashboardPage() {
               <Link href="/getting-started">Get Started</Link>
             </Button>
             <Button variant="outline" asChild className="border-clay-700 text-clay-300 hover:bg-clay-800">
-              <Link href="/playground">Open Playground</Link>
+              <Link href="/run">Open Playground</Link>
             </Button>
           </EmptyState>
         </div>
@@ -139,7 +139,7 @@ export default function DashboardPage() {
             asChild
             className="h-auto py-3 px-4 border-clay-700 hover:border-kiln-teal/30 hover:bg-kiln-teal/5 justify-start"
           >
-            <Link href="/playground" className="flex items-center gap-3">
+            <Link href="/run" className="flex items-center gap-3">
               <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-kiln-teal/10">
                 <FlaskConical className="h-4 w-4 text-kiln-teal" />
               </div>
@@ -154,7 +154,7 @@ export default function DashboardPage() {
             asChild
             className="h-auto py-3 px-4 border-clay-700 hover:border-kiln-teal/30 hover:bg-kiln-teal/5 justify-start"
           >
-            <Link href="/batch" className="flex items-center gap-3">
+            <Link href="/run?tab=batch" className="flex items-center gap-3">
               <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-kiln-mustard/10">
                 <Layers className="h-4 w-4 text-kiln-mustard" />
               </div>
@@ -169,7 +169,7 @@ export default function DashboardPage() {
             asChild
             className="h-auto py-3 px-4 border-clay-700 hover:border-kiln-teal/30 hover:bg-kiln-teal/5 justify-start"
           >
-            <Link href="/analytics" className="flex items-center gap-3">
+            <Link href="/settings?tab=analytics" className="flex items-center gap-3">
               <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-clay-800/50">
                 <BarChart3 className="h-4 w-4 text-clay-400" />
               </div>

@@ -190,7 +190,7 @@ export function JobList() {
         description="Your queue is clear. Head to the Playground to test a skill, or set up a Batch run."
       >
         <Button asChild size="sm" className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold">
-          <Link href="/playground">Open Playground</Link>
+          <Link href="/run">Open Playground</Link>
         </Button>
       </EmptyState>
     );
@@ -415,7 +415,7 @@ export function JobList() {
                     size="sm"
                     className="border-clay-700 text-clay-400 hover:text-clay-200"
                     onClick={() => {
-                      window.location.href = `/playground?skill=${selectedJob.skill}`;
+                      window.location.href = `/run?skill=${selectedJob.skill}`;
                     }}
                   >
                     <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
