@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
+import { ContextTab } from "@/components/settings/context-tab";
 import { DestinationForm } from "@/components/destinations/destination-form";
 import { DestinationList } from "@/components/destinations/destination-list";
 import { AnalyticsSummary } from "@/components/analytics/analytics-summary";
@@ -45,14 +46,21 @@ const TIME_RANGES = [
   { label: "All time", value: "all" },
 ];
 
+type SettingsTab = "context" | "destinations" | "analytics";
+
 function SettingsInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const activeTab = searchParams.get("tab") === "analytics" ? "analytics" : "destinations";
+
+  const rawTab = searchParams.get("tab");
+  const activeTab: SettingsTab =
+    rawTab === "analytics" ? "analytics" :
+    rawTab === "context" ? "context" :
+    "destinations";
 
   const setActiveTab = (tab: string) => {
     const params = new URLSearchParams();
-    if (tab === "analytics") params.set("tab", "analytics");
+    if (tab !== "destinations") params.set("tab", tab);
     router.replace(`/settings?${params.toString()}`);
   };
 
@@ -197,6 +205,12 @@ function SettingsInner() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-clay-900 border border-clay-800">
           <TabsTrigger
+            value="context"
+            className="data-[state=active]:bg-kiln-teal/10 data-[state=active]:text-kiln-teal text-clay-400"
+          >
+            Context
+          </TabsTrigger>
+          <TabsTrigger
             value="destinations"
             className="data-[state=active]:bg-kiln-teal/10 data-[state=active]:text-kiln-teal text-clay-400"
           >
@@ -210,6 +224,9 @@ function SettingsInner() {
           </TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {/* ─── Context Tab ─── */}
+      {activeTab === "context" && <ContextTab />}
 
       {/* ─── Destinations Tab ─── */}
       {activeTab === "destinations" && (

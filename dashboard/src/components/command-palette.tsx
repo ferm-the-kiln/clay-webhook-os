@@ -22,7 +22,7 @@ const PAGES = [
   { name: "Batch Processing", href: "/run?tab=batch", icon: FlaskConical },
   { name: "Campaigns", href: "/campaigns", icon: Rocket },
   { name: "Review Queue", href: "/campaigns?tab=review", icon: Rocket },
-  { name: "Context Hub", href: "/context", icon: BookOpen },
+  { name: "Context Hub", href: "/settings?tab=context", icon: BookOpen },
   { name: "Skills", href: "/skills", icon: TestTubes },
   { name: "Pipelines", href: "/skills", icon: TestTubes },
   { name: "Skills Lab", href: "/skills?tab=lab", icon: TestTubes },

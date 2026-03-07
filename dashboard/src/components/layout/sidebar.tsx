@@ -12,7 +12,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { LayoutDashboard, FlaskConical, BookOpen, TestTubes, Rocket, Settings } from "lucide-react";
+import { LayoutDashboard, FlaskConical, TestTubes, Rocket, Settings } from "lucide-react";
 
 const NAV = [
   {
@@ -34,22 +34,16 @@ const NAV = [
     shortcut: "3",
   },
   {
-    href: "/context",
-    label: "Context",
-    icon: BookOpen,
-    shortcut: "4",
-  },
-  {
     href: "/skills",
     label: "Skills",
     icon: TestTubes,
-    shortcut: "5",
+    shortcut: "4",
   },
   {
     href: "/settings",
     label: "Settings",
     icon: Settings,
-    shortcut: "6",
+    shortcut: "5",
   },
 ];
 
@@ -68,7 +62,7 @@ export function Sidebar() {
   // Keyboard shortcuts for navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4", "5", "6"].includes(e.key)) {
+      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4", "5"].includes(e.key)) {
         e.preventDefault();
         const idx = parseInt(e.key) - 1;
         const nav = NAV[idx];
@@ -167,7 +161,7 @@ export function Sidebar() {
         </SheetContent>
       </Sheet>
 
-      {/* Mobile bottom nav - all 6 items fit */}
+      {/* Mobile bottom nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-clay-800 bg-white/95 backdrop-blur-sm">
         <nav className="flex items-center justify-around py-2">
           {NAV.map((item) => {
