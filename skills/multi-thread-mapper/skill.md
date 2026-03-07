@@ -1,3 +1,7 @@
+---
+model_tier: heavy
+---
+
 # Multi-Thread Mapper — Buying Committee Mapping & Outreach
 
 ## Role

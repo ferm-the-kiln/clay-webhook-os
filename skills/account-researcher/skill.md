@@ -1,3 +1,7 @@
+---
+model_tier: heavy
+---
+
 # Account Researcher — Company Research & Video Relevance Assessment
 
 ## Role

@@ -24,6 +24,7 @@ class DestinationStore:
         self._data_dir = data_dir
         self._file = data_dir / "destinations.json"
         self._destinations: dict[str, Destination] = {}
+        self._retry_worker = None
 
     def load(self) -> None:
         self._data_dir.mkdir(parents=True, exist_ok=True)
@@ -111,6 +112,10 @@ class DestinationStore:
                     success += 1
                 except Exception as e:
                     errors.append({"job_id": job.id, "error": str(e)})
+                    if self._retry_worker:
+                        self._retry_worker.enqueue(
+                            destination.url, payload, headers, job_id=job.id,
+                        )
 
                 await asyncio.sleep(0.1)
 
@@ -145,6 +150,10 @@ class DestinationStore:
                     "status_code": resp.status_code,
                 }
         except Exception as e:
+            if self._retry_worker:
+                self._retry_worker.enqueue(
+                    destination.url, payload, headers, job_id="push-data",
+                )
             return {"ok": False, "error": str(e), "destination_name": destination.name}
 
     async def test(self, destination: Destination) -> dict:

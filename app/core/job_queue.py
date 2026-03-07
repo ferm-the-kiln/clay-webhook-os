@@ -10,7 +10,8 @@ import httpx
 
 from app.config import settings
 from app.core.context_assembler import build_prompt
-from app.core.skill_loader import load_context_files, load_skill, load_skill_variant
+from app.core.model_router import resolve_model
+from app.core.skill_loader import load_context_files, load_skill, load_skill_config, load_skill_variant
 from app.core.token_estimator import estimate_cost, estimate_tokens
 from app.core.claude_executor import SubscriptionLimitError
 from app.core.worker_pool import WorkerPool
@@ -81,6 +82,21 @@ class JobQueue:
         self._jobs: dict[str, Job] = {}
         self._workers: list[asyncio.Task] = []
         self._batches: dict[str, list[str]] = {}
+        self._resume_event = asyncio.Event()
+        self._resume_event.set()  # Starts unpaused
+        self._retry_worker = None
+
+    def pause(self) -> None:
+        self._resume_event.clear()
+        logger.info("[queue] Paused — workers will block before next job")
+
+    def resume(self) -> None:
+        self._resume_event.set()
+        logger.info("[queue] Resumed — workers unblocked")
+
+    @property
+    def is_paused(self) -> bool:
+        return not self._resume_event.is_set()
 
     def register_batch(self, batch_id: str, job_ids: list[str]) -> None:
         self._batches[batch_id] = job_ids
@@ -202,8 +218,20 @@ class JobQueue:
             task.cancel()
         await asyncio.gather(*self._workers, return_exceptions=True)
 
+    def prune_completed(self, cutoff: float) -> int:
+        """Remove completed/failed/dead_letter jobs older than cutoff timestamp."""
+        terminal = {JobStatus.completed, JobStatus.failed, JobStatus.dead_letter}
+        to_remove = [
+            jid for jid, j in self._jobs.items()
+            if j.status in terminal and j.created_at < cutoff
+        ]
+        for jid in to_remove:
+            del self._jobs[jid]
+        return len(to_remove)
+
     async def _worker(self, worker_id: int):
         while True:
+            await self._resume_event.wait()
             job = await self._queue.get()
             job.status = JobStatus.processing
             if self._event_bus:
@@ -244,6 +272,16 @@ class JobQueue:
 
                     context_files = load_context_files(skill_content, job.data, skill_name=job.skill)
                     prompt = build_prompt(skill_content, context_files, job.data, job.instructions)
+
+                    # Smart model routing: refine model after prompt is built
+                    if settings.enable_smart_routing:
+                        skill_cfg = load_skill_config(job.skill)
+                        job.model = resolve_model(
+                            request_model=job.model if job.model != settings.default_model else None,
+                            skill_config=skill_cfg,
+                            prompt=prompt,
+                            context_file_count=len(context_files),
+                        )
 
                     result = await self._pool.submit(prompt, job.model, settings.request_timeout)
                     parsed = result["result"]
@@ -395,7 +433,11 @@ class JobQueue:
                 await asyncio.sleep(delays[attempt])
 
         logger.error("[queue] Callback permanently failed for job %s after %d attempts", job.id, max_retries)
-        self._log_failed_callback(job, payload)
+        if self._retry_worker:
+            headers = {"Content-Type": "application/json"}
+            self._retry_worker.enqueue(job.callback_url, payload, headers, job_id=job.id)
+        else:
+            self._log_failed_callback(job, payload)
 
     def _log_failed_callback(self, job: Job, payload: dict):
         import json as _json

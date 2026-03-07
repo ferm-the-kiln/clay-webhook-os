@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.core.claude_executor import SubscriptionLimitError
 from app.core.context_assembler import build_prompt
+from app.core.model_router import resolve_model
 from app.core.pipeline_runner import run_skill_chain
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config
 from app.core.token_estimator import estimate_cost, estimate_tokens
@@ -25,11 +26,19 @@ async def webhook(body: WebhookRequest, request: Request):
     pool = request.app.state.pool
     cache = request.app.state.cache
 
+    # Check subscription health — reject early if paused
+    sub_monitor = getattr(request.app.state, "subscription_monitor", None)
+    if sub_monitor and sub_monitor.is_paused:
+        return JSONResponse(
+            status_code=503,
+            content={"error": True, "error_message": "Service temporarily paused due to subscription limits", "retry_after": 120},
+        )
+
     # Resolve skill chain
     skill_chain = body.skills or [body.skill]
     primary_skill = skill_chain[0]
     config = load_skill_config(primary_skill)
-    model = body.model or config.get("model") or settings.default_model
+    model = resolve_model(request_model=body.model, skill_config=config)
     is_chain = len(skill_chain) > 1
     priority = body.priority or "normal"
     max_retries = body.max_retries or 3
@@ -89,7 +98,7 @@ async def webhook(body: WebhookRequest, request: Request):
         return _error(f"Skill '{primary_skill}' not found", primary_skill)
 
     # Check cache
-    cached = cache.get(primary_skill, body.data, body.instructions)
+    cached = cache.get(primary_skill, body.data, body.instructions, model)
     if cached is not None:
         logger.info("[%s] Cache hit", primary_skill)
         return {
@@ -108,6 +117,14 @@ async def webhook(body: WebhookRequest, request: Request):
     # Build prompt
     context_files = load_context_files(skill_content, body.data, skill_name=primary_skill)
     prompt = build_prompt(skill_content, context_files, body.data, body.instructions)
+
+    # Refine model with prompt heuristic (layer 4) if smart routing enabled
+    if settings.enable_smart_routing and not body.model:
+        model = resolve_model(
+            skill_config=config,
+            prompt=prompt,
+            context_file_count=len(context_files),
+        )
 
     logger.info(
         "[%s] Processing (model=%s, context_files=%d, prompt_len=%d)",
@@ -161,7 +178,7 @@ async def webhook(body: WebhookRequest, request: Request):
         ))
 
     # Cache result
-    cache.put(primary_skill, body.data, body.instructions, parsed)
+    cache.put(primary_skill, body.data, body.instructions, parsed, model)
 
     return {
         **parsed,

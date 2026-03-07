@@ -1,3 +1,7 @@
+---
+model_tier: standard
+---
+
 # Champion Enabler — Internal Pitch Generator
 
 ## Role

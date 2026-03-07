@@ -1,3 +1,7 @@
+---
+model_tier: heavy
+---
+
 # Campaign Brief Generator
 
 ## Role

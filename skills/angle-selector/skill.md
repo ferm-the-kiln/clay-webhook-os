@@ -1,3 +1,7 @@
+---
+model_tier: light
+---
+
 # Angle Selector — Campaign Angle Matching
 
 ## Role

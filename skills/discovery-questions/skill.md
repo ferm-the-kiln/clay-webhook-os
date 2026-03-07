@@ -1,3 +1,7 @@
+---
+model_tier: standard
+---
+
 # Discovery Questions — Tailored Meeting Questions
 
 ## Role

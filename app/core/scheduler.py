@@ -48,6 +48,16 @@ class BatchScheduler:
             for b in sorted(self._batches.values(), key=lambda b: b.scheduled_at)
         ]
 
+    def prune_old(self, cutoff: float) -> int:
+        """Remove enqueued/cancelled batches older than cutoff."""
+        to_remove = [
+            bid for bid, b in self._batches.items()
+            if b.status in ("enqueued", "cancelled") and b.created_at < cutoff
+        ]
+        for bid in to_remove:
+            del self._batches[bid]
+        return len(to_remove)
+
     async def start(self, job_queue: "JobQueue") -> None:
         self._job_queue = job_queue
         self._task = asyncio.create_task(self._check_loop())

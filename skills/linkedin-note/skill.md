@@ -1,3 +1,7 @@
+---
+model_tier: standard
+---
+
 # LinkedIn Connection Note Generator
 
 ## Role

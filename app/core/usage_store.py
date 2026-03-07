@@ -58,6 +58,28 @@ class UsageStore:
         with open(self._errors_file, "a") as f:
             f.write(json.dumps(err.model_dump()) + "\n")
 
+    def compact(self, cutoff: float) -> tuple[int, int]:
+        """Remove entries and errors older than cutoff. Returns (entries_removed, errors_removed)."""
+        orig_entries = len(self._entries)
+        orig_errors = len(self._errors)
+        self._entries = [e for e in self._entries if e.timestamp >= cutoff]
+        self._errors = [e for e in self._errors if e.timestamp >= cutoff]
+        entries_removed = orig_entries - len(self._entries)
+        errors_removed = orig_errors - len(self._errors)
+        if entries_removed > 0 or errors_removed > 0:
+            self._rewrite()
+            logger.info("[usage] Compacted: removed %d entries, %d errors", entries_removed, errors_removed)
+        return entries_removed, errors_removed
+
+    def _rewrite(self) -> None:
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        with open(self._entries_file, "w") as f:
+            for e in self._entries:
+                f.write(json.dumps(e.model_dump()) + "\n")
+        with open(self._errors_file, "w") as f:
+            for e in self._errors:
+                f.write(json.dumps(e.model_dump()) + "\n")
+
     def get_summary(self) -> UsageSummary:
         now = time.time()
         today_key = time.strftime("%Y-%m-%d")

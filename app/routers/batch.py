@@ -5,8 +5,9 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request
 
 from app.config import settings
+from app.core.model_router import resolve_model
 from app.core.scheduler import ScheduledBatch
-from app.core.skill_loader import load_skill
+from app.core.skill_loader import load_skill, load_skill_config
 from app.core.token_estimator import estimate_cost
 from app.models.requests import BatchRequest
 
@@ -16,7 +17,8 @@ router = APIRouter()
 @router.post("/batch")
 async def batch(body: BatchRequest, request: Request):
     queue = request.app.state.job_queue
-    model = body.model or settings.default_model
+    skill_config = load_skill_config(body.skill)
+    model = resolve_model(request_model=body.model, skill_config=skill_config)
     priority = body.priority or "normal"
 
     skill_content = load_skill(body.skill)

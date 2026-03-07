@@ -1,3 +1,7 @@
+---
+model_tier: standard
+---
+
 # Objection Handler — Response Generator
 
 ## Role

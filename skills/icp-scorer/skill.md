@@ -1,3 +1,7 @@
+---
+model_tier: light
+---
+
 # ICP Scorer — Lead Qualification
 
 ## Role

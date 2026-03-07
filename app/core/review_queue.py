@@ -92,6 +92,20 @@ class ReviewQueue:
         self._rewrite()
         return item
 
+    def compact(self, cutoff: float) -> int:
+        """Remove resolved (approved/rejected/revised) items older than cutoff."""
+        resolved = {ReviewStatus.approved, ReviewStatus.rejected, ReviewStatus.revised}
+        orig = len(self._items)
+        self._items = [
+            i for i in self._items
+            if i.status not in resolved or i.created_at >= cutoff
+        ]
+        removed = orig - len(self._items)
+        if removed > 0:
+            self._rewrite()
+            logger.info("[review] Compacted: removed %d resolved items", removed)
+        return removed
+
     def get_stats(self, campaign_id: str | None = None) -> dict:
         items = self._items
         if campaign_id:

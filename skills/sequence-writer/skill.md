@@ -1,3 +1,7 @@
+---
+model_tier: heavy
+---
+
 # Sequence Writer — Multi-Touch Outbound Sequence Generator
 
 ## Role

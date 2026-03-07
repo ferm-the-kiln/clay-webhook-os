@@ -1,3 +1,7 @@
+---
+model_tier: heavy
+---
+
 # Competitive Response — Technical Displacement Messaging
 
 ## Role

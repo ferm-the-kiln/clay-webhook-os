@@ -1,3 +1,7 @@
+---
+model_tier: standard
+---
+
 # ROI Calculator — Build vs. Buy Analysis
 
 ## Role

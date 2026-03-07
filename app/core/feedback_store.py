@@ -47,6 +47,17 @@ class FeedbackStore:
         self._rebuild_summary()
         return True
 
+    def compact(self, cutoff: float) -> int:
+        """Remove entries older than cutoff. Returns count removed."""
+        orig = len(self._entries)
+        self._entries = [e for e in self._entries if e.created_at >= cutoff]
+        removed = orig - len(self._entries)
+        if removed > 0:
+            self._rewrite_entries()
+            self._rebuild_summary()
+            logger.info("[feedback] Compacted: removed %d entries", removed)
+        return removed
+
     def get_analytics(
         self,
         skill: str | None = None,

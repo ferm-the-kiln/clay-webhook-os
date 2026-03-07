@@ -27,14 +27,17 @@ class ResultCache:
         total = self._hits + self._misses
         return round(self._hits / total, 3) if total > 0 else 0.0
 
-    def _key(self, skill: str, data: dict, instructions: str | None) -> str:
-        payload = json.dumps({"skill": skill, "data": data, "instructions": instructions}, sort_keys=True)
+    def _key(self, skill: str, data: dict, instructions: str | None, model: str | None = None) -> str:
+        key_data = {"skill": skill, "data": data, "instructions": instructions}
+        if model:
+            key_data["model"] = model
+        payload = json.dumps(key_data, sort_keys=True)
         return hashlib.sha256(payload.encode()).hexdigest()
 
-    def get(self, skill: str, data: dict, instructions: str | None = None) -> dict | None:
+    def get(self, skill: str, data: dict, instructions: str | None = None, model: str | None = None) -> dict | None:
         if self._ttl <= 0:
             return None
-        key = self._key(skill, data, instructions)
+        key = self._key(skill, data, instructions, model)
         entry = self._store.get(key)
         if entry is None:
             self._misses += 1
@@ -47,10 +50,10 @@ class ResultCache:
         self._hits += 1
         return result
 
-    def put(self, skill: str, data: dict, instructions: str | None, result: dict) -> None:
+    def put(self, skill: str, data: dict, instructions: str | None, result: dict, model: str | None = None) -> None:
         if self._ttl <= 0:
             return
-        key = self._key(skill, data, instructions)
+        key = self._key(skill, data, instructions, model)
         self._store[key] = (time.time(), result)
 
     def clear(self) -> None:

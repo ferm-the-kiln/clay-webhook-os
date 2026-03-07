@@ -13,12 +13,27 @@ class Settings(BaseSettings):
     max_subscription_monthly_usd: float = 200.0
     prompt_size_warn_tokens: int = 50000
 
-    # Per-skill default models (overrides default_model when no model specified)
-    skill_models: dict[str, str] = {
-        "icp-scorer": "haiku",
-        "linkedin-note": "sonnet",
-        "angle-selector": "sonnet",
-    }
+    # Model routing
+    model_tier_map: dict[str, str] = {"light": "haiku", "standard": "sonnet", "heavy": "opus"}
+    auto_route_thresholds: dict[str, int] = {"light_max_tokens": 2000, "standard_max_tokens": 10000}
+    enable_smart_routing: bool = False
+
+    # Retry worker
+    retry_max_attempts: int = 5
+    retry_check_interval: int = 10
+
+    # Subscription monitor
+    subscription_probe_interval: int = 60
+    subscription_probe_interval_degraded: int = 30
+    subscription_probe_interval_paused: int = 120
+
+    # Cleanup worker
+    cleanup_interval_seconds: int = 3600
+    cleanup_job_retention_hours: int = 24
+    cleanup_feedback_retention_days: int = 90
+    cleanup_review_retention_days: int = 30
+    cleanup_usage_retention_days: int = 90
+    cleanup_failed_callback_days: int = 7
 
     # Derived paths (relative to project root)
     base_dir: Path = Path(__file__).resolve().parent.parent

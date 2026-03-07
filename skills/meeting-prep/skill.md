@@ -1,3 +1,7 @@
+---
+model_tier: heavy
+---
+
 # Meeting Prep — Pre-Call Intelligence Brief
 
 ## Role

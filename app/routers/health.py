@@ -34,9 +34,29 @@ async def health(request: Request, deep: bool = False):
         "workers_max": pool.max_workers,
         "queue_pending": queue.pending,
         "queue_total": queue.total,
+        "queue_paused": queue.is_paused,
         "skills_loaded": list_skills(),
         "cache_entries": cache.size,
     }
+
+    # Retry worker stats
+    retry_worker = getattr(request.app.state, "retry_worker", None)
+    if retry_worker:
+        result["retry"] = retry_worker.get_stats()
+
+    # Subscription monitor status
+    sub_monitor = getattr(request.app.state, "subscription_monitor", None)
+    if sub_monitor:
+        result["subscription"] = sub_monitor.get_status()
+
+    # Cleanup worker stats
+    cleanup_worker = getattr(request.app.state, "cleanup_worker", None)
+    if cleanup_worker and cleanup_worker.last_report:
+        report = cleanup_worker.last_report
+        result["cleanup"] = {
+            "last_run_at": report.timestamp,
+            "last_duration_ms": report.duration_ms,
+        }
 
     if deep:
         from app.core.claude_executor import ClaudeExecutor
@@ -333,3 +353,43 @@ async def outcomes(request: Request):
     }
 
 
+@router.get("/retries")
+async def retries(request: Request):
+    retry_worker = getattr(request.app.state, "retry_worker", None)
+    if not retry_worker:
+        return {"error": True, "error_message": "Retry worker not available"}
+    return {
+        "stats": retry_worker.get_stats(),
+        "pending": retry_worker.get_pending(),
+        "dead_letters": retry_worker.get_dead_letters(),
+    }
+
+
+@router.get("/subscription")
+async def subscription(request: Request):
+    sub_monitor = getattr(request.app.state, "subscription_monitor", None)
+    if not sub_monitor:
+        return {"error": True, "error_message": "Subscription monitor not available"}
+    usage_store = getattr(request.app.state, "usage_store", None)
+    result = sub_monitor.get_status()
+    if usage_store:
+        result["health"] = usage_store.get_health()
+    return result
+
+
+@router.post("/cleanup")
+async def cleanup(request: Request):
+    cleanup_worker = getattr(request.app.state, "cleanup_worker", None)
+    if not cleanup_worker:
+        return {"error": True, "error_message": "Cleanup worker not available"}
+    report = await cleanup_worker.run_once()
+    return {
+        "ok": True,
+        "timestamp": report.timestamp,
+        "cache_evicted": report.cache_evicted,
+        "jobs_pruned": report.jobs_pruned,
+        "usage_compacted": list(report.usage_compacted),
+        "feedback_archived": report.feedback_archived,
+        "review_archived": report.review_archived,
+        "duration_ms": report.duration_ms,
+    }

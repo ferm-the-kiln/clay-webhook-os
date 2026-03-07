@@ -1,3 +1,7 @@
+---
+model_tier: light
+---
+
 # Quality Gate — Output Validation
 
 ## Role

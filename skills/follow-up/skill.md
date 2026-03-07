@@ -1,3 +1,7 @@
+---
+model_tier: standard
+---
+
 # Follow-Up Email Generator
 
 ## Role

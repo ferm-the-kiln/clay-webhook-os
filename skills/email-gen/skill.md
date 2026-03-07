@@ -1,3 +1,7 @@
+---
+model_tier: standard
+---
+
 # Email Generator — Cold Outbound (Josh Braun PVC)
 
 ## Role
