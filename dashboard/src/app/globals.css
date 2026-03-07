@@ -20,19 +20,19 @@
   --color-clay-100: #111111;
 
   /* Brand accents — thekiln.com */
-  --color-kiln-teal: #0099ff;
-  --color-kiln-teal-light: #33aaff;
-  --color-kiln-teal-dark: #0077cc;
+  --color-kiln-teal: #015870;
+  --color-kiln-teal-light: #0a7a9e;
+  --color-kiln-teal-dark: #013d55;
   --color-kiln-rose: #C4A093;
   --color-kiln-mustard: #ca8a04;
-  --color-kiln-coral: #dc2626;
+  --color-kiln-coral: #f03603;
   --color-kiln-cream: #111111;
 
   /* Status colors */
   --color-status-success: #16a34a;
   --color-status-warning: #ca8a04;
-  --color-status-error: #dc2626;
-  --color-status-info: #0099ff;
+  --color-status-error: #f03603;
+  --color-status-info: #015870;
 
   /* Typography */
   --font-sans: "DM Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -110,31 +110,31 @@ body {
   --card-foreground: #111111;
   --popover: #ffffff;
   --popover-foreground: #111111;
-  --primary: #0099ff;
+  --primary: #015870;
   --primary-foreground: #ffffff;
   --secondary: #f5f5f3;
   --secondary-foreground: #111111;
   --muted: #f5f5f3;
   --muted-foreground: #737371;
-  --accent: #0099ff;
+  --accent: #015870;
   --accent-foreground: #ffffff;
-  --destructive: #dc2626;
+  --destructive: #f03603;
   --border: #e5e5e3;
   --input: #e5e5e3;
-  --ring: #0099ff;
-  --chart-1: #0099ff;
+  --ring: #015870;
+  --chart-1: #015870;
   --chart-2: #C4A093;
   --chart-3: #ca8a04;
-  --chart-4: #dc2626;
-  --chart-5: #7BA7C2;
+  --chart-4: #f03603;
+  --chart-5: #4a9eb8;
   --sidebar: #ffffff;
   --sidebar-foreground: #111111;
-  --sidebar-primary: #0099ff;
+  --sidebar-primary: #015870;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f5f5f3;
   --sidebar-accent-foreground: #111111;
   --sidebar-border: #e5e5e3;
-  --sidebar-ring: #0099ff;
+  --sidebar-ring: #015870;
 }
 
 /* Keep .dark for shadcn compat — same values in light mode */
@@ -145,31 +145,31 @@ body {
   --card-foreground: #111111;
   --popover: #ffffff;
   --popover-foreground: #111111;
-  --primary: #0099ff;
+  --primary: #015870;
   --primary-foreground: #ffffff;
   --secondary: #f5f5f3;
   --secondary-foreground: #111111;
   --muted: #f5f5f3;
   --muted-foreground: #737371;
-  --accent: #0099ff;
+  --accent: #015870;
   --accent-foreground: #ffffff;
-  --destructive: #dc2626;
+  --destructive: #f03603;
   --border: #e5e5e3;
   --input: #e5e5e3;
-  --ring: #0099ff;
-  --chart-1: #0099ff;
+  --ring: #015870;
+  --chart-1: #015870;
   --chart-2: #C4A093;
   --chart-3: #ca8a04;
-  --chart-4: #dc2626;
-  --chart-5: #7BA7C2;
+  --chart-4: #f03603;
+  --chart-5: #4a9eb8;
   --sidebar: #ffffff;
   --sidebar-foreground: #111111;
-  --sidebar-primary: #0099ff;
+  --sidebar-primary: #015870;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f5f5f3;
   --sidebar-accent-foreground: #111111;
   --sidebar-border: #e5e5e3;
-  --sidebar-ring: #0099ff;
+  --sidebar-ring: #015870;
 }
 
 @layer base {

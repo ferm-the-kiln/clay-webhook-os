@@ -18,9 +18,9 @@ interface ApprovalChartProps {
 }
 
 function getBarColor(rate: number): string {
-  if (rate >= 80) return "#0099ff";
+  if (rate >= 80) return "#015870";
   if (rate >= 60) return "#ca8a04";
-  return "#dc2626";
+  return "#f03603";
 }
 
 interface ChartEntry {

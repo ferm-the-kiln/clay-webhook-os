@@ -1,10 +1,11 @@
 import re
-from pathlib import Path
+
+import yaml
 
 from app.config import settings
 
 
-_skill_cache: dict[str, tuple[float, str]] = {}
+_skill_cache: dict[str, tuple[float, dict, str]] = {}
 
 
 def list_skills() -> list[str]:
@@ -17,6 +18,26 @@ def list_skills() -> list[str]:
     )
 
 
+def parse_frontmatter(content: str) -> tuple[dict, str]:
+    """Parse YAML frontmatter from skill content.
+
+    Returns (frontmatter_dict, body_without_frontmatter).
+    If no frontmatter, returns ({}, original_content).
+    """
+    if not content.startswith("---"):
+        return {}, content
+    end = content.find("---", 3)
+    if end == -1:
+        return {}, content
+    fm_text = content[3:end].strip()
+    body = content[end + 3:].lstrip("\n")
+    try:
+        fm = yaml.safe_load(fm_text) or {}
+    except yaml.YAMLError:
+        return {}, content
+    return fm, body
+
+
 def load_skill(name: str) -> str | None:
     skill_file = settings.skills_dir / name / "skill.md"
     if not skill_file.exists():
@@ -25,11 +46,29 @@ def load_skill(name: str) -> str | None:
     mtime = skill_file.stat().st_mtime
     cached = _skill_cache.get(name)
     if cached and cached[0] == mtime:
+        return cached[2]
+
+    content = skill_file.read_text()
+    fm, body = parse_frontmatter(content)
+    _skill_cache[name] = (mtime, fm, body)
+    return body
+
+
+def load_skill_config(name: str) -> dict:
+    """Return the frontmatter config dict for a skill."""
+    skill_file = settings.skills_dir / name / "skill.md"
+    if not skill_file.exists():
+        return {}
+
+    mtime = skill_file.stat().st_mtime
+    cached = _skill_cache.get(name)
+    if cached and cached[0] == mtime:
         return cached[1]
 
     content = skill_file.read_text()
-    _skill_cache[name] = (mtime, content)
-    return content
+    fm, body = parse_frontmatter(content)
+    _skill_cache[name] = (mtime, fm, body)
+    return fm
 
 
 def load_skill_variant(name: str, variant_id: str) -> str | None:
@@ -58,6 +97,12 @@ def resolve_template_vars(ref_path: str, data: dict) -> str:
             value = data.get(var, "")
             if value:
                 resolved = resolved.replace(placeholder, value)
+    # Support structured client directories: clients/{slug}.md -> clients/{slug}/profile.md
+    if resolved.startswith("clients/") and resolved.endswith(".md") and not resolved.endswith("/profile.md"):
+        profile_path = resolved[:-3] + "/profile.md"
+        full_profile = settings.base_dir / profile_path
+        if full_profile.exists():
+            return profile_path
     return resolved
 
 
@@ -69,11 +114,29 @@ def load_file(relative_path: str) -> str | None:
 
 
 def load_context_files(
-    skill_content: str, data: dict
+    skill_content: str, data: dict, *, skill_name: str | None = None
 ) -> list[dict[str, str]]:
-    refs = parse_context_refs(skill_content)
     files = []
     seen = set()
+
+    # --- Defaults layer: auto-load knowledge_base/_defaults/*.md ---
+    defaults_dir = settings.knowledge_dir / "_defaults"
+    if defaults_dir.exists():
+        for f in sorted(defaults_dir.iterdir()):
+            if f.suffix == ".md":
+                rel = f"knowledge_base/_defaults/{f.name}"
+                content = f.read_text()
+                seen.add(rel)
+                files.append({"path": rel, "content": content})
+
+    # --- Context refs: from frontmatter (preferred) or regex fallback ---
+    if skill_name:
+        config = load_skill_config(skill_name)
+        refs = config.get("context", []) or []
+        if not refs:
+            refs = parse_context_refs(skill_content)
+    else:
+        refs = parse_context_refs(skill_content)
 
     for ref in refs:
         resolved = resolve_template_vars(ref, data)
@@ -86,21 +149,18 @@ def load_context_files(
             seen.add(resolved)
             files.append({"path": resolved, "content": content})
 
-    # Auto-load industry context
+    # --- Auto-load industry context (exact slug match) ---
     industry = data.get("industry", "")
     if industry:
         slug = re.sub(r"[^a-z0-9]+", "-", industry.lower()).strip("-")
         industries_dir = settings.knowledge_dir / "industries"
         if industries_dir.exists():
-            for f in industries_dir.iterdir():
-                if not f.suffix == ".md":
-                    continue
-                stem_prefix = f.stem.split("-")[0]
-                if stem_prefix in slug:
-                    rel = f"knowledge_base/industries/{f.name}"
-                    if rel not in seen:
-                        content = f.read_text()
-                        seen.add(rel)
-                        files.append({"path": rel, "content": content})
+            industry_file = industries_dir / f"{slug}.md"
+            if industry_file.exists():
+                rel = f"knowledge_base/industries/{slug}.md"
+                if rel not in seen:
+                    content = industry_file.read_text()
+                    seen.add(rel)
+                    files.append({"path": rel, "content": content})
 
     return files

@@ -242,7 +242,7 @@ class JobQueue:
                     if skill_content is None:
                         raise ValueError(f"Skill '{job.skill}' not found")
 
-                    context_files = load_context_files(skill_content, job.data)
+                    context_files = load_context_files(skill_content, job.data, skill_name=job.skill)
                     prompt = build_prompt(skill_content, context_files, job.data, job.instructions)
 
                     result = await self._pool.submit(prompt, job.model, settings.request_timeout)
@@ -374,12 +374,47 @@ class JobQueue:
             payload["error"] = True
             payload["error_message"] = job.error
 
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(job.callback_url, json=payload)
-                logger.info(
-                    "[queue] Callback sent for job %s → %s (status=%d)",
-                    job.id, job.callback_url, resp.status_code,
+        max_retries = 3
+        delays = [1, 4, 16]
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(job.callback_url, json=payload)
+                    logger.info(
+                        "[queue] Callback sent for job %s → %s (status=%d, attempt=%d)",
+                        job.id, job.callback_url, resp.status_code, attempt + 1,
+                    )
+                    if resp.status_code < 500:
+                        return
+            except Exception as e:
+                logger.warning(
+                    "[queue] Callback attempt %d/%d failed for job %s: %s",
+                    attempt + 1, max_retries, job.id, e,
                 )
-        except Exception as e:
-            logger.error("[queue] Callback failed for job %s: %s", job.id, e)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(delays[attempt])
+
+        logger.error("[queue] Callback permanently failed for job %s after %d attempts", job.id, max_retries)
+        self._log_failed_callback(job, payload)
+
+    def _log_failed_callback(self, job: Job, payload: dict):
+        import json as _json
+        from pathlib import Path
+        failed_path = Path("data/failed_callbacks.json")
+        failed_path.parent.mkdir(parents=True, exist_ok=True)
+        entries = []
+        if failed_path.exists():
+            try:
+                entries = _json.loads(failed_path.read_text())
+            except Exception:
+                entries = []
+        entries.append({
+            "job_id": job.id,
+            "callback_url": job.callback_url,
+            "skill": job.skill,
+            "status": job.status,
+            "timestamp": time.time(),
+        })
+        # Keep last 1000 entries
+        entries = entries[-1000:]
+        failed_path.write_text(_json.dumps(entries, indent=2))

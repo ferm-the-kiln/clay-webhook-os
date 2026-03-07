@@ -12,15 +12,15 @@ import {
 } from "recharts";
 
 const COLORS = [
-  "#0099ff",
+  "#015870",
   "#C4A093",
   "#ca8a04",
-  "#dc2626",
-  "#7BA7C2",
-  "#33aaff",
+  "#f03603",
+  "#4a9eb8",
+  "#0a7a9e",
   "#737371",
   "#d4d4d2",
-  "#0077cc",
+  "#013d55",
 ];
 
 interface SkillCount {

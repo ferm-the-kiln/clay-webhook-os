@@ -173,9 +173,9 @@ export function SubscriptionHealth() {
                     return [name === "tokens" ? formatTokens(v) : formatNumber(v), label];
                   }}
                 />
-                <Bar dataKey="tokens" fill="#0099ff" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="tokens" fill="#015870" radius={[3, 3, 0, 0]} />
                 {chartData.some((d) => d.errors > 0) && (
-                  <Bar dataKey="errors" fill="#dc2626" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="errors" fill="#f03603" radius={[3, 3, 0, 0]} />
                 )}
               </BarChart>
             </ResponsiveContainer>

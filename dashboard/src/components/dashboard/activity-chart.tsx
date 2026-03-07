@@ -91,12 +91,12 @@ export function ActivityChart() {
           <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
             <defs>
               <linearGradient id="tealFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#0099ff" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#0099ff" stopOpacity={0} />
+                <stop offset="5%" stopColor="#015870" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#015870" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="coralFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#dc2626" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#dc2626" stopOpacity={0} />
+                <stop offset="5%" stopColor="#f03603" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#f03603" stopOpacity={0} />
               </linearGradient>
             </defs>
             <XAxis
@@ -123,14 +123,14 @@ export function ActivityChart() {
             <Area
               type="monotone"
               dataKey="completed"
-              stroke="#0099ff"
+              stroke="#015870"
               fill="url(#tealFill)"
               strokeWidth={2}
             />
             <Area
               type="monotone"
               dataKey="failed"
-              stroke="#dc2626"
+              stroke="#f03603"
               fill="url(#coralFill)"
               strokeWidth={2}
             />

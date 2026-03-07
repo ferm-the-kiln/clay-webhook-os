@@ -1,20 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchHealth } from "@/lib/api";
+import { fetchHealth, fetchUsageHealth } from "@/lib/api";
+import type { UsageHealth } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Menu, Search, Wifi, WifiOff } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Menu, Search, Wifi, WifiOff, Activity } from "lucide-react";
 import { CommandPalette } from "@/components/command-palette";
+import { formatTokens, formatNumber } from "@/lib/utils";
+
+const HEALTH_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
+  healthy: { dot: "bg-kiln-teal", bg: "bg-kiln-teal/10", text: "text-kiln-teal" },
+  warning: { dot: "bg-kiln-mustard", bg: "bg-kiln-mustard/10", text: "text-kiln-mustard" },
+  critical: { dot: "bg-kiln-coral", bg: "bg-kiln-coral/10", text: "text-kiln-coral" },
+  exhausted: { dot: "bg-kiln-coral", bg: "bg-kiln-coral/10", text: "text-kiln-coral" },
+};
 
 export function Header({ title }: { title: string }) {
   const [healthy, setHealthy] = useState<boolean | null>(null);
   const [showReconnect, setShowReconnect] = useState(false);
+  const [usageHealth, setUsageHealth] = useState<UsageHealth | null>(null);
 
   useEffect(() => {
     let active = true;
     let failCount = 0;
-    const check = () =>
+    const check = () => {
       fetchHealth()
         .then(() => {
           if (active) {
@@ -30,6 +45,10 @@ export function Header({ title }: { title: string }) {
             if (failCount >= 2) setShowReconnect(true);
           }
         });
+      fetchUsageHealth()
+        .then((h) => active && setUsageHealth(h))
+        .catch(() => {});
+    };
     check();
     const id = setInterval(check, 10000);
     return () => {
@@ -37,6 +56,15 @@ export function Header({ title }: { title: string }) {
       clearInterval(id);
     };
   }, []);
+
+  const usageColors = usageHealth
+    ? HEALTH_COLORS[usageHealth.status] || HEALTH_COLORS.healthy
+    : null;
+  const showUsageBanner =
+    usageHealth &&
+    (usageHealth.status === "warning" ||
+      usageHealth.status === "critical" ||
+      usageHealth.status === "exhausted");
 
   return (
     <>
@@ -60,6 +88,18 @@ export function Header({ title }: { title: string }) {
           >
             Reconnect
           </Button>
+        </div>
+      )}
+      {showUsageBanner && usageColors && (
+        <div className={`flex items-center justify-center gap-2 ${usageColors.bg} border-b border-current/10 px-4 py-2 text-sm ${usageColors.text}`}>
+          <Activity className="h-4 w-4" />
+          <span>
+            {usageHealth!.status === "exhausted"
+              ? "Subscription quota exhausted — jobs will fail until reset."
+              : usageHealth!.status === "critical"
+                ? "Subscription nearing limit — throttle usage."
+                : `Subscription usage elevated — ${formatTokens(usageHealth!.today_tokens)} tokens today.`}
+          </span>
         </div>
       )}
       <header className="flex items-center justify-between border-b border-clay-800 bg-white/80 backdrop-blur-sm px-4 md:px-6 py-4">
@@ -95,6 +135,32 @@ export function Header({ title }: { title: string }) {
               {"\u2318"}K
             </kbd>
           </button>
+
+          {/* Subscription health indicator */}
+          {usageHealth && usageColors && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className={`hidden sm:flex items-center gap-1.5 rounded-md px-2 py-1 text-xs ${usageColors.bg} ${usageColors.text} transition-colors`}>
+                  <span className={`h-2 w-2 rounded-full ${usageColors.dot}`} />
+                  <span className="hidden md:inline">
+                    {formatTokens(usageHealth.today_tokens)}
+                  </span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                className="max-w-xs bg-clay-900 border-clay-700 text-clay-300 text-xs"
+              >
+                <p className="font-medium mb-1">Subscription: {usageHealth.status}</p>
+                <p>{formatTokens(usageHealth.today_tokens)} tokens today</p>
+                <p>{formatNumber(usageHealth.today_requests)} requests today</p>
+                {usageHealth.today_errors > 0 && (
+                  <p className="text-kiln-coral">{usageHealth.today_errors} errors today</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          )}
+
           <div role="status" aria-live="polite">
             <Badge
               variant={

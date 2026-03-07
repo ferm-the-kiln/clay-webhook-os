@@ -205,7 +205,7 @@ export function StatsCards() {
           (c.key === "success_rate" && value < 0.9) ||
           (c.key === "cache_hit_rate" && value < 0.1);
         const sparkData = history[c.key] || [];
-        const sparkColor = isFail ? "#dc2626" : "#0099ff";
+        const sparkColor = isFail ? "#f03603" : "#015870";
         const Icon = c.icon;
 
         return (

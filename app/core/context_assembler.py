@@ -1,4 +1,9 @@
 import json
+import logging
+
+from app.config import settings
+
+logger = logging.getLogger("clay-webhook-os")
 
 # Most-generic first → most-specific last (closest to data payload).
 _PRIORITY_ORDER = [
@@ -81,4 +86,17 @@ def build_prompt(
     # Layer 6: Final reminder
     parts.append("\n\nReturn ONLY the JSON object. No markdown, no explanation.")
 
-    return "".join(parts)
+    prompt = "".join(parts)
+
+    # Log prompt size
+    char_count = len(prompt)
+    token_est = char_count // 4
+    if token_est > settings.prompt_size_warn_tokens:
+        logger.warning(
+            "[prompt] Large prompt: chars=%d, tokens_est=%d (threshold=%d)",
+            char_count, token_est, settings.prompt_size_warn_tokens,
+        )
+    else:
+        logger.info("[prompt] chars=%d, tokens_est=%d", char_count, token_est)
+
+    return prompt

@@ -30,25 +30,25 @@ export function ApprovalChart({ skills }: { skills: SkillAnalytics[] }) {
       </h4>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data} layout="vertical" margin={{ left: 20, right: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#2a2724" horizontal={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e3" horizontal={false} />
           <XAxis
             type="number"
             domain={[0, 100]}
-            tick={{ fill: "#7a7570", fontSize: 11 }}
+            tick={{ fill: "#a8a8a5", fontSize: 11 }}
             tickFormatter={(v) => `${v}%`}
           />
           <YAxis
             type="category"
             dataKey="skill"
-            tick={{ fill: "#a09a94", fontSize: 12 }}
+            tick={{ fill: "#737371", fontSize: 12 }}
             width={120}
           />
           <Tooltip
             contentStyle={{
-              background: "#1e1c1a",
-              border: "1px solid #3a3632",
+              background: "#ffffff",
+              border: "1px solid #e5e5e3",
               borderRadius: 8,
-              color: "#e8e2da",
+              color: "#111111",
             }}
             formatter={(value) => [`${value}%`, "Approval"]}
           />
@@ -58,10 +58,10 @@ export function ApprovalChart({ skills }: { skills: SkillAnalytics[] }) {
                 key={i}
                 fill={
                   entry.rate >= 70
-                    ? "#5ce0d2"
+                    ? "#015870"
                     : entry.rate >= 40
-                      ? "#e0c85c"
-                      : "#e07a5c"
+                      ? "#ca8a04"
+                      : "#f03603"
                 }
               />
             ))}
