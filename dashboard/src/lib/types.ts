@@ -170,6 +170,11 @@ export interface ClientProfile {
   tone: TonePreferences;
   campaign_angles: string;
   notes: string;
+  personas: string;
+  battle_cards: string;
+  signal_playbook: string;
+  proven_responses: string;
+  active_campaigns: string;
   raw_markdown: string;
 }
 

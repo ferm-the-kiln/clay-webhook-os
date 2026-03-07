@@ -24,11 +24,13 @@ def _error(message: str, skill: str = "unknown") -> dict:
 async def webhook(body: WebhookRequest, request: Request):
     pool = request.app.state.pool
     cache = request.app.state.cache
-    model = body.model or settings.default_model
 
     # Resolve skill chain
     skill_chain = body.skills or [body.skill]
     primary_skill = skill_chain[0]
+
+    # Model resolution: explicit request > per-skill default > global default
+    model = body.model or settings.skill_models.get(primary_skill, settings.default_model)
     is_chain = len(skill_chain) > 1
     priority = body.priority or "normal"
     max_retries = body.max_retries or 3

@@ -73,6 +73,11 @@ class ContextStore:
             tone=data.tone,
             campaign_angles=data.campaign_angles,
             notes=data.notes,
+            personas=data.personas,
+            battle_cards=data.battle_cards,
+            signal_playbook=data.signal_playbook,
+            proven_responses=data.proven_responses,
+            active_campaigns=data.active_campaigns,
         )
         md = self._render_client_markdown(profile)
         profile.raw_markdown = md
@@ -290,6 +295,11 @@ class ContextStore:
                 sections.get("Campaign Angles", sections.get("Campaign Notes", "")),
             ).strip(),
             notes=sections.get("Notes", sections.get("Campaign Notes", "")).strip(),
+            personas=sections.get("Personas", "").strip(),
+            battle_cards=sections.get("Battle Cards", "").strip(),
+            signal_playbook=sections.get("Signal Playbook", "").strip(),
+            proven_responses=sections.get("Proven Responses", "").strip(),
+            active_campaigns=sections.get("Active Campaigns", "").strip(),
             raw_markdown=content,
         )
 
@@ -385,6 +395,36 @@ class ContextStore:
             lines.append("## Notes")
             lines.append("")
             lines.append(profile.notes)
+            lines.append("")
+
+        if profile.personas:
+            lines.append("## Personas")
+            lines.append("")
+            lines.append(profile.personas)
+            lines.append("")
+
+        if profile.battle_cards:
+            lines.append("## Battle Cards")
+            lines.append("")
+            lines.append(profile.battle_cards)
+            lines.append("")
+
+        if profile.signal_playbook:
+            lines.append("## Signal Playbook")
+            lines.append("")
+            lines.append(profile.signal_playbook)
+            lines.append("")
+
+        if profile.proven_responses:
+            lines.append("## Proven Responses")
+            lines.append("")
+            lines.append(profile.proven_responses)
+            lines.append("")
+
+        if profile.active_campaigns:
+            lines.append("## Active Campaigns")
+            lines.append("")
+            lines.append(profile.active_campaigns)
             lines.append("")
 
         return "\n".join(lines)

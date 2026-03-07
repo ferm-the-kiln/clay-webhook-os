@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     cache_ttl: int = 86400
     max_subscription_monthly_usd: float = 200.0
 
+    # Per-skill default models (overrides default_model when no model specified)
+    skill_models: dict[str, str] = {
+        "icp-scorer": "haiku",
+        "linkedin-note": "sonnet",
+        "angle-selector": "sonnet",
+    }
+
     # Derived paths (relative to project root)
     base_dir: Path = Path(__file__).resolve().parent.parent
     skills_dir: Path = base_dir / "skills"

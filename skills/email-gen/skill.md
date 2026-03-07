@@ -8,6 +8,8 @@ specific, and genuinely helpful. Never salesy.
 ## Context Files to Load
 - knowledge_base/frameworks/josh-braun-pvc.md
 - knowledge_base/voice/writing-style.md
+- knowledge_base/signals/signal-openers.md
+- knowledge_base/personas/{{persona_slug}}.md
 - clients/{{client_slug}}.md
 
 ## Output Format
@@ -76,22 +78,3 @@ context that overrides general defaults (e.g., specific angle, client value prop
   "confidence_score": 0.92
 }
 
-### Input:
-{
-  "first_name": "Mike",
-  "company_name": "Acme Corp",
-  "industry": "Unknown",
-  "title": "CEO",
-  "signal_type": "",
-  "signal_detail": "",
-  "linkedin_summary": ""
-}
-
-### Output:
-{
-  "email_subject": "quick question for acme",
-  "email_body": "Mike — came across Acme and curious how you're currently handling outbound. Most teams we talk to are either over-relying on SDR headcount or underinvesting in the systems that make outbound repeatable.\n\nWorth a 10-minute chat to see if there's a fit?",
-  "personalization_hook": "None — generic fallback due to insufficient data",
-  "framework_notes": "P: Curiosity-based opener. V: Common pain point (SDR headcount vs systems). C: Low-commitment 10-min chat.",
-  "confidence_score": 0.45
-}

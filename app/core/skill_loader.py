@@ -50,11 +50,15 @@ def parse_context_refs(skill_content: str) -> list[str]:
     return [m.group(1) for m in pattern.finditer(skill_content)]
 
 
-def resolve_client_slug(ref_path: str, data: dict) -> str:
-    slug = data.get("client_slug", "")
-    if "{{client_slug}}" in ref_path and slug:
-        return ref_path.replace("{{client_slug}}", slug)
-    return ref_path
+def resolve_template_vars(ref_path: str, data: dict) -> str:
+    resolved = ref_path
+    for var in ("client_slug", "persona_slug"):
+        placeholder = "{{" + var + "}}"
+        if placeholder in resolved:
+            value = data.get(var, "")
+            if value:
+                resolved = resolved.replace(placeholder, value)
+    return resolved
 
 
 def load_file(relative_path: str) -> str | None:
@@ -72,7 +76,7 @@ def load_context_files(
     seen = set()
 
     for ref in refs:
-        resolved = resolve_client_slug(ref, data)
+        resolved = resolve_template_vars(ref, data)
         if "{{" in resolved:
             continue
         if resolved in seen:

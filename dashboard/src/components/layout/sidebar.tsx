@@ -12,7 +12,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { LayoutDashboard, FlaskConical, Layers, BookOpen, GitBranch, TestTubes, BarChart3, Settings, Rocket, ClipboardCheck, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, FlaskConical, BookOpen, TestTubes, Rocket, Settings } from "lucide-react";
 
 const NAV = [
   {
@@ -22,15 +22,15 @@ const NAV = [
     shortcut: "1",
   },
   {
-    href: "/playground",
-    label: "Playground",
+    href: "/run",
+    label: "Run",
     icon: FlaskConical,
     shortcut: "2",
   },
   {
-    href: "/batch",
-    label: "Batch",
-    icon: Layers,
+    href: "/campaigns",
+    label: "Campaigns",
+    icon: Rocket,
     shortcut: "3",
   },
   {
@@ -40,40 +40,16 @@ const NAV = [
     shortcut: "4",
   },
   {
-    href: "/pipelines",
-    label: "Pipelines",
-    icon: GitBranch,
-    shortcut: "5",
-  },
-  {
-    href: "/lab",
-    label: "Skills Lab",
+    href: "/skills",
+    label: "Skills",
     icon: TestTubes,
-    shortcut: "6",
-  },
-  {
-    href: "/campaigns",
-    label: "Campaigns",
-    icon: Rocket,
-    shortcut: "7",
-  },
-  {
-    href: "/review",
-    label: "Review",
-    icon: ClipboardCheck,
-    shortcut: "8",
-  },
-  {
-    href: "/analytics",
-    label: "Analytics",
-    icon: BarChart3,
-    shortcut: "9",
+    shortcut: "5",
   },
   {
     href: "/settings",
     label: "Settings",
     icon: Settings,
-    shortcut: "0",
+    shortcut: "6",
   },
 ];
 
@@ -92,9 +68,9 @@ export function Sidebar() {
   // Keyboard shortcuts for navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].includes(e.key)) {
+      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4", "5", "6"].includes(e.key)) {
         e.preventDefault();
-        const idx = e.key === "0" ? 9 : parseInt(e.key) - 1;
+        const idx = parseInt(e.key) - 1;
         const nav = NAV[idx];
         if (nav) window.location.href = nav.href;
       }
@@ -191,10 +167,10 @@ export function Sidebar() {
         </SheetContent>
       </Sheet>
 
-      {/* Mobile bottom nav - fixed at bottom, 5 primary items */}
+      {/* Mobile bottom nav - all 6 items fit */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-clay-800 bg-white/95 backdrop-blur-sm">
         <nav className="flex items-center justify-around py-2">
-          {NAV.slice(0, 4).map((item) => {
+          {NAV.map((item) => {
             const active = pathname === item.href;
             return (
               <Link
@@ -210,22 +186,6 @@ export function Sidebar() {
               </Link>
             );
           })}
-          <button
-            onClick={() =>
-              document.dispatchEvent(new CustomEvent("toggle-mobile-sidebar"))
-            }
-            className={cn(
-              "flex flex-col items-center gap-0.5 px-3 py-1 transition-colors",
-              NAV.slice(4).some((item) => pathname === item.href)
-                ? "text-kiln-teal"
-                : "text-clay-500"
-            )}
-          >
-            <MoreHorizontal className="h-5 w-5" />
-            {NAV.slice(4).some((item) => pathname === item.href) && (
-              <span className="h-1 w-1 rounded-full bg-kiln-teal" />
-            )}
-          </button>
         </nav>
       </div>
     </>

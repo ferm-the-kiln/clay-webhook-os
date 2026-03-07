@@ -25,7 +25,7 @@ def build_prompt(
             parts.append(f"\n## {ctx['path']}\n\n{ctx['content']}")
 
     # Layer 4: Data
-    parts.append(f"\n\n---\n\n# Data to Process\n\n{json.dumps(data, indent=2)}")
+    parts.append(f"\n\n---\n\n# Data to Process\n\n{json.dumps(data)}")
 
     # Layer 5: Instructions
     if instructions:

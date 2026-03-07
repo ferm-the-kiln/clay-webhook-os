@@ -28,6 +28,11 @@ class ClientProfile(BaseModel):
     tone: TonePreferences = TonePreferences()
     campaign_angles: str = ""
     notes: str = ""
+    personas: str = ""
+    battle_cards: str = ""
+    signal_playbook: str = ""
+    proven_responses: str = ""
+    active_campaigns: str = ""
     raw_markdown: str = ""
 
 
@@ -51,6 +56,11 @@ class CreateClientRequest(BaseModel):
     tone: TonePreferences = TonePreferences()
     campaign_angles: str = ""
     notes: str = ""
+    personas: str = ""
+    battle_cards: str = ""
+    signal_playbook: str = ""
+    proven_responses: str = ""
+    active_campaigns: str = ""
 
 
 class UpdateClientRequest(BaseModel):
@@ -64,6 +74,11 @@ class UpdateClientRequest(BaseModel):
     tone: TonePreferences | None = None
     campaign_angles: str | None = None
     notes: str | None = None
+    personas: str | None = None
+    battle_cards: str | None = None
+    signal_playbook: str | None = None
+    proven_responses: str | None = None
+    active_campaigns: str | None = None
 
 
 class KnowledgeBaseFile(BaseModel):

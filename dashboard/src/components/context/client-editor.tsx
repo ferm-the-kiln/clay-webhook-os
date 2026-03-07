@@ -37,6 +37,11 @@ interface ClientEditorProps {
     tone: { formality: string; approach: string; avoid: string };
     campaign_angles: string;
     notes: string;
+    personas: string;
+    battle_cards: string;
+    signal_playbook: string;
+    proven_responses: string;
+    active_campaigns: string;
   }) => void;
 }
 
@@ -125,6 +130,11 @@ export function ClientEditor({
   const [avoid, setAvoid] = useState("");
   const [campaignAngles, setCampaignAngles] = useState("");
   const [notes, setNotes] = useState("");
+  const [personas, setPersonas] = useState("");
+  const [battleCards, setBattleCards] = useState("");
+  const [signalPlaybook, setSignalPlaybook] = useState("");
+  const [provenResponses, setProvenResponses] = useState("");
+  const [activeCampaigns, setActiveCampaigns] = useState("");
 
   useEffect(() => {
     if (client) {
@@ -146,6 +156,11 @@ export function ClientEditor({
       setAvoid(client.tone.avoid);
       setCampaignAngles(client.campaign_angles);
       setNotes(client.notes);
+      setPersonas(client.personas || "");
+      setBattleCards(client.battle_cards || "");
+      setSignalPlaybook(client.signal_playbook || "");
+      setProvenResponses(client.proven_responses || "");
+      setActiveCampaigns(client.active_campaigns || "");
     } else {
       setSlug("");
       setName("");
@@ -165,6 +180,11 @@ export function ClientEditor({
       setAvoid("");
       setCampaignAngles("");
       setNotes("");
+      setPersonas("");
+      setBattleCards("");
+      setSignalPlaybook("");
+      setProvenResponses("");
+      setActiveCampaigns("");
     }
   }, [client, open]);
 
@@ -188,6 +208,11 @@ export function ClientEditor({
       tone: { formality, approach, avoid },
       campaign_angles: campaignAngles,
       notes,
+      personas,
+      battle_cards: battleCards,
+      signal_playbook: signalPlaybook,
+      proven_responses: provenResponses,
+      active_campaigns: activeCampaigns,
     });
   };
 
@@ -275,6 +300,18 @@ export function ClientEditor({
             </h4>
             <TextArea label="Campaign Angles" value={campaignAngles} onChange={setCampaignAngles} rows={6} />
             <TextArea label="Notes" value={notes} onChange={setNotes} />
+          </div>
+
+          {/* GTM Context */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-clay-300 border-b border-clay-800 pb-1">
+              GTM Context
+            </h4>
+            <TextArea label="Personas" value={personas} onChange={setPersonas} rows={6} />
+            <TextArea label="Battle Cards" value={battleCards} onChange={setBattleCards} rows={6} />
+            <TextArea label="Signal Playbook" value={signalPlaybook} onChange={setSignalPlaybook} rows={6} />
+            <TextArea label="Proven Responses" value={provenResponses} onChange={setProvenResponses} rows={4} />
+            <TextArea label="Active Campaigns" value={activeCampaigns} onChange={setActiveCampaigns} rows={4} />
           </div>
 
           <Button

@@ -7,8 +7,10 @@ import { Command } from "cmdk";
 import {
   LayoutDashboard,
   FlaskConical,
-  Layers,
   BookOpen,
+  Rocket,
+  TestTubes,
+  Settings,
   Zap,
   Search,
 } from "lucide-react";
@@ -16,9 +18,16 @@ import { SKILL_SAMPLES } from "@/lib/constants";
 
 const PAGES = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Playground", href: "/playground", icon: FlaskConical },
-  { name: "Batch Processing", href: "/batch", icon: Layers },
+  { name: "Run", href: "/run", icon: FlaskConical },
+  { name: "Batch Processing", href: "/run?tab=batch", icon: FlaskConical },
+  { name: "Campaigns", href: "/campaigns", icon: Rocket },
+  { name: "Review Queue", href: "/campaigns?tab=review", icon: Rocket },
   { name: "Context Hub", href: "/context", icon: BookOpen },
+  { name: "Skills", href: "/skills", icon: TestTubes },
+  { name: "Pipelines", href: "/skills", icon: TestTubes },
+  { name: "Skills Lab", href: "/skills?tab=lab", icon: TestTubes },
+  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Analytics", href: "/settings?tab=analytics", icon: Settings },
 ];
 
 const SKILLS = Object.keys(SKILL_SAMPLES);
@@ -86,7 +95,7 @@ export function CommandPalette() {
                   <Command.Item
                     key={skill}
                     value={`skill ${skill}`}
-                    onSelect={() => navigate(`/playground?skill=${skill}`)}
+                    onSelect={() => navigate(`/run?skill=${skill}`)}
                     className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-clay-300 cursor-pointer data-[selected=true]:bg-kiln-teal/10 data-[selected=true]:text-kiln-teal"
                   >
                     <Zap className="h-4 w-4" />
