@@ -8,6 +8,14 @@
 - **HQ:** San Francisco, CA
 - **Founded:** 2021
 
+## Sales Motion
+- **Model:** Product-led growth (free tier → developer adoption → enterprise deal)
+- **Free tier:** 600 minutes, no credit card required
+- **Typical cycle:** Developer tries API → builds POC → eng manager approves budget → enterprise deal
+- **Enterprise cycle:** 2-4 months (security review, procurement)
+- **Champions:** Individual developers who tried the API and loved it
+- **Blockers:** Security review, vendor approval, "build vs buy" debates
+
 ## What They Sell
 
 Twelve Labs builds a **video understanding platform** — an API that lets developers
@@ -33,6 +41,12 @@ speech, and temporal relationships simultaneously.
 **Pricing:** Usage-based. Free tier = 600 minutes. Developer plan starts ~$0.033/min.
 SDKs for Python and Node.js.
 
+## Positioning
+For engineering teams building video-powered products, Twelve Labs is the
+video understanding API that lets you search, analyze, and generate from
+video using purpose-built multimodal models — unlike general-purpose LLMs
+that treat video as a series of image frames.
+
 ## Target ICP — Who Twelve Labs Sells To
 
 ### Primary Buyers
@@ -54,14 +68,52 @@ SDKs for Python and Node.js.
 - **Company size:** 50-5,000 employees (mid-market to enterprise)
 - **Verticals:** Media & Entertainment, Security/Surveillance, Sports, E-learning, AdTech, Healthcare (surgical video)
 - **Technical signal:** Has engineering team, builds products (not just buys SaaS)
-- **Stack signal:** Uses cloud infra (AWS, GCP, Azure), vector DBs (Pinecone, Milvus), data platforms (Databricks, Snowflake)
 - **Video signal:** Company creates, hosts, or processes significant video content
+
+### ICP Tech Stack Signals
+- **Cloud:** AWS, GCP, Azure
+- **Vector DBs:** Pinecone, Milvus, Weaviate, Qdrant
+- **Data platforms:** Databricks, Snowflake, BigQuery
+- **Video platforms:** Mux, Cloudflare Stream, AWS MediaConvert
+- **ML/AI signals:** Uses embeddings, runs ML pipelines, has ML engineers
 
 ### Negative ICP (Don't Target)
 - Non-technical buyers with no engineering team
 - Companies with < 100 hours of video content
 - Pure consumer plays with no API integration need
 - Companies already building in-house video ML (Google, Meta, etc.)
+
+## Vertical Messaging
+
+### Media & Entertainment
+- **Pain:** Thousands of hours of content, manual tagging, can't find the clip they need
+- **Hook:** "From 10,000 hours to the exact moment — no more manual tagging"
+- **Use case:** Asset search, auto-chaptering, content repurposing
+
+### Security & Surveillance
+- **Pain:** Human monitoring doesn't scale, reviewing footage is slow
+- **Hook:** "Search every camera feed by description, not timestamp"
+- **Use case:** Incident search, anomaly detection, automated alerts
+
+### Sports Analytics
+- **Pain:** Manual highlight clipping, slow game film review
+- **Hook:** "Auto-generate highlights and search game footage by play type"
+- **Use case:** Highlight generation, play-by-play search, performance analysis
+
+### E-learning / EdTech
+- **Pain:** Students can't find the right moment in lecture videos
+- **Hook:** "Let students search inside lectures like they search Google"
+- **Use case:** Lecture search, auto-chaptering, quiz generation from video
+
+### AdTech
+- **Pain:** Brand safety, ad placement verification, creative analysis at scale
+- **Hook:** "Understand what's IN the video before your ad runs next to it"
+- **Use case:** Content classification, brand safety, creative analysis
+
+### Healthcare (Surgical Video)
+- **Pain:** Surgical video libraries are unsearchable, training is manual
+- **Hook:** "Search surgical video archives by procedure, technique, or outcome"
+- **Use case:** Surgical training, procedure documentation, research
 
 ## Competitive Landscape
 - **Direct:** Moments Lab, Mantis AI, LiveLink AI
@@ -78,11 +130,26 @@ SDKs for Python and Node.js.
 - Moving toward "agentic video intelligence" (autonomous video understanding agents)
 - Presented at AWS re:Invent 2025
 
-## Value Proposition (for outbound on their behalf)
+## Messaging Hierarchy
+
+### Primary (lead with this)
 - "Build video intelligence into your product with a few API calls"
-- "Stop treating video like a pile of frames — understand what's actually happening"
-- "30,000 developers already use Twelve Labs to search, analyze, and understand video"
-- "One-time indexing, unlimited downstream tasks — search, summarize, classify, embed"
+
+### Secondary (supporting proof)
+- "Purpose-built video models — not image models applied to frames"
+- "30,000+ developers already on the platform"
+
+### Tertiary (use in follow-ups / PS lines)
+- "One-time indexing, unlimited downstream tasks"
+- "Available on AWS Bedrock as a managed service"
+
+## Social Proof
+- 30,000+ developers on the platform
+- $107M total raised (Series B, Dec 2024)
+- $300M valuation
+- Partners: AWS, Databricks, Snowflake, Adobe
+- Available on AWS Bedrock (managed service)
+- Presented at AWS re:Invent 2025
 
 ## Tone Preferences
 - **Formality:** Technical but approachable. Developer-friendly.
@@ -149,6 +216,34 @@ SDKs for Python and Node.js.
 - **When we win:** Customer needs semantic search, natural language queries, video summarization, or multimodal embeddings
 - **Trap question:** "Can you search your video archive using a natural language question — like 'show me every scene where a customer complaint is discussed'?"
 
+## Common Objections
+
+### "We'll just use GPT-4V / Gemini for video"
+General-purpose models analyze frames individually — they miss temporal
+relationships. Ask: "Can your current approach find the moment where
+someone says X while doing Y?" That requires understanding time, not
+just pixels.
+
+### "We can build this in-house with open-source models"
+You can — and it'll take 6+ months of ML eng time, plus ongoing model
+maintenance. Twelve Labs gives you production-grade video understanding
+via API, so your team ships features instead of training models.
+
+### "The cost per minute seems high"
+Index once, query unlimited times. Compare: the cost of one ML engineer
+for one month vs. a year of Twelve Labs API usage. Also: free tier =
+600 minutes to prove ROI before committing.
+
+### "We don't have enough video content to justify this"
+If you have 100+ hours and growing, the ROI compounds. But if video isn't
+core to your product, this probably isn't the right fit. (Negative ICP
+honesty builds trust.)
+
+### "How accurate is it on our specific content type?"
+Best answer: "Let's test it." Free tier lets them index their own content
+and evaluate. Benchmarks are public, but nothing beats testing on their
+own data.
+
 ## Signal Playbook
 | Signal | What It Means | Messaging Angle | Urgency |
 |--------|--------------|-----------------|---------|
@@ -159,6 +254,14 @@ SDKs for Python and Node.js.
 | Content library growth | More video = more need for search/analysis | "From 10,000 hours to the exact moment" | Medium |
 | Competitor using Twelve Labs | Social proof / FOMO | "[Competitor] just shipped video search — here's how" | High |
 | Tech stack includes vector DBs | Ready for embeddings-based approach | "Add video to your RAG pipeline" | Low — nurture |
+
+## Discovery Questions
+- "How does your team currently search or navigate video content?"
+- "What happens when someone needs to find a specific moment in a video today?"
+- "How much engineering time are you spending on video-related ML?"
+- "What would change if your users could search inside video like they search text?"
+- "How many hours of video content are you processing per month?"
+- "Are you building video features in-house, or evaluating third-party APIs?"
 
 ## Proven Responses
 (Empty — populate as campaigns generate results)
