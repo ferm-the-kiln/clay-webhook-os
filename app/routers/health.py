@@ -21,11 +21,12 @@ async def root():
 
 
 @router.get("/health")
-async def health(request: Request):
+async def health(request: Request, deep: bool = False):
     pool = request.app.state.pool
     cache = request.app.state.cache
     queue = request.app.state.job_queue
-    return {
+
+    result = {
         "status": "ok",
         "engine": "claude --print",
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -36,6 +37,28 @@ async def health(request: Request):
         "skills_loaded": list_skills(),
         "cache_entries": cache.size,
     }
+
+    if deep:
+        from app.core.claude_executor import ClaudeExecutor
+        executor = ClaudeExecutor()
+        try:
+            ping = await executor.execute(
+                'Respond with exactly: {"ping":"pong"}',
+                model="haiku",
+                timeout=30,
+            )
+            result["deep_check"] = {
+                "claude_available": True,
+                "latency_ms": ping["duration_ms"],
+            }
+        except Exception as e:
+            result["status"] = "degraded"
+            result["deep_check"] = {
+                "claude_available": False,
+                "error": str(e),
+            }
+
+    return result
 
 
 @router.get("/jobs")

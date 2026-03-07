@@ -1,10 +1,11 @@
 import logging
 import re
+import shutil
 from pathlib import Path
 
 from app.config import settings
 from app.core.context_assembler import build_prompt
-from app.core.skill_loader import list_skills, load_context_files, load_skill, parse_context_refs
+from app.core.skill_loader import list_skills, load_context_files, load_skill, load_skill_config, parse_context_refs
 from app.models.context import (
     ClientProfile,
     ClientSummary,
@@ -36,11 +37,21 @@ class ContextStore:
         if not self._clients_dir.exists():
             return []
         results = []
-        for f in sorted(self._clients_dir.iterdir()):
-            if not f.suffix == ".md" or f.name.startswith("_"):
+        for d in sorted(self._clients_dir.iterdir()):
+            if d.name.startswith("_"):
                 continue
-            slug = f.stem
-            content = f.read_text()
+            # Support both structured dirs and flat files
+            if d.is_dir():
+                profile_file = d / "profile.md"
+                if not profile_file.exists():
+                    continue
+                slug = d.name
+                content = profile_file.read_text()
+            elif d.suffix == ".md":
+                slug = d.stem
+                content = d.read_text()
+            else:
+                continue
             profile = self._parse_client_markdown(slug, content)
             results.append(
                 ClientSummary(
@@ -54,11 +65,16 @@ class ContextStore:
         return results
 
     def get_client(self, slug: str) -> ClientProfile | None:
-        f = self._clients_dir / f"{slug}.md"
-        if not f.exists():
-            return None
-        content = f.read_text()
-        return self._parse_client_markdown(slug, content)
+        # Try structured directory first, then flat file
+        profile_file = self._clients_dir / slug / "profile.md"
+        if profile_file.exists():
+            content = profile_file.read_text()
+            return self._parse_client_markdown(slug, content)
+        flat_file = self._clients_dir / f"{slug}.md"
+        if flat_file.exists():
+            content = flat_file.read_text()
+            return self._parse_client_markdown(slug, content)
+        return None
 
     def create_client(self, data: CreateClientRequest) -> ClientProfile:
         profile = ClientProfile(
@@ -81,8 +97,9 @@ class ContextStore:
         )
         md = self._render_client_markdown(profile)
         profile.raw_markdown = md
-        self._clients_dir.mkdir(parents=True, exist_ok=True)
-        (self._clients_dir / f"{data.slug}.md").write_text(md)
+        client_dir = self._clients_dir / data.slug
+        client_dir.mkdir(parents=True, exist_ok=True)
+        (client_dir / "profile.md").write_text(md)
         logger.info("[context] Created client: %s", data.slug)
         return profile
 
@@ -94,17 +111,26 @@ class ContextStore:
         updated = existing.model_copy(update=updates)
         md = self._render_client_markdown(updated)
         updated.raw_markdown = md
-        (self._clients_dir / f"{slug}.md").write_text(md)
+        client_dir = self._clients_dir / slug
+        client_dir.mkdir(parents=True, exist_ok=True)
+        (client_dir / "profile.md").write_text(md)
         logger.info("[context] Updated client: %s", slug)
         return updated
 
     def delete_client(self, slug: str) -> bool:
-        f = self._clients_dir / f"{slug}.md"
-        if not f.exists():
-            return False
-        f.unlink()
-        logger.info("[context] Deleted client: %s", slug)
-        return True
+        # Try structured directory first
+        client_dir = self._clients_dir / slug
+        if client_dir.is_dir():
+            shutil.rmtree(client_dir)
+            logger.info("[context] Deleted client: %s", slug)
+            return True
+        # Fall back to flat file
+        flat_file = self._clients_dir / f"{slug}.md"
+        if flat_file.exists():
+            flat_file.unlink()
+            logger.info("[context] Deleted client: %s", slug)
+            return True
+        return False
 
     # ── Knowledge Base ───────────────────────────────────────────
 
@@ -214,13 +240,25 @@ class ContextStore:
 
     def get_context_usage_map(self) -> dict[str, list[str]]:
         usage: dict[str, list[str]] = {}
-        for skill_name in list_skills():
-            content = load_skill(skill_name)
-            if content is None:
-                continue
-            refs = parse_context_refs(content)
+        all_skills = list_skills()
+        for skill_name in all_skills:
+            config = load_skill_config(skill_name)
+            refs = config.get("context", []) or []
+            if not refs:
+                content = load_skill(skill_name)
+                if content:
+                    refs = parse_context_refs(content)
             for ref in refs:
                 usage.setdefault(ref, []).append(skill_name)
+
+        # Add _defaults/ files as used by all skills
+        defaults_dir = self._knowledge_dir / "_defaults"
+        if defaults_dir.exists():
+            for f in sorted(defaults_dir.iterdir()):
+                if f.suffix == ".md":
+                    rel = f"knowledge_base/_defaults/{f.name}"
+                    usage[rel] = list(all_skills)
+
         return usage
 
     # ── Prompt Preview ───────────────────────────────────────────
@@ -232,7 +270,7 @@ class ContextStore:
         if skill_content is None:
             return None
         data = {**(sample_data or {}), "client_slug": client_slug}
-        context_files = load_context_files(skill_content, data)
+        context_files = load_context_files(skill_content, data, skill_name=skill)
         prompt = build_prompt(skill_content, context_files, data)
         return PromptPreviewResponse(
             assembled_prompt=prompt,

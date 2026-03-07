@@ -76,6 +76,11 @@ export interface HealthResponse {
   queue_total: number;
   skills_loaded: string[];
   cache_entries: number;
+  deep_check?: {
+    claude_available: boolean;
+    latency_ms?: number;
+    error?: string;
+  };
 }
 
 export interface BatchResponse {

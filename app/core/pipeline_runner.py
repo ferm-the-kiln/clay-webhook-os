@@ -118,7 +118,7 @@ async def run_skill_chain(
                 current_data.update(cached)
                 continue
 
-        context_files = load_context_files(skill_content, current_data)
+        context_files = load_context_files(skill_content, current_data, skill_name=skill_name)
         prompt = build_prompt(skill_content, context_files, current_data, instructions)
 
         try:
@@ -236,7 +236,7 @@ async def run_pipeline(
             continue
 
         # Build prompt and execute
-        context_files = load_context_files(skill_content, current_data)
+        context_files = load_context_files(skill_content, current_data, skill_name=skill_name)
         prompt = build_prompt(skill_content, context_files, current_data, effective_instructions)
 
         try:

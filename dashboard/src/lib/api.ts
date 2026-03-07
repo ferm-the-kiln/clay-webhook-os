@@ -52,6 +52,10 @@ export function fetchHealth(): Promise<HealthResponse> {
   return apiFetch("/health");
 }
 
+export function fetchHealthDeep(): Promise<HealthResponse> {
+  return apiFetch("/health?deep=true");
+}
+
 export function fetchStats(): Promise<Stats> {
   return apiFetch("/stats");
 }

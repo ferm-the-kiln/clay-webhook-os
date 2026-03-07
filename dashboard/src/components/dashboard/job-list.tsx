@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { fetchJobs, fetchJob, createJobStream } from "@/lib/api";
 import type { JobListItem, Job } from "@/lib/types";
 import { formatDuration, formatRelativeTime } from "@/lib/utils";
@@ -33,8 +34,13 @@ import {
   ArrowDown,
   Minus,
   X,
+  RotateCcw,
+  Send,
+  Zap,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { FeedbackButtons } from "@/components/feedback/feedback-buttons";
+import { FormattedResult } from "@/components/playground/formatted-results";
 
 const PRIORITY_ICONS: Record<string, typeof ArrowUp> = {
   high: ArrowUp,
@@ -182,7 +188,11 @@ export function JobList() {
       <EmptyState
         title="No jobs yet"
         description="Your queue is clear. Head to the Playground to test a skill, or set up a Batch run."
-      />
+      >
+        <Button asChild size="sm" className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold">
+          <Link href="/playground">Open Playground</Link>
+        </Button>
+      </EmptyState>
     );
   }
 
@@ -370,7 +380,7 @@ export function JobList() {
 
       {/* Job Detail Panel */}
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md bg-clay-900 border-clay-800 overflow-y-auto">
+        <SheetContent side="right" className="w-full sm:max-w-lg bg-clay-900 border-clay-800 overflow-y-auto">
           {selectedJob && (
             <>
               <SheetHeader>
@@ -382,14 +392,35 @@ export function JobList() {
                 </SheetDescription>
               </SheetHeader>
               <div className="space-y-4 px-4 pb-4">
-                <div className="flex items-center gap-3">
+                {/* Status row */}
+                <div className="flex items-center gap-3 flex-wrap">
                   <StatusBadge status={selectedJob.status} />
                   <span className="text-kiln-teal font-medium">{selectedJob.skill}</span>
                   {selectedJob.duration_ms > 0 && (
-                    <span className="text-xs text-clay-500 font-[family-name:var(--font-mono)]">
+                    <Badge variant="outline" className="bg-clay-800 text-clay-400 border-clay-700 text-xs">
                       {formatDuration(selectedJob.duration_ms)}
-                    </span>
+                    </Badge>
                   )}
+                  {selectedJob.cost_est_usd != null && selectedJob.cost_est_usd > 0 && (
+                    <Badge variant="outline" className="bg-clay-800 text-clay-400 border-clay-700 text-xs">
+                      ${selectedJob.cost_est_usd.toFixed(4)}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Quick actions */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-clay-700 text-clay-400 hover:text-clay-200"
+                    onClick={() => {
+                      window.location.href = `/playground?skill=${selectedJob.skill}`;
+                    }}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                    Run again
+                  </Button>
                 </div>
 
                 {selectedJob.error && (
@@ -401,17 +432,19 @@ export function JobList() {
                   </div>
                 )}
 
+                {/* Output — formatted */}
                 {selectedJob.result && (
                   <div>
                     <p className="text-xs text-clay-500 uppercase tracking-wider mb-2 font-[family-name:var(--font-sans)]">
                       Output
                     </p>
-                    <pre className="rounded-lg bg-clay-950 border border-clay-800 p-3 text-xs text-clay-200 font-[family-name:var(--font-mono)] overflow-x-auto max-h-96 whitespace-pre-wrap">
-                      {JSON.stringify(selectedJob.result, null, 2)}
-                    </pre>
+                    <div className="rounded-lg bg-clay-950 border border-clay-800 overflow-hidden max-h-96 overflow-y-auto">
+                      <FormattedResult skill={selectedJob.skill} data={selectedJob.result} />
+                    </div>
                   </div>
                 )}
 
+                {/* Feedback */}
                 {selectedJob.status === "completed" && (
                   <div>
                     <p className="text-xs text-clay-500 uppercase tracking-wider mb-2 font-[family-name:var(--font-sans)]">
@@ -425,6 +458,7 @@ export function JobList() {
                   </div>
                 )}
 
+                {/* Metadata grid */}
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="text-xs text-clay-500 mb-0.5">Priority</p>
@@ -445,6 +479,22 @@ export function JobList() {
                       <p className="text-xs text-clay-500 mb-0.5">Completed</p>
                       <p className="text-clay-200 text-xs font-[family-name:var(--font-mono)]">
                         {new Date(selectedJob.completed_at * 1000).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                  {selectedJob.input_tokens_est != null && selectedJob.input_tokens_est > 0 && (
+                    <div>
+                      <p className="text-xs text-clay-500 mb-0.5">Input Tokens</p>
+                      <p className="text-clay-200 text-xs font-[family-name:var(--font-mono)]">
+                        {selectedJob.input_tokens_est.toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                  {selectedJob.output_tokens_est != null && selectedJob.output_tokens_est > 0 && (
+                    <div>
+                      <p className="text-xs text-clay-500 mb-0.5">Output Tokens</p>
+                      <p className="text-clay-200 text-xs font-[family-name:var(--font-mono)]">
+                        {selectedJob.output_tokens_est.toLocaleString()}
                       </p>
                     </div>
                   )}

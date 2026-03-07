@@ -107,7 +107,7 @@ Please regenerate the output incorporating these corrections."""
     if skill_content is None:
         raise HTTPException(status_code=400, detail=f"Skill '{job.skill}' not found")
 
-    context_files = load_context_files(skill_content, job.data)
+    context_files = load_context_files(skill_content, job.data, skill_name=job.skill)
     prompt = build_prompt(skill_content, context_files, job.data, enhanced_instructions)
 
     try:

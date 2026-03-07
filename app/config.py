@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     request_timeout: int = 120
     cache_ttl: int = 86400
     max_subscription_monthly_usd: float = 200.0
+    prompt_size_warn_tokens: int = 50000
 
     # Per-skill default models (overrides default_model when no model specified)
     skill_models: dict[str, str] = {

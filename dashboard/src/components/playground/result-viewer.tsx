@@ -15,9 +15,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CheckCircle, Loader2, Send, Sparkles, XCircle } from "lucide-react";
+import { CheckCircle, Loader2, Send, Sparkles, XCircle, Code } from "lucide-react";
 import { toast } from "sonner";
 import { FeedbackButtons } from "@/components/feedback/feedback-buttons";
+import { FormattedResult } from "@/components/playground/formatted-results";
 
 const STEPS = [
   { label: "Queued", icon: Send },
@@ -116,6 +117,8 @@ export function ResultViewer({
   const display = { ...result };
   delete display._meta;
 
+  const [showRaw, setShowRaw] = useState(false);
+
   return (
     <Card className="border-clay-800 bg-white shadow-sm flex flex-col h-full overflow-hidden">
       {meta && (
@@ -137,22 +140,39 @@ export function ResultViewer({
               cached
             </Badge>
           )}
-          {!isError && (
-            <CheckCircle className="h-4 w-4 text-kiln-teal ml-auto" />
-          )}
-          {isError && (
-            <XCircle className="h-4 w-4 text-kiln-coral ml-auto" />
-          )}
+          <div className="flex items-center gap-1 ml-auto">
+            {!isError && skill && (
+              <button
+                onClick={() => setShowRaw(!showRaw)}
+                className={`p-1 rounded transition-colors ${
+                  showRaw ? "text-kiln-teal bg-kiln-teal/10" : "text-clay-500 hover:text-clay-300"
+                }`}
+                title={showRaw ? "Show formatted" : "Show raw JSON"}
+              >
+                <Code className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {!isError && (
+              <CheckCircle className="h-4 w-4 text-kiln-teal" />
+            )}
+            {isError && (
+              <XCircle className="h-4 w-4 text-kiln-coral" />
+            )}
+          </div>
         </CardHeader>
       )}
       <CardContent className="flex-1 overflow-auto p-0">
-        <pre
-          className={`p-4 font-[family-name:var(--font-mono)] text-sm leading-relaxed ${
-            isError ? "text-kiln-coral" : "text-clay-200"
-          }`}
-        >
-          {JSON.stringify(display, null, 2)}
-        </pre>
+        {isError ? (
+          <pre className="p-4 font-[family-name:var(--font-mono)] text-sm leading-relaxed text-kiln-coral">
+            {JSON.stringify(display, null, 2)}
+          </pre>
+        ) : skill && !showRaw ? (
+          <FormattedResult skill={skill} data={display} />
+        ) : (
+          <pre className="p-4 font-[family-name:var(--font-mono)] text-sm leading-relaxed text-clay-200">
+            {JSON.stringify(display, null, 2)}
+          </pre>
+        )}
       </CardContent>
       {!isError && skill && (
         <div className="border-t border-clay-800 px-4 py-3">
