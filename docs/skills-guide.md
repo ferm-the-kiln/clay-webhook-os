@@ -13,6 +13,13 @@
 | follow-up | Follow-up email with value-add |
 | campaign-brief | Generate campaign brief with sequence |
 | quality-gate | QA review of generated content |
+| account-researcher | Company research & video relevance assessment |
+| sequence-writer | Multi-touch outbound sequence (5 touches) |
+| competitive-response | Technical competitive displacement responses |
+| champion-enabler | Internal pitch for developer champions |
+| roi-calculator | Build vs. buy ROI analysis |
+| multi-thread-mapper | Buying committee mapping & outreach |
+| discovery-questions | Tailored discovery questions by persona/signal |
 
 ## Adding a New Skill
 
