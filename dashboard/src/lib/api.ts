@@ -3,6 +3,7 @@ import type {
   BatchRunResult,
   BatchStatus,
   Campaign,
+  ClayConfig,
   ClientProfile,
   ClientSummary,
   Destination,
@@ -17,6 +18,7 @@ import type {
   PipelineDefinition,
   PipelineStepConfig,
   PipelineTestResult,
+  PlayDefinition,
   PromptPreview,
   PushResult,
   QualityAlert,
@@ -607,6 +609,67 @@ export function fetchUsage(): Promise<UsageSummary> {
 
 export function fetchUsageHealth(): Promise<UsageHealth> {
   return apiFetch("/usage/health");
+}
+
+// Plays
+export function fetchPlays(category?: string): Promise<{ plays: PlayDefinition[] }> {
+  const qs = category ? `?category=${category}` : "";
+  return apiFetch(`/plays${qs}`);
+}
+
+export function fetchPlay(name: string): Promise<PlayDefinition> {
+  return apiFetch(`/plays/${name}`);
+}
+
+export function createPlay(body: Record<string, unknown>): Promise<PlayDefinition> {
+  return apiFetch("/plays", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updatePlay(
+  name: string,
+  body: Record<string, unknown>
+): Promise<PlayDefinition> {
+  return apiFetch(`/plays/${name}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deletePlay(name: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/plays/${name}`, { method: "DELETE" });
+}
+
+export function forkPlay(
+  name: string,
+  body: { new_name: string; display_name: string; client_slug?: string | null; default_model?: string; default_instructions?: string }
+): Promise<PlayDefinition> {
+  return apiFetch(`/plays/${name}/fork`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function generateClayConfig(
+  name: string,
+  body: { client_slug?: string | null; api_url?: string; api_key?: string }
+): Promise<ClayConfig> {
+  return apiFetch(`/plays/${name}/clay-config`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function testPlay(
+  name: string,
+  body: { data: Record<string, unknown>; model?: string; instructions?: string }
+): Promise<Record<string, unknown>> {
+  return apiFetch(`/plays/${name}/test`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function createJobStream(

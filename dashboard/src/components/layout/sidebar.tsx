@@ -12,7 +12,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { LayoutDashboard, FlaskConical, BookOpen, TestTubes, Rocket, Settings } from "lucide-react";
+import { LayoutDashboard, FlaskConical, BookOpen, TestTubes, Rocket, Library, Settings } from "lucide-react";
 
 const NAV = [
   {
@@ -34,22 +34,28 @@ const NAV = [
     shortcut: "3",
   },
   {
+    href: "/plays",
+    label: "Plays",
+    icon: Library,
+    shortcut: "4",
+  },
+  {
     href: "/context",
     label: "Context",
     icon: BookOpen,
-    shortcut: "4",
+    shortcut: "5",
   },
   {
     href: "/skills",
     label: "Skills",
     icon: TestTubes,
-    shortcut: "5",
+    shortcut: "6",
   },
   {
     href: "/settings",
     label: "Settings",
     icon: Settings,
-    shortcut: "6",
+    shortcut: "7",
   },
 ];
 
@@ -68,7 +74,7 @@ export function Sidebar() {
   // Keyboard shortcuts for navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4", "5", "6"].includes(e.key)) {
+      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4", "5", "6", "7"].includes(e.key)) {
         e.preventDefault();
         const idx = parseInt(e.key) - 1;
         const nav = NAV[idx];

@@ -1,0 +1,7 @@
+name: competitive-displacement
+description: Research → Competitive response → Email → Quality check
+steps:
+  - skill: account-researcher
+  - skill: competitive-response
+  - skill: email-gen
+  - skill: quality-gate

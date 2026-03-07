@@ -1,0 +1,5 @@
+name: account-research
+description: Research account → Score ICP fit
+steps:
+  - skill: account-researcher
+  - skill: icp-scorer

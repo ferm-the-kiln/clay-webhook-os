@@ -1,0 +1,72 @@
+name: meeting-prep-suite
+display_name: Meeting Prep Suite
+description: Pre-call intelligence package — score the prospect and generate a comprehensive meeting prep brief with discovery questions.
+category: meeting-prep
+pipeline: meeting-prep-suite
+when_to_use: Before any prospect or customer call. Get prepared in 30 seconds instead of 30 minutes.
+who_its_for: AEs preparing for discovery calls, demos, or QBRs. Anyone who needs to walk into a meeting informed.
+default_model: opus
+default_confidence_threshold: 0.7
+tags:
+  - meeting-prep
+  - discovery
+  - research
+
+input_schema:
+  - name: first_name
+    type: string
+    required: true
+    description: Prospect's first name
+    example: Jennifer
+  - name: last_name
+    type: string
+    required: false
+    description: Prospect's last name
+    example: Martinez
+  - name: company_name
+    type: string
+    required: true
+    description: Prospect's company
+    example: HubSpot
+  - name: title
+    type: string
+    required: true
+    description: Prospect's job title
+    example: Senior Director of Revenue Operations
+  - name: industry
+    type: string
+    required: false
+    description: Company industry
+    example: Marketing Technology
+  - name: meeting_type
+    type: string
+    required: false
+    description: Type of meeting (discovery, demo, QBR, etc.)
+    example: discovery
+  - name: linkedin_url
+    type: string
+    required: false
+    description: Prospect's LinkedIn profile URL
+
+output_schema:
+  - name: icp_score
+    type: number
+    description: ICP fit score (0-100)
+  - name: prospect_summary
+    type: string
+    description: Key info about the prospect and their role
+  - name: company_insights
+    type: string
+    description: Relevant company context for the meeting
+  - name: talking_points
+    type: string
+    description: Suggested talking points
+  - name: discovery_questions
+    type: string
+    description: Tailored discovery questions
+  - name: potential_objections
+    type: string
+    description: Likely objections and how to handle them
+  - name: confidence_score
+    type: number
+    description: Prep quality confidence (0.0-1.0)

@@ -468,6 +468,47 @@ export interface UsageHealth {
   last_error: UsageError | null;
 }
 
+// Play types
+export type PlayCategory = "outbound" | "research" | "meeting-prep" | "nurture" | "competitive" | "custom";
+
+export interface SchemaField {
+  name: string;
+  type: string;
+  required: boolean;
+  description: string;
+  example?: string | null;
+}
+
+export interface PlayDefinition {
+  name: string;
+  display_name: string;
+  description: string;
+  category: PlayCategory;
+  pipeline: string;
+  input_schema: SchemaField[];
+  output_schema: SchemaField[];
+  when_to_use: string;
+  who_its_for: string;
+  default_model: string;
+  default_confidence_threshold: number;
+  default_instructions: string | null;
+  tags: string[];
+  is_template: boolean;
+  forked_from: string | null;
+  created_at: number;
+}
+
+export interface ClayConfig {
+  play: string;
+  client_slug: string | null;
+  webhook_url: string;
+  method: string;
+  headers: Record<string, string>;
+  body_template: Record<string, unknown>;
+  expected_output_columns: { name: string; type: string; description: string }[];
+  setup_instructions: string[];
+}
+
 export interface WebhookResponse {
   [key: string]: unknown;
   _meta?: {

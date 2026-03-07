@@ -1,0 +1,79 @@
+name: cold-outbound
+display_name: Cold Outbound
+description: The default outbound motion — score prospects, select the best angle, generate a personalized email, and quality-check before sending.
+category: outbound
+pipeline: full-outbound
+when_to_use: Starting cold outreach to a new list of prospects. Best for high-volume outbound where you want quality at scale.
+who_its_for: SDRs and AEs running outbound campaigns to net-new prospects.
+default_model: opus
+default_confidence_threshold: 0.8
+tags:
+  - outbound
+  - email
+  - high-volume
+
+input_schema:
+  - name: first_name
+    type: string
+    required: true
+    description: Prospect's first name
+    example: Sarah
+  - name: last_name
+    type: string
+    required: false
+    description: Prospect's last name
+    example: Chen
+  - name: company_name
+    type: string
+    required: true
+    description: Prospect's company
+    example: Datadog
+  - name: title
+    type: string
+    required: true
+    description: Prospect's job title
+    example: VP of Engineering
+  - name: industry
+    type: string
+    required: false
+    description: Company industry
+    example: DevOps / Monitoring
+  - name: linkedin_url
+    type: string
+    required: false
+    description: Prospect's LinkedIn profile URL
+    example: https://linkedin.com/in/sarahchen
+  - name: company_description
+    type: string
+    required: false
+    description: Brief company description or tagline
+    example: Cloud monitoring and security platform
+
+output_schema:
+  - name: icp_score
+    type: number
+    description: ICP fit score (0-100)
+  - name: icp_reasoning
+    type: string
+    description: Why this prospect is or isn't a good fit
+  - name: selected_angle
+    type: string
+    description: The outreach angle selected
+  - name: angle_reasoning
+    type: string
+    description: Why this angle was chosen
+  - name: email_subject
+    type: string
+    description: Email subject line
+  - name: email_body
+    type: string
+    description: Full email body
+  - name: quality_pass
+    type: boolean
+    description: Whether the email passed quality checks
+  - name: quality_notes
+    type: string
+    description: Quality check feedback
+  - name: confidence_score
+    type: number
+    description: Overall confidence in the output (0.0-1.0)

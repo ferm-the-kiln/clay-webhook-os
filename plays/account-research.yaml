@@ -1,0 +1,61 @@
+name: account-research
+display_name: Account Research
+description: Deep-dive research on target accounts with ICP scoring. Use before any outreach to understand the account landscape.
+category: research
+pipeline: account-research
+when_to_use: Before starting outreach to a new account list. Research first, reach out second.
+who_its_for: AEs and RevOps teams building target account lists and need enrichment beyond basic firmographics.
+default_model: opus
+default_confidence_threshold: 0.7
+tags:
+  - research
+  - enrichment
+  - account-based
+
+input_schema:
+  - name: company_name
+    type: string
+    required: true
+    description: Target company name
+    example: Snowflake
+  - name: company_url
+    type: string
+    required: false
+    description: Company website URL
+    example: https://snowflake.com
+  - name: industry
+    type: string
+    required: false
+    description: Company industry
+    example: Data Cloud
+  - name: company_description
+    type: string
+    required: false
+    description: Brief company description
+    example: The Data Cloud company
+
+output_schema:
+  - name: company_summary
+    type: string
+    description: Comprehensive company overview
+  - name: key_initiatives
+    type: string
+    description: Current strategic initiatives and priorities
+  - name: recent_news
+    type: string
+    description: Recent news and developments
+  - name: tech_stack
+    type: string
+    description: Known technology stack
+  - name: icp_score
+    type: number
+    description: ICP fit score (0-100)
+  - name: icp_reasoning
+    type: string
+    description: Why this account is or isn't a good fit
+  - name: recommended_angles
+    type: string
+    description: Suggested outreach angles based on research
+  - name: confidence_score
+    type: number
+    description: Research confidence (0.0-1.0)

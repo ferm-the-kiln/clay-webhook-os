@@ -1,0 +1,71 @@
+name: competitive-displacement
+display_name: Competitive Displacement
+description: Target companies using a specific competitor. Research the account, craft a competitive response, generate a displacement email, and quality-check.
+category: competitive
+pipeline: competitive-displacement
+when_to_use: When you know a prospect uses a competitor and want to position against them. Best for rip-and-replace campaigns.
+who_its_for: AEs and SDRs running competitive displacement campaigns against specific vendors.
+default_model: opus
+default_confidence_threshold: 0.85
+tags:
+  - competitive
+  - displacement
+  - email
+
+input_schema:
+  - name: first_name
+    type: string
+    required: true
+    description: Prospect's first name
+    example: Marcus
+  - name: company_name
+    type: string
+    required: true
+    description: Prospect's company
+    example: Acme Corp
+  - name: title
+    type: string
+    required: true
+    description: Prospect's job title
+    example: Director of Sales
+  - name: competitor
+    type: string
+    required: true
+    description: The competitor they currently use
+    example: Outreach.io
+  - name: industry
+    type: string
+    required: false
+    description: Company industry
+    example: SaaS
+  - name: company_description
+    type: string
+    required: false
+    description: Brief company description
+    example: Enterprise project management platform
+
+output_schema:
+  - name: company_summary
+    type: string
+    description: Account research summary
+  - name: competitive_analysis
+    type: string
+    description: How we compare to the competitor
+  - name: displacement_angle
+    type: string
+    description: The specific angle for displacement
+  - name: email_subject
+    type: string
+    description: Email subject line
+  - name: email_body
+    type: string
+    description: Full displacement email
+  - name: quality_pass
+    type: boolean
+    description: Whether the email passed quality checks
+  - name: quality_notes
+    type: string
+    description: Quality check feedback
+  - name: confidence_score
+    type: number
+    description: Overall confidence (0.0-1.0)

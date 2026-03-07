@@ -1,0 +1,4 @@
+name: post-meeting-followup
+description: Generate post-meeting follow-up email
+steps:
+  - skill: follow-up

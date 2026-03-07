@@ -1,0 +1,59 @@
+name: linkedin-outreach
+display_name: LinkedIn Outreach
+description: Score prospects, select the best angle, and generate a concise LinkedIn connection note. Perfect for social selling motions.
+category: outbound
+pipeline: linkedin-outreach
+when_to_use: When running LinkedIn-first outreach campaigns. Connection requests need to be short, relevant, and personal.
+who_its_for: SDRs and AEs using LinkedIn as their primary outreach channel.
+default_model: sonnet
+default_confidence_threshold: 0.75
+tags:
+  - outbound
+  - linkedin
+  - social-selling
+
+input_schema:
+  - name: first_name
+    type: string
+    required: true
+    description: Prospect's first name
+    example: Alex
+  - name: company_name
+    type: string
+    required: true
+    description: Prospect's company
+    example: Figma
+  - name: title
+    type: string
+    required: true
+    description: Prospect's job title
+    example: Head of Product Design
+  - name: industry
+    type: string
+    required: false
+    description: Company industry
+    example: Design Tools
+  - name: linkedin_url
+    type: string
+    required: false
+    description: Prospect's LinkedIn profile URL
+    example: https://linkedin.com/in/alexdesign
+  - name: mutual_connections
+    type: string
+    required: false
+    description: Any mutual connections or shared context
+    example: Both attended SaaStr 2025
+
+output_schema:
+  - name: icp_score
+    type: number
+    description: ICP fit score (0-100)
+  - name: selected_angle
+    type: string
+    description: The outreach angle selected
+  - name: linkedin_note
+    type: string
+    description: LinkedIn connection note (under 300 chars)
+  - name: confidence_score
+    type: number
+    description: Overall confidence (0.0-1.0)

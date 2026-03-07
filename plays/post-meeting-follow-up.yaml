@@ -1,0 +1,59 @@
+name: post-meeting-follow-up
+display_name: Post-Meeting Follow-Up
+description: Generate a professional follow-up email after a meeting. Summarizes key points, next steps, and action items.
+category: nurture
+pipeline: post-meeting-followup
+when_to_use: Immediately after any prospect or customer call. Strike while the iron is hot with a prompt, relevant follow-up.
+who_its_for: AEs and CSMs who want to send follow-ups within minutes of hanging up, not hours.
+default_model: sonnet
+default_confidence_threshold: 0.7
+tags:
+  - nurture
+  - follow-up
+  - meeting
+
+input_schema:
+  - name: first_name
+    type: string
+    required: true
+    description: Prospect/customer's first name
+    example: David
+  - name: company_name
+    type: string
+    required: true
+    description: Their company name
+    example: Stripe
+  - name: meeting_notes
+    type: string
+    required: true
+    description: Notes from the meeting (key topics, decisions, action items)
+    example: Discussed migration from legacy billing system. Interested in API-first approach. Next step is technical deep-dive with their engineering team.
+  - name: meeting_type
+    type: string
+    required: false
+    description: Type of meeting (discovery, demo, QBR, etc.)
+    example: discovery
+  - name: next_steps
+    type: string
+    required: false
+    description: Agreed-upon next steps
+    example: Schedule technical deep-dive for next Tuesday
+  - name: title
+    type: string
+    required: false
+    description: Their job title
+    example: VP of Payments
+
+output_schema:
+  - name: email_subject
+    type: string
+    description: Follow-up email subject line
+  - name: email_body
+    type: string
+    description: Full follow-up email
+  - name: action_items
+    type: string
+    description: Extracted action items
+  - name: confidence_score
+    type: number
+    description: Follow-up quality confidence (0.0-1.0)
