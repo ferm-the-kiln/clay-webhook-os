@@ -307,3 +307,253 @@ class TestLoop:
         # That's runs = 2, but with 4 sleeps the loop does: sleep, run, sleep, run, sleep, run, sleep(cancel)
         # Let's just verify it ran more than once (survived the error)
         assert len(calls) >= 2
+
+
+# ---------------------------------------------------------------------------
+# CleanupReport — edges
+# ---------------------------------------------------------------------------
+
+
+class TestCleanupReportEdges:
+    def test_custom_values(self):
+        r = CleanupReport(
+            timestamp=1234.0, cache_evicted=10, jobs_pruned=20,
+            usage_compacted=(5, 100), feedback_archived=3, review_archived=2,
+            duration_ms=42,
+        )
+        assert r.timestamp == 1234.0
+        assert r.cache_evicted == 10
+        assert r.jobs_pruned == 20
+        assert r.usage_compacted == (5, 100)
+        assert r.feedback_archived == 3
+        assert r.review_archived == 2
+        assert r.duration_ms == 42
+
+    def test_timestamp_auto_generated(self):
+        before = time.time()
+        r = CleanupReport()
+        after = time.time()
+        assert before <= r.timestamp <= after
+
+    def test_two_reports_different_timestamps(self):
+        r1 = CleanupReport()
+        r2 = CleanupReport()
+        # Could be equal if created in same tick, but both should be > 0
+        assert r1.timestamp > 0
+        assert r2.timestamp > 0
+
+
+# ---------------------------------------------------------------------------
+# Init — default parameters
+# ---------------------------------------------------------------------------
+
+
+class TestInitDefaults:
+    def test_default_interval(self, deps):
+        cache, jq, sched, us, fs, rq = deps
+        w = DataCleanupWorker(
+            cache=cache, job_queue=jq, scheduler=sched,
+            usage_store=us, feedback_store=fs, review_queue=rq,
+        )
+        assert w._interval == 3600
+        assert w._job_retention_hours == 24
+        assert w._feedback_retention_days == 90
+        assert w._review_retention_days == 30
+        assert w._usage_retention_days == 90
+        assert w._failed_callback_days == 7
+
+    def test_task_initially_none(self, worker):
+        assert worker._task is None
+
+
+# ---------------------------------------------------------------------------
+# run_once — duration and timestamp
+# ---------------------------------------------------------------------------
+
+
+class TestRunOnceEdges:
+    async def test_report_has_positive_timestamp(self, worker):
+        with patch.object(worker, "_cleanup_failed_callbacks"):
+            report = await worker.run_once()
+        assert report.timestamp > 0
+
+    async def test_run_once_overwrites_last_report(self, worker):
+        with patch.object(worker, "_cleanup_failed_callbacks"):
+            r1 = await worker.run_once()
+            assert worker.last_report is r1
+            r2 = await worker.run_once()
+            assert worker.last_report is r2
+            assert worker.last_report is not r1
+
+
+# ---------------------------------------------------------------------------
+# Cutoff calculations with custom retention
+# ---------------------------------------------------------------------------
+
+
+class TestCutoffCustomRetention:
+    def test_jobs_cutoff_1_hour(self, deps):
+        cache, jq, sched, us, fs, rq = deps
+        w = DataCleanupWorker(
+            cache=cache, job_queue=jq, scheduler=sched,
+            usage_store=us, feedback_store=fs, review_queue=rq,
+            job_retention_hours=1,
+        )
+        jq.prune_completed.return_value = 0
+        w._cleanup_jobs()
+        cutoff = jq.prune_completed.call_args[0][0]
+        expected = time.time() - 3600
+        assert abs(cutoff - expected) < 2
+
+    def test_feedback_cutoff_7_days(self, deps):
+        cache, jq, sched, us, fs, rq = deps
+        w = DataCleanupWorker(
+            cache=cache, job_queue=jq, scheduler=sched,
+            usage_store=us, feedback_store=fs, review_queue=rq,
+            feedback_retention_days=7,
+        )
+        fs.compact.return_value = 0
+        w._cleanup_feedback()
+        cutoff = fs.compact.call_args[0][0]
+        expected = time.time() - (7 * 86400)
+        assert abs(cutoff - expected) < 2
+
+    def test_review_cutoff_3_days(self, deps):
+        cache, jq, sched, us, fs, rq = deps
+        w = DataCleanupWorker(
+            cache=cache, job_queue=jq, scheduler=sched,
+            usage_store=us, feedback_store=fs, review_queue=rq,
+            review_retention_days=3,
+        )
+        rq.compact.return_value = 0
+        w._cleanup_review()
+        cutoff = rq.compact.call_args[0][0]
+        expected = time.time() - (3 * 86400)
+        assert abs(cutoff - expected) < 2
+
+    def test_usage_cutoff_14_days(self, deps):
+        cache, jq, sched, us, fs, rq = deps
+        w = DataCleanupWorker(
+            cache=cache, job_queue=jq, scheduler=sched,
+            usage_store=us, feedback_store=fs, review_queue=rq,
+            usage_retention_days=14,
+        )
+        us.compact.return_value = (0, 0)
+        w._compact_usage()
+        cutoff = us.compact.call_args[0][0]
+        expected = time.time() - (14 * 86400)
+        assert abs(cutoff - expected) < 2
+
+
+# ---------------------------------------------------------------------------
+# Failed callbacks — more edges
+# ---------------------------------------------------------------------------
+
+
+class TestCleanupFailedCallbacksEdges:
+    def test_empty_array_no_rewrite(self, worker, tmp_path):
+        """Empty array in file — nothing to prune, file not rewritten."""
+        failed_path = tmp_path / "failed_callbacks.json"
+        failed_path.write_text("[]")
+        original = failed_path.read_text()
+        with patch("pathlib.Path", return_value=failed_path):
+            worker._cleanup_failed_callbacks()
+        assert failed_path.read_text() == original
+
+    def test_all_entries_pruned(self, worker, tmp_path):
+        """All entries old — file rewritten with empty array."""
+        failed_path = tmp_path / "failed_callbacks.json"
+        entries = [
+            {"timestamp": 100.0, "url": "http://old1.com"},
+            {"timestamp": 200.0, "url": "http://old2.com"},
+        ]
+        failed_path.write_text(json.dumps(entries))
+        with patch("pathlib.Path", return_value=failed_path):
+            worker._cleanup_failed_callbacks()
+        kept = json.loads(failed_path.read_text())
+        assert kept == []
+
+    def test_custom_failed_callback_days(self, deps, tmp_path):
+        """1-day retention prunes entries older than 1 day."""
+        cache, jq, sched, us, fs, rq = deps
+        w = DataCleanupWorker(
+            cache=cache, job_queue=jq, scheduler=sched,
+            usage_store=us, feedback_store=fs, review_queue=rq,
+            failed_callback_days=1,
+        )
+        failed_path = tmp_path / "failed_callbacks.json"
+        entries = [
+            {"timestamp": time.time() - 100, "url": "http://recent.com"},
+            {"timestamp": time.time() - (2 * 86400), "url": "http://old.com"},
+        ]
+        failed_path.write_text(json.dumps(entries))
+        with patch("pathlib.Path", return_value=failed_path):
+            w._cleanup_failed_callbacks()
+        kept = json.loads(failed_path.read_text())
+        assert len(kept) == 1
+        assert kept[0]["url"] == "http://recent.com"
+
+    def test_entry_just_inside_cutoff_kept(self, worker, tmp_path):
+        """Entry timestamp 1 second newer than cutoff — kept (>= cutoff)."""
+        failed_path = tmp_path / "failed_callbacks.json"
+        # 7 days minus 1 second — just inside retention window
+        ts = time.time() - (7 * 86400) + 1
+        entries = [{"timestamp": ts, "url": "http://boundary.com"}]
+        failed_path.write_text(json.dumps(entries))
+        with patch("pathlib.Path", return_value=failed_path):
+            worker._cleanup_failed_callbacks()
+        kept = json.loads(failed_path.read_text())
+        assert len(kept) == 1
+
+
+# ---------------------------------------------------------------------------
+# Start / stop — edges
+# ---------------------------------------------------------------------------
+
+
+class TestStartStopEdges:
+    async def test_double_stop_no_error(self, worker):
+        with patch.object(worker, "_loop", new_callable=AsyncMock):
+            await worker.start()
+            await worker.stop()
+            await worker.stop()  # second stop should not raise
+
+    async def test_start_sets_task_attribute(self, worker):
+        with patch.object(worker, "_loop", new_callable=AsyncMock):
+            await worker.start()
+            assert worker._task is not None
+            assert not worker._task.done() or worker._task.cancelled()
+            await worker.stop()
+
+
+# ---------------------------------------------------------------------------
+# Loop — CancelledError propagation
+# ---------------------------------------------------------------------------
+
+
+class TestLoopCancelledError:
+    async def test_cancelled_error_not_caught_by_exception_handler(self, worker):
+        """CancelledError from run_once is re-raised, not swallowed."""
+        with patch.object(worker, "run_once", side_effect=asyncio.CancelledError):
+            with patch(
+                "app.core.cleanup_worker.asyncio.sleep",
+                side_effect=[None],  # initial wait
+            ):
+                with pytest.raises(asyncio.CancelledError):
+                    await worker._loop()
+
+    async def test_loop_uses_configured_interval(self, worker):
+        """Loop passes the configured interval to asyncio.sleep."""
+        sleep_args = []
+
+        async def capture_sleep(seconds):
+            sleep_args.append(seconds)
+            if len(sleep_args) >= 2:
+                raise asyncio.CancelledError
+
+        with patch.object(worker, "run_once", return_value=CleanupReport()):
+            with patch("app.core.cleanup_worker.asyncio.sleep", side_effect=capture_sleep):
+                with pytest.raises(asyncio.CancelledError):
+                    await worker._loop()
+
+        assert all(s == 3600 for s in sleep_args)

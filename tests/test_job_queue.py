@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.job_queue import Job, JobQueue, JobStatus, PRIORITY_WEIGHTS
+from app.core.claude_executor import SubscriptionLimitError
 
 
 # ---------------------------------------------------------------------------
@@ -605,3 +606,405 @@ class TestStop:
         await queue.stop()
         assert t1.cancelled()
         assert t2.cancelled()
+
+
+# ---------------------------------------------------------------------------
+# Job dataclass — additional edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestJobDataclassEdges:
+    def test_default_retry_count_zero(self):
+        job = Job(id="j", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None)
+        assert job.retry_count == 0
+
+    def test_default_max_retries_three(self):
+        job = Job(id="j", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None)
+        assert job.max_retries == 3
+
+    def test_default_token_estimates_zero(self):
+        job = Job(id="j", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None)
+        assert job.input_tokens_est == 0
+        assert job.output_tokens_est == 0
+        assert job.cost_est_usd == 0.0
+
+    def test_default_created_at_is_recent(self):
+        before = time.time()
+        job = Job(id="j", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None)
+        assert job.created_at >= before
+
+    def test_optional_fields_default_none(self):
+        job = Job(id="j", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None)
+        assert job.result is None
+        assert job.error is None
+        assert job.completed_at is None
+        assert job.next_retry_at is None
+        assert job.batch_id is None
+        assert job.experiment_id is None
+        assert job.variant_id is None
+        assert job.skills is None
+
+    def test_lt_unknown_priority_defaults_to_normal(self):
+        unknown = Job(id="u", skill="s", data={}, instructions=None, model="opus",
+                      callback_url="", row_id=None, priority="unknown")
+        high = Job(id="h", skill="s", data={}, instructions=None, model="opus",
+                   callback_url="", row_id=None, priority="high")
+        assert high < unknown  # high(0) < unknown(1, default)
+
+    def test_le_different_priorities(self):
+        high = Job(id="h", skill="s", data={}, instructions=None, model="opus",
+                   callback_url="", row_id=None, priority="high")
+        low = Job(id="l", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None, priority="low")
+        assert high <= low
+        assert not (low <= high)
+
+
+# ---------------------------------------------------------------------------
+# Enqueue — experiment/variant params
+# ---------------------------------------------------------------------------
+
+
+class TestEnqueueExperimentParams:
+    @pytest.mark.asyncio
+    async def test_enqueue_with_experiment_id(self):
+        queue = JobQueue(pool=MagicMock())
+        job_id = await queue.enqueue(
+            skill="s", data={}, instructions=None, model="opus",
+            callback_url="", row_id=None,
+            experiment_id="exp-1", variant_id="var-a",
+        )
+        job = queue.get_job(job_id)
+        assert job.experiment_id == "exp-1"
+        assert job.variant_id == "var-a"
+
+    @pytest.mark.asyncio
+    async def test_enqueue_with_batch_id(self):
+        queue = JobQueue(pool=MagicMock())
+        job_id = await queue.enqueue(
+            skill="s", data={}, instructions=None, model="opus",
+            callback_url="", row_id=None, batch_id="batch-42",
+        )
+        job = queue.get_job(job_id)
+        assert job.batch_id == "batch-42"
+
+    @pytest.mark.asyncio
+    async def test_enqueue_with_custom_max_retries(self):
+        queue = JobQueue(pool=MagicMock())
+        job_id = await queue.enqueue(
+            skill="s", data={}, instructions=None, model="opus",
+            callback_url="", row_id=None, max_retries=5,
+        )
+        job = queue.get_job(job_id)
+        assert job.max_retries == 5
+
+    @pytest.mark.asyncio
+    async def test_enqueue_cache_hit_with_experiment(self):
+        cache = MagicMock()
+        cache.get.return_value = {"cached": True}
+        queue = JobQueue(pool=MagicMock(), cache=cache)
+        queue._send_callback = AsyncMock()
+
+        job_id = await queue.enqueue(
+            skill="s", data={}, instructions=None, model="opus",
+            callback_url="http://x.com/cb", row_id=None,
+            experiment_id="exp-1", variant_id="var-a",
+        )
+        job = queue.get_job(job_id)
+        assert job.experiment_id == "exp-1"
+        assert job.variant_id == "var-a"
+        assert job.status == JobStatus.completed
+
+
+# ---------------------------------------------------------------------------
+# get_jobs — field coverage
+# ---------------------------------------------------------------------------
+
+
+class TestGetJobsFieldCoverage:
+    @pytest.mark.asyncio
+    async def test_get_jobs_includes_all_fields(self):
+        queue = JobQueue(pool=MagicMock())
+        job_id = await queue.enqueue(
+            skill="email-gen", data={}, instructions=None, model="opus",
+            callback_url="", row_id="r1", priority="high", batch_id="b1",
+        )
+        job = queue.get_job(job_id)
+        job.input_tokens_est = 500
+        job.output_tokens_est = 200
+        job.cost_est_usd = 0.01
+        job.duration_ms = 1234
+
+        jobs = queue.get_jobs()
+        j = jobs[0]
+        assert j["id"] == job_id
+        assert j["skill"] == "email-gen"
+        assert j["row_id"] == "r1"
+        assert j["priority"] == "high"
+        assert j["batch_id"] == "b1"
+        assert j["input_tokens_est"] == 500
+        assert j["output_tokens_est"] == 200
+        assert j["cost_est_usd"] == 0.01
+        assert j["duration_ms"] == 1234
+        assert "created_at" in j
+        assert "retry_count" in j
+        assert j["status"] == JobStatus.queued
+
+
+# ---------------------------------------------------------------------------
+# Batch — edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestBatchEdges:
+    @pytest.mark.asyncio
+    async def test_batch_with_missing_job_ids(self):
+        """get_batch_jobs filters out job IDs that no longer exist."""
+        queue = JobQueue(pool=MagicMock())
+        job_id = await queue.enqueue(
+            skill="s", data={}, instructions=None, model="opus",
+            callback_url="", row_id=None,
+        )
+        queue.register_batch("b1", [job_id, "nonexistent-id"])
+        jobs = queue.get_batch_jobs("b1")
+        assert len(jobs) == 1
+        assert jobs[0].id == job_id
+
+
+# ---------------------------------------------------------------------------
+# Prune — additional statuses
+# ---------------------------------------------------------------------------
+
+
+class TestPruneEdges:
+    @pytest.mark.asyncio
+    async def test_prune_removes_failed_jobs(self):
+        queue = JobQueue(pool=MagicMock())
+        job_id = await queue.enqueue(
+            skill="s", data={}, instructions=None, model="opus",
+            callback_url="", row_id=None,
+        )
+        job = queue.get_job(job_id)
+        job.status = JobStatus.failed
+        job.created_at = time.time() - 1000
+        assert queue.prune_completed(cutoff=time.time() - 500) == 1
+
+    @pytest.mark.asyncio
+    async def test_prune_keeps_processing_jobs(self):
+        queue = JobQueue(pool=MagicMock())
+        job_id = await queue.enqueue(
+            skill="s", data={}, instructions=None, model="opus",
+            callback_url="", row_id=None,
+        )
+        job = queue.get_job(job_id)
+        job.status = JobStatus.processing
+        job.created_at = time.time() - 1000
+        assert queue.prune_completed(cutoff=time.time() - 500) == 0
+
+    @pytest.mark.asyncio
+    async def test_prune_keeps_retrying_jobs(self):
+        queue = JobQueue(pool=MagicMock())
+        job_id = await queue.enqueue(
+            skill="s", data={}, instructions=None, model="opus",
+            callback_url="", row_id=None,
+        )
+        job = queue.get_job(job_id)
+        job.status = JobStatus.retrying
+        job.created_at = time.time() - 1000
+        assert queue.prune_completed(cutoff=time.time() - 500) == 0
+
+    @pytest.mark.asyncio
+    async def test_prune_multiple_jobs(self):
+        queue = JobQueue(pool=MagicMock())
+        for i in range(5):
+            jid = await queue.enqueue(
+                skill="s", data={}, instructions=None, model="opus",
+                callback_url="", row_id=None,
+            )
+            job = queue.get_job(jid)
+            job.status = JobStatus.completed
+            job.created_at = time.time() - 1000
+        assert queue.prune_completed(cutoff=time.time() - 500) == 5
+        assert queue.total == 0
+
+
+# ---------------------------------------------------------------------------
+# _record_usage — edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestRecordUsageEdges:
+    def test_usage_envelope_non_dict_uses_estimates(self):
+        queue = JobQueue(pool=MagicMock())
+        usage_store = MagicMock()
+        queue._usage_store = usage_store
+        job = Job(id="j", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None, input_tokens_est=100, output_tokens_est=50)
+        queue._record_usage(job, "not a dict")
+        entry = usage_store.record.call_args[0][0]
+        assert entry.is_actual is False
+        assert entry.input_tokens == 100
+
+    def test_usage_entry_has_correct_fields(self):
+        queue = JobQueue(pool=MagicMock())
+        usage_store = MagicMock()
+        queue._usage_store = usage_store
+        job = Job(id="j99", skill="enrichment", data={}, instructions=None, model="haiku",
+                  callback_url="", row_id=None)
+        queue._record_usage(job, {"input_tokens": 300, "output_tokens": 100})
+        entry = usage_store.record.call_args[0][0]
+        assert entry.job_id == "j99"
+        assert entry.skill == "enrichment"
+        assert entry.model == "haiku"
+
+    def test_usage_envelope_empty_dict_is_falsy(self):
+        """Empty dict {} is falsy in Python, so _record_usage treats it as no envelope."""
+        queue = JobQueue(pool=MagicMock())
+        usage_store = MagicMock()
+        queue._usage_store = usage_store
+        job = Job(id="j", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None)
+        queue._record_usage(job, {})
+        entry = usage_store.record.call_args[0][0]
+        assert entry.is_actual is False  # {} is falsy
+
+    def test_usage_envelope_partial_fields(self):
+        """Envelope with only input_tokens still counts as actual."""
+        queue = JobQueue(pool=MagicMock())
+        usage_store = MagicMock()
+        queue._usage_store = usage_store
+        job = Job(id="j", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None)
+        queue._record_usage(job, {"input_tokens": 100})
+        entry = usage_store.record.call_args[0][0]
+        assert entry.is_actual is True
+        assert entry.input_tokens == 100
+        assert entry.output_tokens == 0
+
+
+# ---------------------------------------------------------------------------
+# _send_callback — payload edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestSendCallbackPayload:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.httpx.AsyncClient")
+    async def test_callback_no_row_id_excluded(self, mock_client_cls):
+        mock_resp = MagicMock(status_code=200)
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        queue = JobQueue(pool=MagicMock())
+        job = Job(id="j1", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="http://x.com/cb", row_id=None,
+                  status=JobStatus.completed, result={"r": 1})
+        await queue._send_callback(job)
+        payload = mock_client.post.call_args[1]["json"]
+        assert "row_id" not in payload
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.httpx.AsyncClient")
+    async def test_callback_meta_includes_model_and_duration(self, mock_client_cls):
+        mock_resp = MagicMock(status_code=200)
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        queue = JobQueue(pool=MagicMock())
+        job = Job(id="j1", skill="email-gen", data={}, instructions=None, model="sonnet",
+                  callback_url="http://x.com/cb", row_id=None,
+                  status=JobStatus.completed, result={"email": "hi"}, duration_ms=567)
+        await queue._send_callback(job)
+        meta = mock_client.post.call_args[1]["json"]["_meta"]
+        assert meta["model"] == "sonnet"
+        assert meta["duration_ms"] == 567
+        assert meta["async"] is True
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.httpx.AsyncClient")
+    async def test_callback_result_fields_merged_into_payload(self, mock_client_cls):
+        mock_resp = MagicMock(status_code=200)
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        queue = JobQueue(pool=MagicMock())
+        job = Job(id="j1", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="http://x.com/cb", row_id=None,
+                  status=JobStatus.completed, result={"subject": "Hello", "body": "World"})
+        await queue._send_callback(job)
+        payload = mock_client.post.call_args[1]["json"]
+        assert payload["subject"] == "Hello"
+        assert payload["body"] == "World"
+        assert payload["job_id"] == "j1"
+        assert payload["skill"] == "s"
+
+
+# ---------------------------------------------------------------------------
+# start_workers
+# ---------------------------------------------------------------------------
+
+
+class TestStartWorkers:
+    @pytest.mark.asyncio
+    async def test_start_workers_creates_tasks(self):
+        queue = JobQueue(pool=MagicMock())
+        # Patch _worker to be a no-op coroutine that exits
+        async def fake_worker(wid):
+            return
+
+        with patch.object(queue, '_worker', side_effect=fake_worker):
+            await queue.start_workers(num_workers=3)
+        assert len(queue._workers) == 3
+        # Clean up
+        await queue.stop()
+
+    @pytest.mark.asyncio
+    async def test_start_workers_default_count(self):
+        queue = JobQueue(pool=MagicMock())
+        async def fake_worker(wid):
+            return
+
+        with patch.object(queue, '_worker', side_effect=fake_worker):
+            await queue.start_workers()
+        assert len(queue._workers) == 3
+        await queue.stop()
+
+
+# ---------------------------------------------------------------------------
+# Pause/Resume — additional tests
+# ---------------------------------------------------------------------------
+
+
+class TestPauseResumeEdges:
+    def test_double_pause(self):
+        queue = JobQueue(pool=MagicMock())
+        queue.pause()
+        queue.pause()
+        assert queue.is_paused
+
+    def test_resume_when_not_paused(self):
+        queue = JobQueue(pool=MagicMock())
+        queue.resume()
+        assert not queue.is_paused
+
+    def test_pause_resume_cycle(self):
+        queue = JobQueue(pool=MagicMock())
+        for _ in range(3):
+            queue.pause()
+            assert queue.is_paused
+            queue.resume()
+            assert not queue.is_paused

@@ -525,3 +525,343 @@ class TestPreviewPrompt:
         assert result is not None
         call_data = mock_build.call_args[0][2]
         assert call_data == {"client_slug": "acme"}
+
+
+# ---------------------------------------------------------------------------
+# _split_sections edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestSplitSectionsEdges:
+    def test_empty_content(self, store):
+        assert store._split_sections("") == {}
+
+    def test_only_h1_no_h2(self, store):
+        assert store._split_sections("# Title\nSome body text") == {}
+
+    def test_consecutive_h2_no_content(self, store):
+        sections = store._split_sections("## A\n## B\nContent B")
+        assert sections["A"] == ""
+        assert "Content B" in sections["B"]
+
+    def test_h3_inside_h2(self, store):
+        content = "## Section\n### Subsection\nSub content"
+        sections = store._split_sections(content)
+        assert "### Subsection" in sections["Section"]
+        assert "Sub content" in sections["Section"]
+
+    def test_preserves_multiline_content(self, store):
+        content = "## Notes\nLine 1\nLine 2\nLine 3"
+        sections = store._split_sections(content)
+        assert sections["Notes"] == "Line 1\nLine 2\nLine 3"
+
+
+# ---------------------------------------------------------------------------
+# _extract_bullet edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestExtractBulletEdges:
+    def test_asterisk_bullet(self, store):
+        text = "* **Domain:** example.com"
+        assert store._extract_bullet(text, "Domain") == "example.com"
+
+    def test_case_insensitive(self, store):
+        text = "- **domain:** example.com"
+        assert store._extract_bullet(text, "Domain") == "example.com"
+
+    def test_multiple_matches_returns_first(self, store):
+        text = "- **Domain:** first.com\n- **Domain:** second.com"
+        assert store._extract_bullet(text, "Domain") == "first.com"
+
+    def test_extra_whitespace(self, store):
+        text = "- **Domain:**   spaced.com  "
+        assert store._extract_bullet(text, "Domain") == "spaced.com"
+
+
+# ---------------------------------------------------------------------------
+# _parse_client_markdown edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestParseClientEdges:
+    def test_empty_content(self, store):
+        profile = store._parse_client_markdown("empty", "")
+        assert profile.slug == "empty"
+        assert profile.name == "Empty"  # slug fallback
+        assert profile.company.domain == ""
+
+    def test_no_sections_just_text(self, store):
+        profile = store._parse_client_markdown("test", "Just some plain text")
+        assert profile.slug == "test"
+        assert profile.what_they_sell == ""
+
+    def test_raw_markdown_set(self, store):
+        md = "# Test\n\n## Company\n- **Domain:** test.com"
+        profile = store._parse_client_markdown("test", md)
+        assert profile.raw_markdown == md
+
+    def test_notes_fallback_to_campaign_notes(self, store):
+        md = "# Test\n\n## Campaign Notes\nSome notes here"
+        profile = store._parse_client_markdown("test", md)
+        assert "Some notes here" in profile.notes
+
+
+# ---------------------------------------------------------------------------
+# _render_client_markdown edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestRenderClientEdges:
+    def test_missing_optional_fields_omitted(self, store, tmp_path):
+        """Optional sections not rendered when empty."""
+        req = CreateClientRequest(
+            slug="minimal",
+            name="Minimal Co",
+            company=CompanyInfo(domain="min.co"),
+        )
+        profile = store.create_client(req)
+        md = profile.raw_markdown
+        assert "# Minimal Co" in md
+        assert "## Company" in md
+        assert "## What They Sell" not in md
+        assert "## Target ICP" not in md
+        assert "## Competitive Landscape" not in md
+
+    def test_hq_and_founded_conditional(self, store, tmp_path):
+        """HQ and Founded only rendered when present."""
+        req = CreateClientRequest(
+            slug="nohq",
+            name="No HQ Co",
+            company=CompanyInfo(domain="nohq.co"),
+        )
+        profile = store.create_client(req)
+        assert "**HQ:**" not in profile.raw_markdown
+        assert "**Founded:**" not in profile.raw_markdown
+
+        req2 = CreateClientRequest(
+            slug="withhq",
+            name="With HQ",
+            company=CompanyInfo(domain="hq.co", hq="NYC", founded="2020"),
+        )
+        profile2 = store.create_client(req2)
+        assert "**HQ:** NYC" in profile2.raw_markdown
+        assert "**Founded:** 2020" in profile2.raw_markdown
+
+    def test_tone_dash_fallback(self, store, tmp_path):
+        """Tone fields render as '—' when empty, then parse back as empty string."""
+        req = CreateClientRequest(
+            slug="notone",
+            name="No Tone",
+            company=CompanyInfo(),
+            tone=TonePreferences(),  # all None
+        )
+        profile = store.create_client(req)
+        assert "**Formality:** —" in profile.raw_markdown
+        # Re-parse: '—' should come back as empty string
+        reloaded = store.get_client("notone")
+        assert reloaded.tone.formality == ""
+
+
+# ---------------------------------------------------------------------------
+# update_client — field preservation
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateClientPreservation:
+    def test_partial_update_preserves_other_fields(self, store_with_client):
+        """Updating name should not wipe other fields."""
+        updated = store_with_client.update_client("acme", UpdateClientRequest(name="Acme v2"))
+        assert updated.name == "Acme v2"
+        assert updated.company.domain == "acme.com"
+        assert updated.company.industry == "SaaS"
+        assert "AI-powered widgets" in updated.what_they_sell
+
+    def test_update_string_fields(self, store_with_client):
+        """Updating simple string fields works correctly."""
+        updated = store_with_client.update_client(
+            "acme", UpdateClientRequest(what_they_sell="New products")
+        )
+        assert "New products" in updated.what_they_sell
+        assert updated.company.domain == "acme.com"  # preserved
+
+    def test_update_sets_raw_markdown(self, store_with_client):
+        updated = store_with_client.update_client("acme", UpdateClientRequest(notes="New notes"))
+        assert updated.raw_markdown is not None
+        assert "## Notes" in updated.raw_markdown
+        assert "New notes" in updated.raw_markdown
+
+    def test_update_nested_model_bug(self, store_with_client):
+        """Known issue: model_dump converts nested Pydantic models to dicts,
+        causing _render_client_markdown to fail with AttributeError."""
+        new_company = CompanyInfo(domain="newacme.com", industry="AI")
+        with pytest.raises(AttributeError, match="domain"):
+            store_with_client.update_client("acme", UpdateClientRequest(company=new_company))
+
+
+# ---------------------------------------------------------------------------
+# create_client — raw_markdown and idempotency
+# ---------------------------------------------------------------------------
+
+
+class TestCreateClientEdges:
+    def test_create_sets_raw_markdown(self, store):
+        req = CreateClientRequest(
+            slug="rawtest",
+            name="Raw Test",
+            company=CompanyInfo(domain="raw.co"),
+        )
+        profile = store.create_client(req)
+        assert profile.raw_markdown is not None
+        assert "# Raw Test" in profile.raw_markdown
+
+    def test_create_overwrites_existing(self, store_with_client):
+        """Creating a client with same slug overwrites the profile."""
+        req = CreateClientRequest(
+            slug="acme",
+            name="Acme Replaced",
+            company=CompanyInfo(domain="replaced.com"),
+        )
+        profile = store_with_client.create_client(req)
+        assert profile.name == "Acme Replaced"
+        reloaded = store_with_client.get_client("acme")
+        assert reloaded.name == "Acme Replaced"
+
+
+# ---------------------------------------------------------------------------
+# delete_client — structured preferred over flat
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteClientEdges:
+    def test_structured_preferred_over_flat(self, store, tmp_path):
+        """If both structured dir and flat file exist, delete removes the dir."""
+        client_dir = tmp_path / "clients" / "both"
+        client_dir.mkdir()
+        (client_dir / "profile.md").write_text("# Both\n")
+        (tmp_path / "clients" / "both.md").write_text("# Both Flat\n")
+
+        assert store.delete_client("both") is True
+        assert not client_dir.exists()
+        # Flat file still exists because structured was deleted first
+        assert (tmp_path / "clients" / "both.md").exists()
+
+
+# ---------------------------------------------------------------------------
+# list_clients — sorting and mixed types
+# ---------------------------------------------------------------------------
+
+
+class TestListClientsSorting:
+    def test_sorted_alphabetically(self, store, tmp_path):
+        for name in ("zebra", "alpha", "mid"):
+            d = tmp_path / "clients" / name
+            d.mkdir()
+            (d / "profile.md").write_text(f"# {name.title()}\n\n## Company\n")
+        clients = store.list_clients()
+        slugs = [c.slug for c in clients]
+        assert slugs == ["alpha", "mid", "zebra"]
+
+    def test_mixed_structured_and_flat(self, store, tmp_path):
+        d = tmp_path / "clients" / "structured"
+        d.mkdir()
+        (d / "profile.md").write_text("# Structured\n\n## Company\n")
+        (tmp_path / "clients" / "flat.md").write_text("# Flat\n\n## Company\n")
+        clients = store.list_clients()
+        slugs = [c.slug for c in clients]
+        assert "flat" in slugs
+        assert "structured" in slugs
+        assert len(slugs) == 2
+
+
+# ---------------------------------------------------------------------------
+# get_context_usage_map — edges
+# ---------------------------------------------------------------------------
+
+
+class TestContextUsageMapEdges:
+    @patch("app.core.context_store.load_skill_config", return_value={"context": ["kb/shared.md"]})
+    @patch("app.core.context_store.list_skills", return_value=["skill-a", "skill-b"])
+    def test_multiple_skills_same_ref(self, mock_ls, mock_cfg, store):
+        usage = store.get_context_usage_map()
+        assert "kb/shared.md" in usage
+        assert set(usage["kb/shared.md"]) == {"skill-a", "skill-b"}
+
+    @patch("app.core.context_store.load_skill_config", return_value={"context": None})
+    @patch("app.core.context_store.load_skill", return_value="# Skill")
+    @patch("app.core.context_store.parse_context_refs", return_value=[])
+    @patch("app.core.context_store.list_skills", return_value=["lonely"])
+    def test_none_context_falls_through(self, mock_ls, mock_refs, mock_load, mock_cfg, store):
+        """context: None in config should fall through to parse_context_refs."""
+        usage = store.get_context_usage_map()
+        mock_refs.assert_called_once()
+
+    @patch("app.core.context_store.load_skill_config", return_value={"context": []})
+    @patch("app.core.context_store.load_skill", return_value="# No refs")
+    @patch("app.core.context_store.parse_context_refs", return_value=[])
+    @patch("app.core.context_store.list_skills", return_value=["skill-a"])
+    def test_no_defaults_dir(self, mock_ls, mock_refs, mock_load, mock_cfg, store):
+        """When _defaults dir doesn't exist, no default refs are added."""
+        usage = store.get_context_usage_map()
+        assert all("_defaults" not in k for k in usage)
+
+
+# ---------------------------------------------------------------------------
+# preview_prompt — estimated tokens
+# ---------------------------------------------------------------------------
+
+
+class TestPreviewPromptEdges:
+    @patch("app.core.context_store.build_prompt", return_value="a" * 400)
+    @patch("app.core.context_store.load_context_files", return_value=[])
+    @patch("app.core.context_store.load_skill", return_value="# Skill")
+    def test_estimated_tokens_calculation(self, mock_load, mock_ctx, mock_build):
+        store = ContextStore(
+            clients_dir=Path("/tmp/c"),
+            knowledge_dir=Path("/tmp/kb"),
+            skills_dir=Path("/tmp/sk"),
+        )
+        result = store.preview_prompt("test", "client")
+        assert result.estimated_tokens == 100  # 400 // 4
+
+    @patch("app.core.context_store.build_prompt", return_value="short")
+    @patch("app.core.context_store.load_context_files", return_value=[
+        {"path": "a.md"}, {"path": "b.md"}, {"path": "c.md"},
+    ])
+    @patch("app.core.context_store.load_skill", return_value="# Skill")
+    def test_multiple_context_files_listed(self, mock_load, mock_ctx, mock_build):
+        store = ContextStore(
+            clients_dir=Path("/tmp/c"),
+            knowledge_dir=Path("/tmp/kb"),
+            skills_dir=Path("/tmp/sk"),
+        )
+        result = store.preview_prompt("test", "client")
+        assert result.context_files_loaded == ["a.md", "b.md", "c.md"]
+
+
+# ---------------------------------------------------------------------------
+# Knowledge base — create edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestCreateKnowledgeEdges:
+    def test_create_filename_with_dots(self, store, tmp_path):
+        f = store.create_knowledge_file("voice", "my.special.file.md", "Content")
+        assert f.name == "my.special.file"
+        assert (tmp_path / "knowledge_base" / "voice" / "my.special.file.md").exists()
+
+    def test_create_category_leading_trailing_special(self, store):
+        f = store.create_knowledge_file("---My Cat---", "file.md", "X")
+        assert f.category == "my-cat"
+
+    def test_create_category_all_special_chars(self, store):
+        f = store.create_knowledge_file("!@#$", "file.md", "X")
+        assert f.category == ""  # all stripped
+
+    def test_delete_filename_slash_blocked(self, store):
+        with pytest.raises(ValueError, match="Invalid path"):
+            store.delete_knowledge_file("cat", "sub/file.md")
+
+    def test_create_filename_slash_blocked(self, store):
+        with pytest.raises(ValueError, match="Invalid path"):
+            store.create_knowledge_file("cat", "sub/file.md", "X")
