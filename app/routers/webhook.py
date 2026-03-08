@@ -5,10 +5,11 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.core.claude_executor import SubscriptionLimitError
-from app.core.context_assembler import build_prompt
+from app.core.context_assembler import build_agent_prompts, build_prompt
 from app.core.model_router import resolve_model
 from app.core.pipeline_runner import run_skill_chain
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config
+from app.core.team_router import run_auto_pipeline
 from app.core.token_estimator import estimate_cost, estimate_tokens
 from app.models.requests import WebhookRequest
 from app.models.usage import UsageEntry
@@ -37,8 +38,14 @@ async def webhook(body: WebhookRequest, request: Request):
     # Resolve skill chain
     skill_chain = body.skills or [body.skill]
     primary_skill = skill_chain[0]
-    config = load_skill_config(primary_skill)
-    model = resolve_model(request_model=body.model, skill_config=config)
+
+    # Auto mode bypasses normal skill config lookup
+    if primary_skill == "auto":
+        config = {}
+        model = body.model or settings.default_model
+    else:
+        config = load_skill_config(primary_skill)
+        model = resolve_model(request_model=body.model, skill_config=config)
     is_chain = len(skill_chain) > 1
     priority = body.priority or "normal"
     max_retries = body.max_retries or 3
@@ -75,6 +82,21 @@ async def webhook(body: WebhookRequest, request: Request):
         )
 
     # --- Sync mode: process and return result ---
+
+    # Auto mode: coordinator generates pipeline dynamically
+    if primary_skill == "auto":
+        try:
+            result = await run_auto_pipeline(
+                data=body.data,
+                instructions=body.instructions,
+                model=model,
+                pool=pool,
+                cache=cache,
+            )
+            return result
+        except Exception as e:
+            logger.error("[auto] Execution error: %s", e)
+            return _error(f"Auto pipeline error: {e}", "auto")
 
     # Skill chain sync mode
     if is_chain:
@@ -114,9 +136,24 @@ async def webhook(body: WebhookRequest, request: Request):
             },
         }
 
-    # Build prompt
+    # Build prompt — agent skills use a different prompt structure
     context_files = load_context_files(skill_content, body.data, skill_name=primary_skill)
-    prompt = build_prompt(skill_content, context_files, body.data, body.instructions)
+    is_agent = config.get("executor") == "agent"
+
+    # Get memory and context index from app state
+    memory_store = getattr(request.app.state, "memory_store", None)
+    context_index = getattr(request.app.state, "context_index", None)
+
+    if is_agent:
+        prompt = build_agent_prompts(
+            skill_content, context_files, body.data, body.instructions,
+            memory_store=memory_store, context_index=context_index,
+        )
+    else:
+        prompt = build_prompt(
+            skill_content, context_files, body.data, body.instructions,
+            memory_store=memory_store, context_index=context_index,
+        )
 
     # Refine model with prompt heuristic (layer 4) if smart routing enabled
     if settings.enable_smart_routing and not body.model:
@@ -126,19 +163,31 @@ async def webhook(body: WebhookRequest, request: Request):
             context_file_count=len(context_files),
         )
 
+    # Agent skill config
+    agent_timeout = config.get("timeout", settings.request_timeout) if is_agent else settings.request_timeout
+    agent_max_turns = config.get("max_turns", 15) if is_agent else 1
+    agent_tools = config.get("allowed_tools") if is_agent else None
+    executor_type = "agent" if is_agent else "cli"
+
     logger.info(
-        "[%s] Processing (model=%s, context_files=%d, prompt_len=%d)",
+        "[%s] Processing (model=%s, executor=%s, context_files=%d, prompt_len=%d)",
         primary_skill,
         model,
+        executor_type,
         len(context_files),
         len(prompt),
     )
 
     # Execute via worker pool
     try:
-        result = await pool.submit(prompt, model, settings.request_timeout)
+        result = await pool.submit(
+            prompt, model, agent_timeout,
+            executor_type=executor_type,
+            max_turns=agent_max_turns,
+            allowed_tools=agent_tools,
+        )
     except TimeoutError:
-        return _error(f"Request timed out after {settings.request_timeout}s", primary_skill)
+        return _error(f"Request timed out after {agent_timeout}s", primary_skill)
     except SubscriptionLimitError as e:
         logger.error("[%s] Subscription limit: %s", primary_skill, e)
         usage_store = getattr(request.app.state, "usage_store", None)
@@ -179,6 +228,13 @@ async def webhook(body: WebhookRequest, request: Request):
 
     # Cache result
     cache.put(primary_skill, body.data, body.instructions, parsed, model)
+
+    # Store memory for this entity
+    if memory_store is not None:
+        try:
+            memory_store.store_from_data(body.data, primary_skill, parsed)
+        except Exception:
+            pass  # Non-critical
 
     return {
         **parsed,

@@ -38,9 +38,10 @@ class ClaudeExecutor:
         args = [
             "claude",
             "--print",
-            "--output-format", "json",
+            "--output-format", "text",
             "--model", resolved_model,
             "--max-turns", "1",
+            "--dangerously-skip-permissions",
             "-",
         ]
 
@@ -89,47 +90,16 @@ class ClaudeExecutor:
 
         duration_ms = int((time.monotonic() - start) * 1000)
 
-        # --output-format json gives us a structured envelope from the CLI.
-        # Parse the envelope first, then extract Claude's content.
-        envelope = json.loads(raw)
-        content = self._extract_content(envelope)
-        parsed = self._parse_json(content)
-
-        # Token usage: prefer real data from CLI if available, else return char counts for estimation
-        usage = envelope.get("usage") if isinstance(envelope, dict) else None
+        parsed = self._parse_json(raw)
 
         return {
             "result": parsed,
             "duration_ms": duration_ms,
             "raw_length": len(raw),
             "prompt_chars": len(prompt),
-            "response_chars": len(content),
-            "usage": usage,
+            "response_chars": len(raw),
+            "usage": None,
         }
-
-    @staticmethod
-    def _extract_content(envelope: dict | list) -> str:
-        """Extract the text content from the CLI JSON envelope."""
-        # --print with --output-format json returns a list of content blocks
-        if isinstance(envelope, list):
-            parts = []
-            for block in envelope:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    parts.append(block.get("text", ""))
-            if parts:
-                return "\n".join(parts)
-
-        # Single object with a "result" key
-        if isinstance(envelope, dict):
-            if "result" in envelope:
-                return str(envelope["result"])
-            if "text" in envelope:
-                return str(envelope["text"])
-            if "content" in envelope:
-                return str(envelope["content"])
-
-        # Fallback: re-serialize and let _parse_json handle it
-        return json.dumps(envelope)
 
     @staticmethod
     def _parse_json(content: str) -> dict:

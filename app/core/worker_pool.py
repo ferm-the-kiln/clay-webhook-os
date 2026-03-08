@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+from app.core.agent_executor import AgentExecutor
 from app.core.claude_executor import ClaudeExecutor
 
 logger = logging.getLogger("clay-webhook-os")
@@ -12,6 +13,7 @@ class WorkerPool:
         self._max_workers = max_workers
         self._active = 0
         self._executor = ClaudeExecutor()
+        self._agent_executor = AgentExecutor()
 
     @property
     def available(self) -> int:
@@ -21,13 +23,28 @@ class WorkerPool:
     def max_workers(self) -> int:
         return self._max_workers
 
-    async def submit(self, prompt: str, model: str = "opus", timeout: int = 120) -> dict:
+    async def submit(
+        self,
+        prompt: str,
+        model: str = "opus",
+        timeout: int = 120,
+        executor_type: str = "cli",
+        max_turns: int = 1,
+        allowed_tools: list[str] | None = None,
+    ) -> dict:
         async with self._semaphore:
             self._active += 1
             try:
                 logger.info(
-                    "Worker acquired (%d/%d active)", self._active, self._max_workers
+                    "Worker acquired (%d/%d active, executor=%s)",
+                    self._active, self._max_workers, executor_type,
                 )
+                if executor_type == "agent":
+                    return await self._agent_executor.execute(
+                        prompt, model, timeout,
+                        max_turns=max_turns,
+                        allowed_tools=allowed_tools,
+                    )
                 return await self._executor.execute(prompt, model, timeout)
             finally:
                 self._active -= 1

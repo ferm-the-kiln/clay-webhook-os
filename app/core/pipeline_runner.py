@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import operator
 import re
@@ -65,6 +66,25 @@ def extract_confidence(output: dict, confidence_field: str | None) -> float:
         return 1.0
 
 
+def _deep_merge(base: dict, overlay: dict) -> dict:
+    """Deep merge overlay into base. Overlay values win on conflict."""
+    merged = dict(base)
+    for key, value in overlay.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _namespace_merge(base: dict, overlay: dict, namespace: str) -> dict:
+    """Merge overlay into base with keys prefixed by namespace."""
+    merged = dict(base)
+    for key, value in overlay.items():
+        merged[f"{namespace}__{key}"] = value
+    return merged
+
+
 def list_pipelines() -> list[str]:
     if not settings.pipelines_dir.exists():
         return []
@@ -76,6 +96,125 @@ def load_pipeline(name: str) -> dict | None:
     if not path.exists():
         return None
     return yaml.safe_load(path.read_text())
+
+
+async def _run_single_step(
+    skill_name: str,
+    current_data: dict,
+    instructions: str | None,
+    model: str,
+    pool: WorkerPool,
+    cache: ResultCache | None = None,
+) -> dict:
+    """Execute a single skill step. Returns a result dict."""
+    step_start = time.monotonic()
+
+    skill_content = load_skill(skill_name)
+    if skill_content is None:
+        return {
+            "skill": skill_name,
+            "success": False,
+            "duration_ms": 0,
+            "error": f"Skill '{skill_name}' not found",
+        }
+
+    # Check cache
+    if cache is not None:
+        cached = cache.get(skill_name, current_data, instructions)
+        if cached is not None:
+            return {
+                "skill": skill_name,
+                "success": True,
+                "duration_ms": 0,
+                "output": cached,
+                "prompt_chars": 0,
+                "response_chars": 0,
+            }
+
+    context_files = load_context_files(skill_content, current_data, skill_name=skill_name)
+    prompt = build_prompt(skill_content, context_files, current_data, instructions)
+
+    try:
+        result = await pool.submit(prompt, model)
+        parsed = result["result"]
+        duration_ms = result["duration_ms"]
+
+        if cache is not None:
+            cache.put(skill_name, current_data, instructions, parsed)
+
+        return {
+            "skill": skill_name,
+            "success": True,
+            "duration_ms": duration_ms,
+            "output": parsed,
+            "prompt_chars": result.get("prompt_chars", 0),
+            "response_chars": result.get("response_chars", 0),
+        }
+    except Exception as e:
+        duration_ms = int((time.monotonic() - step_start) * 1000)
+        return {
+            "skill": skill_name,
+            "success": False,
+            "duration_ms": duration_ms,
+            "error": str(e),
+            "prompt_chars": 0,
+            "response_chars": 0,
+        }
+
+
+async def _run_parallel_step(
+    sub_steps: list[dict],
+    current_data: dict,
+    instructions: str | None,
+    model: str,
+    pool: WorkerPool,
+    cache: ResultCache | None,
+    merge_strategy: str = "deep",
+) -> tuple[list[dict], dict]:
+    """Run multiple skill steps concurrently. Returns (results_list, merged_data)."""
+    parallel_start = time.monotonic()
+
+    # Build coroutines for each sub-step
+    coros = []
+    for sub_step in sub_steps:
+        skill_name = sub_step["skill"] if isinstance(sub_step, dict) else sub_step
+        step_model = sub_step.get("model", model) if isinstance(sub_step, dict) else model
+        step_instructions = sub_step.get("instructions", instructions) if isinstance(sub_step, dict) else instructions
+        coros.append(_run_single_step(
+            skill_name=skill_name,
+            current_data=current_data,
+            instructions=step_instructions,
+            model=step_model,
+            pool=pool,
+            cache=cache,
+        ))
+
+    # Fan out — run all concurrently through the existing semaphore-controlled pool
+    step_results = await asyncio.gather(*coros)
+
+    # Merge results into current_data
+    merged_data = dict(current_data)
+    for step_result in step_results:
+        if step_result.get("success") and step_result.get("output"):
+            output = step_result["output"]
+            if merge_strategy == "namespace":
+                skill_name = step_result["skill"]
+                merged_data = _namespace_merge(merged_data, output, skill_name)
+            else:
+                merged_data = _deep_merge(merged_data, output)
+
+    parallel_ms = int((time.monotonic() - parallel_start) * 1000)
+    logger.info(
+        "[pipeline] Parallel step completed: %d sub-steps in %dms",
+        len(sub_steps), parallel_ms,
+    )
+
+    return list(step_results), merged_data
+
+
+def _is_parallel_step(step: dict) -> bool:
+    """Check if a step dict is a parallel step (has 'parallel' key)."""
+    return isinstance(step, dict) and "parallel" in step
 
 
 async def run_skill_chain(
@@ -91,63 +230,17 @@ async def run_skill_chain(
     total_start = time.monotonic()
 
     for skill_name in skills:
-        step_start = time.monotonic()
-
-        skill_content = load_skill(skill_name)
-        if skill_content is None:
-            results.append({
-                "skill": skill_name,
-                "success": False,
-                "duration_ms": 0,
-                "error": f"Skill '{skill_name}' not found",
-            })
-            continue
-
-        # Check cache
-        if cache is not None:
-            cached = cache.get(skill_name, current_data, instructions)
-            if cached is not None:
-                results.append({
-                    "skill": skill_name,
-                    "success": True,
-                    "duration_ms": 0,
-                    "output": cached,
-                    "prompt_chars": 0,
-                    "response_chars": 0,
-                })
-                current_data.update(cached)
-                continue
-
-        context_files = load_context_files(skill_content, current_data, skill_name=skill_name)
-        prompt = build_prompt(skill_content, context_files, current_data, instructions)
-
-        try:
-            result = await pool.submit(prompt, model)
-            parsed = result["result"]
-            duration_ms = result["duration_ms"]
-
-            if cache is not None:
-                cache.put(skill_name, current_data, instructions, parsed)
-            current_data.update(parsed)
-
-            results.append({
-                "skill": skill_name,
-                "success": True,
-                "duration_ms": duration_ms,
-                "output": parsed,
-                "prompt_chars": result.get("prompt_chars", 0),
-                "response_chars": result.get("response_chars", 0),
-            })
-        except Exception as e:
-            duration_ms = int((time.monotonic() - step_start) * 1000)
-            results.append({
-                "skill": skill_name,
-                "success": False,
-                "duration_ms": duration_ms,
-                "error": str(e),
-                "prompt_chars": 0,
-                "response_chars": 0,
-            })
+        step_result = await _run_single_step(
+            skill_name=skill_name,
+            current_data=current_data,
+            instructions=instructions,
+            model=model,
+            pool=pool,
+            cache=cache,
+        )
+        results.append(step_result)
+        if step_result.get("success") and step_result.get("output"):
+            current_data.update(step_result["output"])
 
     total_ms = int((time.monotonic() - total_start) * 1000)
     total_prompt_chars = sum(s.get("prompt_chars", 0) for s in results)
@@ -176,6 +269,53 @@ async def run_pipeline(
 
     steps = pipeline.get("steps", [])
     confidence_threshold = pipeline.get("confidence_threshold", 0.8)
+
+    return await _execute_steps(
+        plan_name=name,
+        steps=steps,
+        data=data,
+        instructions=instructions,
+        model=model,
+        pool=pool,
+        cache=cache,
+        confidence_threshold=confidence_threshold,
+    )
+
+
+async def run_pipeline_from_plan(
+    plan_name: str,
+    steps: list[dict],
+    data: dict,
+    instructions: str | None,
+    model: str,
+    pool: WorkerPool,
+    cache: ResultCache,
+    confidence_threshold: float = 0.8,
+) -> dict:
+    """Execute a dynamically generated pipeline plan (from coordinator)."""
+    return await _execute_steps(
+        plan_name=plan_name,
+        steps=steps,
+        data=data,
+        instructions=instructions,
+        model=model,
+        pool=pool,
+        cache=cache,
+        confidence_threshold=confidence_threshold,
+    )
+
+
+async def _execute_steps(
+    plan_name: str,
+    steps: list,
+    data: dict,
+    instructions: str | None,
+    model: str,
+    pool: WorkerPool,
+    cache: ResultCache,
+    confidence_threshold: float = 0.8,
+) -> dict:
+    """Core step execution engine — handles sequential, parallel, and conditional steps."""
     results = []
     current_data = dict(data)
     total_start = time.monotonic()
@@ -183,6 +323,36 @@ async def run_pipeline(
     min_confidence = 1.0
 
     for step in steps:
+        # --- Parallel step ---
+        if _is_parallel_step(step):
+            sub_steps = step["parallel"]
+            merge_strategy = step.get("merge", "deep")
+            logger.info(
+                "[pipeline:%s] Running parallel step (%d sub-steps, merge=%s)",
+                plan_name, len(sub_steps), merge_strategy,
+            )
+            parallel_results, current_data = await _run_parallel_step(
+                sub_steps=sub_steps,
+                current_data=current_data,
+                instructions=instructions,
+                model=model,
+                pool=pool,
+                cache=cache,
+                merge_strategy=merge_strategy,
+            )
+            # Track confidence from parallel results
+            for pr in parallel_results:
+                if pr.get("output"):
+                    step_confidence_field = None
+                    for ss in sub_steps:
+                        if isinstance(ss, dict) and ss.get("skill") == pr.get("skill"):
+                            step_confidence_field = ss.get("confidence_field")
+                    confidence = extract_confidence(pr.get("output", {}), step_confidence_field)
+                    min_confidence = min(min_confidence, confidence)
+            results.extend(parallel_results)
+            continue
+
+        # --- Sequential step ---
         skill_name = step["skill"] if isinstance(step, dict) else step
         step_model = step.get("model") if isinstance(step, dict) else None
         step_instructions = step.get("instructions") if isinstance(step, dict) else None
@@ -192,7 +362,7 @@ async def run_pipeline(
         effective_instructions = step_instructions or instructions
         step_start = time.monotonic()
 
-        # Phase 1: Evaluate condition — skip step if condition not met
+        # Evaluate condition — skip step if condition not met
         if step_condition:
             if not evaluate_condition(step_condition, current_data):
                 results.append({
@@ -280,7 +450,7 @@ async def run_pipeline(
     routing = "auto" if not needs_review else "review"
 
     return {
-        "pipeline": name,
+        "pipeline": plan_name,
         "steps": results,
         "final_output": current_data,
         "total_duration_ms": total_ms,

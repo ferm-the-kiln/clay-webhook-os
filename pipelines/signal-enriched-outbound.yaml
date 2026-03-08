@@ -1,0 +1,11 @@
+name: signal-enriched-outbound
+description: Parallel research → Score → Generate Email (demonstrates parallel workflow)
+steps:
+  - parallel:
+      - skill: signal-researcher
+      - skill: account-researcher
+    merge: deep
+  - skill: icp-scorer
+    condition: "confidence_score >= 0.5"
+  - skill: angle-selector
+  - skill: email-gen

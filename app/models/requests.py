@@ -17,7 +17,9 @@ class WebhookRequest(BaseModel):
         if not self.skill and not self.skills:
             raise ValueError("Either 'skill' or 'skills' must be provided")
         if self.skill and self.skills:
-            raise ValueError("Provide 'skill' or 'skills', not both")
+            # Allow skill="auto" alongside skills list (skills is ignored in auto mode)
+            if self.skill != "auto":
+                raise ValueError("Provide 'skill' or 'skills', not both")
         return self
 
 

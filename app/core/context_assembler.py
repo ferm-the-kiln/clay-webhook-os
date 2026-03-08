@@ -1,7 +1,12 @@
 import json
 import logging
+from typing import TYPE_CHECKING
 
 from app.config import settings
+
+if TYPE_CHECKING:
+    from app.core.context_index import ContextIndex
+    from app.core.memory_store import MemoryStore
 
 logger = logging.getLogger("clay-webhook-os")
 
@@ -51,6 +56,8 @@ def build_prompt(
     context_files: list[dict[str, str]],
     data: dict,
     instructions: str | None = None,
+    memory_store: "MemoryStore | None" = None,
+    context_index: "ContextIndex | None" = None,
 ) -> str:
     parts: list[str] = []
 
@@ -63,9 +70,33 @@ def build_prompt(
     # Layer 2: Skill
     parts.append(f"\n\n# Skill Instructions\n\n{skill_content}")
 
+    # Layer 2.5: Memory (prior knowledge about this entity)
+    if memory_store is not None:
+        entries = memory_store.query(data)
+        if entries:
+            memory_text = memory_store.format_for_prompt(entries)
+            parts.append(f"\n\n---\n\n{memory_text}")
+            logger.info("[prompt] Injected %d memory entries", len(entries))
+
     # Layer 3: Context (sorted generic → specific so client context is nearest to data)
-    if context_files:
-        sorted_ctx = sorted(context_files, key=_context_priority)
+    seen_paths = {ctx["path"] for ctx in context_files}
+    all_context = list(context_files)
+
+    # Layer 3.5: Semantic context (auto-discovered relevant files)
+    if context_index is not None:
+        semantic_hits = context_index.search_by_data(data, top_k=3)
+        for rel_path, score in semantic_hits:
+            if rel_path in seen_paths:
+                continue
+            from app.core.skill_loader import load_file
+            content = load_file(rel_path)
+            if content:
+                all_context.append({"path": rel_path, "content": content})
+                seen_paths.add(rel_path)
+                logger.info("[prompt] Semantic context: %s (score=%.3f)", rel_path, score)
+
+    if all_context:
+        sorted_ctx = sorted(all_context, key=_context_priority)
         parts.append(f"\n\n---\n\n# Loaded Context ({len(sorted_ctx)} files)\n")
         # Manifest
         for i, ctx in enumerate(sorted_ctx, 1):
@@ -98,5 +129,94 @@ def build_prompt(
         )
     else:
         logger.info("[prompt] chars=%d, tokens_est=%d", char_count, token_est)
+
+    return prompt
+
+
+def build_agent_prompts(
+    skill_content: str,
+    context_files: list[dict[str, str]],
+    data: dict,
+    instructions: str | None = None,
+    memory_store: "MemoryStore | None" = None,
+    context_index: "ContextIndex | None" = None,
+) -> str:
+    """Build a prompt for agent-type skills (multi-turn with tool use).
+
+    Unlike build_prompt(), this omits the rigid "return ONLY JSON" wrappers
+    since the agent needs freedom to search and reason before producing output.
+    The skill.md itself contains the output format instructions.
+    """
+    parts: list[str] = []
+
+    # Layer 1: Agent role
+    parts.append(
+        "You are an autonomous research agent. You have access to web search "
+        "and web fetch tools. Use them to find real, verifiable information. "
+        "After completing your research, return your findings as a single JSON object."
+    )
+
+    # Layer 2: Skill instructions
+    parts.append(f"\n\n# Skill Instructions\n\n{skill_content}")
+
+    # Layer 2.5: Memory (prior knowledge about this entity)
+    if memory_store is not None:
+        entries = memory_store.query(data)
+        if entries:
+            memory_text = memory_store.format_for_prompt(entries)
+            parts.append(f"\n\n---\n\n{memory_text}")
+            logger.info("[agent-prompt] Injected %d memory entries", len(entries))
+
+    # Layer 3: Context files (same ordering as build_prompt)
+    seen_paths = {ctx["path"] for ctx in context_files}
+    all_context = list(context_files)
+
+    # Layer 3.5: Semantic context
+    if context_index is not None:
+        semantic_hits = context_index.search_by_data(data, top_k=3)
+        for rel_path, score in semantic_hits:
+            if rel_path in seen_paths:
+                continue
+            from app.core.skill_loader import load_file
+            content = load_file(rel_path)
+            if content:
+                all_context.append({"path": rel_path, "content": content})
+                seen_paths.add(rel_path)
+
+    if all_context:
+        sorted_ctx = sorted(all_context, key=_context_priority)
+        parts.append(f"\n\n---\n\n# Loaded Context ({len(sorted_ctx)} files)\n")
+        for i, ctx in enumerate(sorted_ctx, 1):
+            role = _get_role(ctx["path"])
+            parts.append(f"{i}. `{ctx['path']}` — {role}")
+        parts.append("")
+        for ctx in sorted_ctx:
+            parts.append(f"\n## {ctx['path']}\n\n{ctx['content']}")
+
+    # Layer 4: Data to research
+    parts.append(f"\n\n---\n\n# Data to Research\n\n{json.dumps(data)}")
+
+    # Layer 5: Instructions
+    if instructions:
+        parts.append(f"\n\n## Campaign Instructions\n{instructions}")
+
+    # Layer 6: Final instruction (softer than CLI prompt — agent needs tool freedom)
+    parts.append(
+        "\n\nResearch the target using your web search tools, then return "
+        "your findings as a single JSON object matching the Output Format above. "
+        "No markdown fences — just the raw JSON."
+    )
+
+    prompt = "".join(parts)
+
+    char_count = len(prompt)
+    token_est = char_count // 4
+    if token_est > settings.prompt_size_warn_tokens:
+        logger.warning(
+            "[agent-prompt] Large prompt: chars=%d, tokens_est=%d (threshold=%d)",
+            char_count, token_est, settings.prompt_size_warn_tokens,
+        )
+    else:
+        logger.info("[agent-prompt] chars=%d, tokens_est=%d", char_count, token_est)
 
     return prompt

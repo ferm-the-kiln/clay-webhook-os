@@ -12,9 +12,11 @@ from app.core.skill_loader import list_skills
 from app.core.worker_pool import WorkerPool
 from app.middleware.auth import ApiKeyMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
+from app.core.context_index import ContextIndex
 from app.core.context_store import ContextStore
 from app.core.destination_store import DestinationStore
 from app.core.feedback_store import FeedbackStore
+from app.core.memory_store import MemoryStore
 from app.core.pipeline_store import PipelineStore
 from app.core.play_store import PlayStore
 from app.core.usage_store import UsageStore
@@ -101,6 +103,19 @@ async def startup():
     app.state.job_queue._experiment_store = app.state.experiment_store
     app.state.job_queue._usage_store = app.state.usage_store
 
+    # Phase 2: Agent memory store
+    app.state.memory_store = MemoryStore(data_dir=settings.data_dir)
+    app.state.memory_store.load()
+    app.state.job_queue._memory_store = app.state.memory_store
+
+    # Phase 4: Semantic context index (build before wiring to queue)
+    app.state.context_index = ContextIndex(
+        dirs=[settings.knowledge_dir, settings.clients_dir],
+        base_dir=settings.base_dir,
+    )
+    app.state.context_index.build()
+    app.state.job_queue._context_index = app.state.context_index
+
     # Retry worker
     app.state.retry_worker = RetryWorker(
         data_dir=settings.data_dir,
@@ -168,4 +183,5 @@ async def startup():
     logger.info("  Auth: %s", "enabled" if settings.webhook_api_key else "disabled")
     logger.info("  Cache TTL: %ds", settings.cache_ttl)
     logger.info("  Smart routing: %s", "enabled" if settings.enable_smart_routing else "disabled")
-    logger.info("  Features: campaigns, review-queue, smart-pipelines, feedback-loops, retry, SSE, model-router, sub-monitor, cleanup")
+    logger.info("  Context index: %d documents", app.state.context_index.doc_count)
+    logger.info("  Features: campaigns, review-queue, smart-pipelines, feedback-loops, retry, SSE, model-router, sub-monitor, cleanup, memory, semantic-context, parallel-pipelines, auto-coordinator")

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from app.config import settings
-from app.core.context_assembler import build_prompt
+from app.core.context_assembler import build_agent_prompts, build_prompt
 from app.core.model_router import resolve_model
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config, load_skill_variant
 from app.core.token_estimator import estimate_cost, estimate_tokens
@@ -271,11 +271,26 @@ class JobQueue:
                         raise ValueError(f"Skill '{job.skill}' not found")
 
                     context_files = load_context_files(skill_content, job.data, skill_name=job.skill)
-                    prompt = build_prompt(skill_content, context_files, job.data, job.instructions)
+                    skill_cfg = load_skill_config(job.skill)
+                    is_agent = skill_cfg.get("executor") == "agent"
+
+                    # Get memory and context index if available
+                    mem = getattr(self, '_memory_store', None)
+                    ctx_idx = getattr(self, '_context_index', None)
+
+                    if is_agent:
+                        prompt = build_agent_prompts(
+                            skill_content, context_files, job.data, job.instructions,
+                            memory_store=mem, context_index=ctx_idx,
+                        )
+                    else:
+                        prompt = build_prompt(
+                            skill_content, context_files, job.data, job.instructions,
+                            memory_store=mem, context_index=ctx_idx,
+                        )
 
                     # Smart model routing: refine model after prompt is built
                     if settings.enable_smart_routing:
-                        skill_cfg = load_skill_config(job.skill)
                         job.model = resolve_model(
                             request_model=job.model if job.model != settings.default_model else None,
                             skill_config=skill_cfg,
@@ -283,7 +298,18 @@ class JobQueue:
                             context_file_count=len(context_files),
                         )
 
-                    result = await self._pool.submit(prompt, job.model, settings.request_timeout)
+                    # Route to appropriate executor
+                    agent_timeout = skill_cfg.get("timeout", settings.request_timeout) if is_agent else settings.request_timeout
+                    agent_max_turns = skill_cfg.get("max_turns", 15) if is_agent else 1
+                    agent_tools = skill_cfg.get("allowed_tools") if is_agent else None
+                    executor_type = "agent" if is_agent else "cli"
+
+                    result = await self._pool.submit(
+                        prompt, job.model, agent_timeout,
+                        executor_type=executor_type,
+                        max_turns=agent_max_turns,
+                        allowed_tools=agent_tools,
+                    )
                     parsed = result["result"]
 
                     job.status = JobStatus.completed
@@ -299,6 +325,13 @@ class JobQueue:
                     # Cache the result
                     if self._cache is not None:
                         self._cache.put(job.skill, job.data, job.instructions, parsed)
+
+                    # Store memory for this entity
+                    if hasattr(self, '_memory_store') and self._memory_store:
+                        try:
+                            self._memory_store.store_from_data(job.data, job.skill, parsed)
+                        except Exception:
+                            pass  # Non-critical
 
                     if self._event_bus:
                         self._event_bus.publish("job_updated", {"job_id": job.id, "status": "completed"})
