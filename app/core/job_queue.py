@@ -11,6 +11,7 @@ import httpx
 from app.config import settings
 from app.core.context_assembler import build_agent_prompts, build_prompt
 from app.core.model_router import resolve_model
+from app.core.prefetch import parse_prefetch_config
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config, load_skill_variant
 from app.core.token_estimator import estimate_cost, estimate_tokens
 from app.core.claude_executor import SubscriptionLimitError
@@ -279,17 +280,36 @@ class JobQueue:
                     ctx_idx = getattr(self, '_context_index', None)
 
                     # Pre-fetch intelligence if configured
-                    prefetched_context = None
-                    if is_agent and skill_cfg.get("prefetch") == "exa":
-                        prefetcher = getattr(self, '_prefetcher', None)
-                        if prefetcher:
-                            company_name = job.data.get("company_name", "")
-                            company_domain = job.data.get("company_domain", "")
-                            if company_name and company_domain:
-                                try:
-                                    prefetched_context = await prefetcher.fetch(company_name, company_domain)
-                                except Exception as e:
-                                    logger.warning("[queue] Exa prefetch failed for %s: %s", job.id, e)
+                    prefetch_sources = parse_prefetch_config(skill_cfg)
+                    prefetched_parts: list[str] = []
+
+                    if prefetch_sources:
+                        company_name = job.data.get("company_name", "")
+                        company_domain = job.data.get("company_domain", "")
+                        exa_coro = None
+                        sumble_coro = None
+
+                        if "exa" in prefetch_sources:
+                            prefetcher = getattr(self, '_prefetcher', None)
+                            if prefetcher and company_name and company_domain:
+                                exa_coro = prefetcher.fetch(company_name, company_domain)
+
+                        if "sumble" in prefetch_sources:
+                            sumble = getattr(self, '_sumble_prefetcher', None)
+                            if sumble and company_domain:
+                                sumble_endpoints = skill_cfg.get("sumble_endpoints", ["organizations/enrich"])
+                                sumble_coro = sumble.fetch(company_domain, company_name, sumble_endpoints, job.data)
+
+                        coros = [c for c in [exa_coro, sumble_coro] if c]
+                        if coros:
+                            results = await asyncio.gather(*coros, return_exceptions=True)
+                            for r in results:
+                                if isinstance(r, str):
+                                    prefetched_parts.append(r)
+                                elif isinstance(r, Exception):
+                                    logger.warning("[queue] Prefetch failed for %s: %s", job.id, r)
+
+                    prefetched_context = "\n\n---\n\n".join(prefetched_parts) if prefetched_parts else None
 
                     if is_agent:
                         prompt = build_agent_prompts(
@@ -301,6 +321,7 @@ class JobQueue:
                         prompt = build_prompt(
                             skill_content, context_files, job.data, job.instructions,
                             memory_store=mem, context_index=ctx_idx,
+                            prefetched_context=prefetched_context,
                         )
 
                     # Smart model routing: refine model after prompt is built

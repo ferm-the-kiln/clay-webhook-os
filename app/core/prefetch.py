@@ -6,6 +6,18 @@ from dataclasses import dataclass, field
 logger = logging.getLogger("clay-webhook-os")
 
 
+def parse_prefetch_config(config: dict) -> set[str]:
+    """Parse 'prefetch' field from skill frontmatter. Returns set of prefetcher names."""
+    val = config.get("prefetch")
+    if val is None:
+        return set()
+    if isinstance(val, str):
+        return {val}
+    if isinstance(val, list):
+        return set(val)
+    return set()
+
+
 @dataclass
 class ExaResult:
     title: str

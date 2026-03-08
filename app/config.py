@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     exa_num_results: int = 10
     exa_cache_ttl: int = 3600
 
+    # Sumble pre-fetch
+    sumble_api_key: str = ""
+    sumble_enabled: bool = True
+    sumble_base_url: str = "https://api.sumble.com/v3"
+    sumble_cache_ttl: int = 3600
+    sumble_timeout: int = 30
+
     # Retry worker
     retry_max_attempts: int = 5
     retry_check_interval: int = 10

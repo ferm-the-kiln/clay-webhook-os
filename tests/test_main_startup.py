@@ -336,6 +336,7 @@ class TestStartupConstructorArgs:
             mock_settings.enable_smart_routing = False
             mock_settings.exa_api_key = ""
             mock_settings.base_dir = "/tmp"
+            mock_settings.sumble_api_key = ""
             for p in patches.values():
                 p.start()
             try:
@@ -373,6 +374,7 @@ class TestStartupConstructorArgs:
             mock_settings.enable_smart_routing = False
             mock_settings.exa_api_key = ""
             mock_settings.base_dir = "/tmp"
+            mock_settings.sumble_api_key = ""
             for p in patches.values():
                 p.start()
             try:
@@ -410,6 +412,7 @@ class TestStartupConstructorArgs:
             mock_settings.enable_smart_routing = False
             mock_settings.exa_api_key = ""
             mock_settings.base_dir = "/tmp"
+            mock_settings.sumble_api_key = ""
             for p in patches.values():
                 p.start()
             try:

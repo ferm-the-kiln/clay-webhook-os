@@ -58,6 +58,7 @@ def build_prompt(
     instructions: str | None = None,
     memory_store: "MemoryStore | None" = None,
     context_index: "ContextIndex | None" = None,
+    prefetched_context: str | None = None,
 ) -> str:
     parts: list[str] = []
 
@@ -106,6 +107,10 @@ def build_prompt(
         # Full content
         for ctx in sorted_ctx:
             parts.append(f"\n## {ctx['path']}\n\n{ctx['content']}")
+
+    # Layer 3.7: Pre-fetched intelligence
+    if prefetched_context:
+        parts.append(f"\n\n---\n\n{prefetched_context}")
 
     # Layer 4: Data
     parts.append(f"\n\n---\n\n# Data to Process\n\n{json.dumps(data)}")

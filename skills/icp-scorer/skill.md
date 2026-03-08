@@ -1,5 +1,8 @@
 ---
 model_tier: light
+prefetch: sumble
+sumble_endpoints:
+  - organizations/enrich
 ---
 
 # ICP Scorer — Lead Qualification

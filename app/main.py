@@ -132,6 +132,21 @@ async def startup():
         logger.info("  Exa pre-fetch: disabled (no EXA_API_KEY)")
     app.state.job_queue._prefetcher = app.state.prefetcher
 
+    # Sumble pre-fetch (optional — structured company intelligence)
+    if settings.sumble_api_key:
+        from app.core.sumble_prefetcher import SumblePrefetcher
+        app.state.sumble_prefetcher = SumblePrefetcher(
+            api_key=settings.sumble_api_key,
+            base_url=settings.sumble_base_url,
+            cache_ttl=settings.sumble_cache_ttl,
+            timeout=settings.sumble_timeout,
+        )
+        logger.info("  Sumble pre-fetch: enabled")
+    else:
+        app.state.sumble_prefetcher = None
+        logger.info("  Sumble pre-fetch: disabled (no SUMBLE_API_KEY)")
+    app.state.job_queue._sumble_prefetcher = app.state.sumble_prefetcher
+
     # Retry worker
     app.state.retry_worker = RetryWorker(
         data_dir=settings.data_dir,
