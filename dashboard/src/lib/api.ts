@@ -257,6 +257,49 @@ export function deleteKnowledgeFile(
   });
 }
 
+// Skills CRUD
+export function fetchSkillContent(
+  name: string
+): Promise<{ name: string; content: string }> {
+  return apiFetch(`/skills/${name}/content`);
+}
+
+export function updateSkillContent(
+  name: string,
+  content: string
+): Promise<{ name: string; content: string }> {
+  return apiFetch(`/skills/${name}/content`, {
+    method: "PUT",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export function createSkillFile(
+  name: string,
+  content: string
+): Promise<{ name: string; content: string }> {
+  return apiFetch("/skills", {
+    method: "POST",
+    body: JSON.stringify({ name, content }),
+  });
+}
+
+export function deleteSkillFile(name: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/skills/${name}`, { method: "DELETE" });
+}
+
+// Knowledge Base Move
+export function moveKnowledgeFile(body: {
+  source_category: string;
+  source_filename: string;
+  target_category: string;
+}): Promise<KnowledgeBaseFile> {
+  return apiFetch("/knowledge-base/move", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export function fetchContextUsageMap(): Promise<{
   usage_map: Record<string, string[]>;
 }> {

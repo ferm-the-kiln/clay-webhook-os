@@ -18,6 +18,19 @@ class Settings(BaseSettings):
     auto_route_thresholds: dict[str, int] = {"light_max_tokens": 2000, "standard_max_tokens": 10000}
     enable_smart_routing: bool = False
 
+    # Exa pre-fetch
+    exa_api_key: str = ""
+    exa_enabled: bool = True
+    exa_num_results: int = 10
+    exa_cache_ttl: int = 3600
+
+    # Sumble pre-fetch
+    sumble_api_key: str = ""
+    sumble_enabled: bool = True
+    sumble_base_url: str = "https://api.sumble.com/v3"
+    sumble_cache_ttl: int = 3600
+    sumble_timeout: int = 30
+
     # Retry worker
     retry_max_attempts: int = 5
     retry_check_interval: int = 10

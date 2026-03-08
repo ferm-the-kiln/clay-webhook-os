@@ -164,3 +164,45 @@ def load_context_files(
                     files.append({"path": rel, "content": content})
 
     return files
+
+
+# ── CRUD helpers ─────────────────────────────────────────────
+
+def get_skill_raw(name: str) -> str | None:
+    """Read skill.md content including frontmatter (no stripping)."""
+    skill_file = settings.skills_dir / name / "skill.md"
+    if not skill_file.exists():
+        return None
+    return skill_file.read_text()
+
+
+def save_skill(name: str, content: str) -> bool:
+    """Write content to an existing skill.md and invalidate cache."""
+    skill_file = settings.skills_dir / name / "skill.md"
+    if not skill_file.exists():
+        return False
+    skill_file.write_text(content)
+    _skill_cache.pop(name, None)
+    return True
+
+
+def create_skill(name: str, content: str) -> bool:
+    """Create a new skill directory with skill.md. Returns False if exists."""
+    skill_dir = settings.skills_dir / name
+    if skill_dir.exists():
+        return False
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "skill.md").write_text(content)
+    return True
+
+
+def delete_skill(name: str) -> bool:
+    """Remove a skill directory entirely and invalidate cache."""
+    import shutil
+
+    skill_dir = settings.skills_dir / name
+    if not skill_dir.exists():
+        return False
+    shutil.rmtree(skill_dir)
+    _skill_cache.pop(name, None)
+    return True

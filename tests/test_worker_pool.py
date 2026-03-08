@@ -209,3 +209,171 @@ class TestWorkerPoolSubmit:
         assert min_active >= 1  # at least 1 active while inside execute
         assert pool._active == 0  # all done
         assert pool.available == 2
+
+
+# ---------------------------------------------------------------------------
+# Agent executor path
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerPoolAgentExecutor:
+    @pytest.mark.asyncio
+    async def test_agent_routes_to_agent_executor(self):
+        pool = WorkerPool(max_workers=2)
+        pool._agent_executor = MagicMock()
+        pool._agent_executor.execute = AsyncMock(return_value={"result": {"research": "done"}, "duration_ms": 5000})
+
+        result = await pool.submit("agent prompt", model="opus", timeout=300, executor_type="agent")
+        pool._agent_executor.execute.assert_awaited_once()
+        assert result["result"]["research"] == "done"
+
+    @pytest.mark.asyncio
+    async def test_agent_passes_max_turns(self):
+        pool = WorkerPool(max_workers=1)
+        pool._agent_executor = MagicMock()
+        pool._agent_executor.execute = AsyncMock(return_value={"result": {}})
+
+        await pool.submit("p", executor_type="agent", max_turns=10)
+        call_kwargs = pool._agent_executor.execute.call_args[1]
+        assert call_kwargs["max_turns"] == 10
+
+    @pytest.mark.asyncio
+    async def test_agent_passes_allowed_tools(self):
+        pool = WorkerPool(max_workers=1)
+        pool._agent_executor = MagicMock()
+        pool._agent_executor.execute = AsyncMock(return_value={"result": {}})
+
+        tools = ["Read", "Write", "Bash"]
+        await pool.submit("p", executor_type="agent", allowed_tools=tools)
+        call_kwargs = pool._agent_executor.execute.call_args[1]
+        assert call_kwargs["allowed_tools"] == ["Read", "Write", "Bash"]
+
+    @pytest.mark.asyncio
+    async def test_agent_default_max_turns_and_tools(self):
+        pool = WorkerPool(max_workers=1)
+        pool._agent_executor = MagicMock()
+        pool._agent_executor.execute = AsyncMock(return_value={"result": {}})
+
+        await pool.submit("p", executor_type="agent")
+        call_kwargs = pool._agent_executor.execute.call_args[1]
+        assert call_kwargs["max_turns"] == 1
+        assert call_kwargs["allowed_tools"] is None
+
+    @pytest.mark.asyncio
+    async def test_agent_passes_model_and_timeout(self):
+        pool = WorkerPool(max_workers=1)
+        pool._agent_executor = MagicMock()
+        pool._agent_executor.execute = AsyncMock(return_value={"result": {}})
+
+        await pool.submit("prompt", model="sonnet", timeout=180, executor_type="agent")
+        call_args = pool._agent_executor.execute.call_args[0]
+        assert call_args == ("prompt", "sonnet", 180)
+
+    @pytest.mark.asyncio
+    async def test_agent_exception_restores_available(self):
+        pool = WorkerPool(max_workers=2)
+        pool._agent_executor = MagicMock()
+        pool._agent_executor.execute = AsyncMock(side_effect=RuntimeError("agent crash"))
+
+        with pytest.raises(RuntimeError, match="agent crash"):
+            await pool.submit("p", executor_type="agent")
+        assert pool.available == 2
+
+    @pytest.mark.asyncio
+    async def test_agent_does_not_call_cli_executor(self):
+        pool = WorkerPool(max_workers=1)
+        pool._executor = MagicMock()
+        pool._executor.execute = AsyncMock(return_value={"result": {}})
+        pool._agent_executor = MagicMock()
+        pool._agent_executor.execute = AsyncMock(return_value={"result": {}})
+
+        await pool.submit("p", executor_type="agent")
+        pool._executor.execute.assert_not_awaited()
+        pool._agent_executor.execute.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_cli_does_not_call_agent_executor(self):
+        pool = WorkerPool(max_workers=1)
+        pool._executor = MagicMock()
+        pool._executor.execute = AsyncMock(return_value={"result": {}})
+        pool._agent_executor = MagicMock()
+        pool._agent_executor.execute = AsyncMock(return_value={"result": {}})
+
+        await pool.submit("p", executor_type="cli")
+        pool._executor.execute.assert_awaited_once()
+        pool._agent_executor.execute.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_agent_semaphore_limits_concurrency(self):
+        pool = WorkerPool(max_workers=1)
+        max_concurrent = 0
+        current = 0
+
+        async def mock_agent_execute(prompt, model, timeout, **kwargs):
+            nonlocal current, max_concurrent
+            current += 1
+            max_concurrent = max(max_concurrent, current)
+            await asyncio.sleep(0.03)
+            current -= 1
+            return {"result": {}}
+
+        pool._agent_executor = MagicMock()
+        pool._agent_executor.execute = mock_agent_execute
+
+        await asyncio.gather(
+            pool.submit("a", executor_type="agent"),
+            pool.submit("b", executor_type="agent"),
+        )
+        assert max_concurrent == 1
+
+    @pytest.mark.asyncio
+    async def test_mixed_cli_and_agent_share_semaphore(self):
+        """CLI and agent tasks share the same worker pool semaphore."""
+        pool = WorkerPool(max_workers=1)
+        max_concurrent = 0
+        current = 0
+
+        async def mock_cli(prompt, model, timeout):
+            nonlocal current, max_concurrent
+            current += 1
+            max_concurrent = max(max_concurrent, current)
+            await asyncio.sleep(0.03)
+            current -= 1
+            return {"result": {}}
+
+        async def mock_agent(prompt, model, timeout, **kwargs):
+            nonlocal current, max_concurrent
+            current += 1
+            max_concurrent = max(max_concurrent, current)
+            await asyncio.sleep(0.03)
+            current -= 1
+            return {"result": {}}
+
+        pool._executor = MagicMock()
+        pool._executor.execute = mock_cli
+        pool._agent_executor = MagicMock()
+        pool._agent_executor.execute = mock_agent
+
+        await asyncio.gather(
+            pool.submit("cli-task", executor_type="cli"),
+            pool.submit("agent-task", executor_type="agent"),
+        )
+        assert max_concurrent == 1
+
+
+# ---------------------------------------------------------------------------
+# Init and executors
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerPoolInit:
+    def test_creates_both_executors(self):
+        pool = WorkerPool()
+        from app.core.claude_executor import ClaudeExecutor
+        from app.core.agent_executor import AgentExecutor
+        assert isinstance(pool._executor, ClaudeExecutor)
+        assert isinstance(pool._agent_executor, AgentExecutor)
+
+    def test_initial_active_zero(self):
+        pool = WorkerPool(max_workers=5)
+        assert pool._active == 0

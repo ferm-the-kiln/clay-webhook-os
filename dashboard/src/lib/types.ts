@@ -204,6 +204,28 @@ export interface PromptPreview {
   estimated_tokens: number;
 }
 
+// File Explorer types
+export type FileNodeType = "drive" | "folder" | "file";
+export type DriveId = "knowledge-base" | "clients" | "skills";
+
+export interface FileNode {
+  id: string;
+  name: string;
+  type: FileNodeType;
+  driveId: DriveId;
+  parentId: string | null;
+  children?: FileNode[];
+  content?: string;
+  category?: string;
+  slug?: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface SkillFile {
+  name: string;
+  content: string;
+}
+
 // Feedback types
 export type FeedbackRating = "thumbs_up" | "thumbs_down";
 

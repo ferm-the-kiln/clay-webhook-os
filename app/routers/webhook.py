@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, Request
@@ -8,6 +9,7 @@ from app.core.claude_executor import SubscriptionLimitError
 from app.core.context_assembler import build_agent_prompts, build_prompt
 from app.core.model_router import resolve_model
 from app.core.pipeline_runner import run_skill_chain
+from app.core.prefetch import parse_prefetch_config
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config
 from app.core.team_router import run_auto_pipeline
 from app.core.token_estimator import estimate_cost, estimate_tokens
@@ -144,15 +146,49 @@ async def webhook(body: WebhookRequest, request: Request):
     memory_store = getattr(request.app.state, "memory_store", None)
     context_index = getattr(request.app.state, "context_index", None)
 
+    # Pre-fetch intelligence if configured
+    prefetch_sources = parse_prefetch_config(config)
+    prefetched_parts: list[str] = []
+
+    if prefetch_sources:
+        company_name = body.data.get("company_name", "")
+        company_domain = body.data.get("company_domain", "")
+        exa_coro = None
+        sumble_coro = None
+
+        if "exa" in prefetch_sources:
+            prefetcher = getattr(request.app.state, "prefetcher", None)
+            if prefetcher and company_name and company_domain:
+                exa_coro = prefetcher.fetch(company_name, company_domain)
+
+        if "sumble" in prefetch_sources:
+            sumble = getattr(request.app.state, "sumble_prefetcher", None)
+            if sumble and company_domain:
+                sumble_endpoints = config.get("sumble_endpoints", ["organizations/enrich"])
+                sumble_coro = sumble.fetch(company_domain, company_name, sumble_endpoints, body.data)
+
+        coros = [c for c in [exa_coro, sumble_coro] if c]
+        if coros:
+            results = await asyncio.gather(*coros, return_exceptions=True)
+            for r in results:
+                if isinstance(r, str):
+                    prefetched_parts.append(r)
+                elif isinstance(r, Exception):
+                    logger.warning("[%s] Prefetch failed: %s", primary_skill, r)
+
+    prefetched_context = "\n\n---\n\n".join(prefetched_parts) if prefetched_parts else None
+
     if is_agent:
         prompt = build_agent_prompts(
             skill_content, context_files, body.data, body.instructions,
             memory_store=memory_store, context_index=context_index,
+            prefetched_context=prefetched_context,
         )
     else:
         prompt = build_prompt(
             skill_content, context_files, body.data, body.instructions,
             memory_store=memory_store, context_index=context_index,
+            prefetched_context=prefetched_context,
         )
 
     # Refine model with prompt heuristic (layer 4) if smart routing enabled

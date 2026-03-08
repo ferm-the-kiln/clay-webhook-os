@@ -1,5 +1,9 @@
 ---
 model_tier: heavy
+prefetch: sumble
+sumble_endpoints:
+  - organizations/enrich
+  - people/find
 ---
 
 # Meeting Prep — Pre-Call Intelligence Brief

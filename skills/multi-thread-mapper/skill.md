@@ -1,5 +1,8 @@
 ---
 model_tier: heavy
+prefetch: sumble
+sumble_endpoints:
+  - people/find
 ---
 
 # Multi-Thread Mapper — Buying Committee Mapping & Outreach

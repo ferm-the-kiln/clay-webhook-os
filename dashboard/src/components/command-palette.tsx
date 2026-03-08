@@ -19,9 +19,11 @@ import {
   Activity,
   Briefcase,
   Users,
+  FileText,
+  Folder,
 } from "lucide-react";
 import { SKILL_SAMPLES } from "@/lib/constants";
-import { fetchHealth, fetchJobs, fetchClients } from "@/lib/api";
+import { fetchHealth, fetchJobs, fetchClients, fetchKnowledgeBase, fetchSkills } from "@/lib/api";
 import type { JobListItem, ClientSummary } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -31,7 +33,7 @@ const PAGES = [
   { name: "Batch Processing", href: "/run?tab=batch", icon: FlaskConical },
   { name: "Campaigns", href: "/campaigns", icon: Rocket },
   { name: "Review Queue", href: "/campaigns?tab=review", icon: Rocket },
-  { name: "Context Hub", href: "/settings?tab=context", icon: BookOpen },
+  { name: "Context Hub", href: "/context", icon: BookOpen },
   { name: "Skills", href: "/skills", icon: TestTubes },
   { name: "Pipelines", href: "/skills", icon: TestTubes },
   { name: "Skills Lab", href: "/skills?tab=lab", icon: TestTubes },
@@ -72,6 +74,7 @@ export function CommandPalette() {
   const [recents, setRecents] = useState<{ name: string; href: string }[]>([]);
   const [searchJobs, setSearchJobs] = useState<JobListItem[]>([]);
   const [searchClients, setSearchClients] = useState<ClientSummary[]>([]);
+  const [searchFiles, setSearchFiles] = useState<{ name: string; path: string; driveId: string }[]>([]);
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -92,6 +95,7 @@ export function CommandPalette() {
       setQuery("");
       setSearchJobs([]);
       setSearchClients([]);
+      setSearchFiles([]);
     }
   }, [open]);
 
@@ -100,6 +104,7 @@ export function CommandPalette() {
     if (query.length < 3) {
       setSearchJobs([]);
       setSearchClients([]);
+      setSearchFiles([]);
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -125,6 +130,25 @@ export function CommandPalette() {
               c.industry?.toLowerCase().includes(q)
           );
           setSearchClients(matches.slice(0, 5));
+        })
+        .catch(() => {});
+      // Search files (KB + skills)
+      Promise.all([fetchKnowledgeBase(), fetchSkills()])
+        .then(([kbRes, skillRes]) => {
+          const files: { name: string; path: string; driveId: string }[] = [];
+          for (const [cat, kbFiles] of Object.entries(kbRes.knowledge_base)) {
+            for (const f of kbFiles) {
+              if (f.name.toLowerCase().includes(q) || cat.toLowerCase().includes(q)) {
+                files.push({ name: f.name, path: `Knowledge Base > ${cat} > ${f.name}`, driveId: "knowledge-base" });
+              }
+            }
+          }
+          for (const skill of skillRes.skills) {
+            if (skill.toLowerCase().includes(q)) {
+              files.push({ name: skill, path: `Skills > ${skill}`, driveId: "skills" });
+            }
+          }
+          setSearchFiles(files.slice(0, 5));
         })
         .catch(() => {});
     }, 300);
@@ -222,7 +246,7 @@ export function CommandPalette() {
                     <Command.Item
                       key={`client-${client.slug}`}
                       value={`client ${client.name} ${client.slug}`}
-                      onSelect={() => navigate(`/settings?tab=context&client=${client.slug}`, client.name)}
+                      onSelect={() => navigate(`/context`, client.name)}
                       className={ITEM_CLASSES}
                     >
                       <Users className="h-4 w-4" />
@@ -231,6 +255,30 @@ export function CommandPalette() {
                         {client.industry && (
                           <span className="text-clay-600 ml-1.5 text-xs">{client.industry}</span>
                         )}
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+
+              {/* Global search: Files */}
+              {searchFiles.length > 0 && (
+                <Command.Group heading="Files" className={GROUP_HEADING_CLASSES}>
+                  {searchFiles.map((file, i) => (
+                    <Command.Item
+                      key={`file-${i}-${file.name}`}
+                      value={`file ${file.name} ${file.path}`}
+                      onSelect={() => navigate(`/context`, file.name)}
+                      className={ITEM_CLASSES}
+                    >
+                      {file.driveId === "skills" ? (
+                        <TestTubes className="h-4 w-4" />
+                      ) : (
+                        <FileText className="h-4 w-4" />
+                      )}
+                      <span className="flex-1 truncate">
+                        <span className="text-clay-200">{file.name}</span>
+                        <span className="text-clay-600 ml-1.5 text-xs">{file.path}</span>
                       </span>
                     </Command.Item>
                   ))}

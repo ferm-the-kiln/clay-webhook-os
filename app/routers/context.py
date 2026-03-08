@@ -1,4 +1,7 @@
+import logging
+
 from fastapi import APIRouter, Request
+from pydantic import BaseModel, Field
 
 from app.models.context import (
     CreateClientRequest,
@@ -7,6 +10,8 @@ from app.models.context import (
     UpdateClientRequest,
     UpdateKnowledgeBaseRequest,
 )
+
+logger = logging.getLogger("clay-webhook-os")
 
 router = APIRouter()
 
@@ -136,3 +141,97 @@ async def preview_prompt(body: PromptPreviewRequest, request: Request):
     if result is None:
         return {"error": True, "error_message": f"Skill '{body.skill}' not found"}
     return result.model_dump()
+
+
+# ── Skills CRUD ─────────────────────────────────────────────
+
+
+class UpdateSkillRequest(BaseModel):
+    content: str = Field(..., description="Full skill.md content including frontmatter")
+
+
+class CreateSkillRequest(BaseModel):
+    name: str = Field(..., description="Skill name (directory name)")
+    content: str = Field(..., description="Initial skill.md content")
+
+
+@router.get("/skills/{name}/content")
+async def get_skill_content(name: str):
+    from app.core.skill_loader import get_skill_raw
+
+    content = get_skill_raw(name)
+    if content is None:
+        return {"error": True, "error_message": f"Skill '{name}' not found"}
+    return {"name": name, "content": content}
+
+
+@router.put("/skills/{name}/content")
+async def update_skill_content(name: str, body: UpdateSkillRequest):
+    from app.core.skill_loader import save_skill
+
+    if not save_skill(name, body.content):
+        return {"error": True, "error_message": f"Skill '{name}' not found"}
+    logger.info("[context] Updated skill: %s", name)
+    return {"name": name, "content": body.content}
+
+
+@router.post("/skills")
+async def create_skill_endpoint(body: CreateSkillRequest):
+    from app.core.skill_loader import create_skill
+
+    if not create_skill(body.name, body.content):
+        return {"error": True, "error_message": f"Skill '{body.name}' already exists"}
+    logger.info("[context] Created skill: %s", body.name)
+    return {"name": body.name, "content": body.content}
+
+
+@router.delete("/skills/{name}")
+async def delete_skill_endpoint(name: str):
+    from app.core.skill_loader import delete_skill
+
+    if not delete_skill(name):
+        return {"error": True, "error_message": f"Skill '{name}' not found"}
+    logger.info("[context] Deleted skill: %s", name)
+    return {"ok": True}
+
+
+# ── Knowledge Base Move ─────────────────────────────────────
+
+
+class MoveKnowledgeFileRequest(BaseModel):
+    source_category: str = Field(..., description="Current category")
+    source_filename: str = Field(..., description="Current filename")
+    target_category: str = Field(..., description="Destination category")
+
+
+@router.post("/knowledge-base/move")
+async def move_knowledge_file(body: MoveKnowledgeFileRequest, request: Request):
+    store = request.app.state.context_store
+    # Read existing file
+    f = store.get_knowledge_file(body.source_category, body.source_filename)
+    if f is None:
+        return {
+            "error": True,
+            "error_message": f"File '{body.source_category}/{body.source_filename}' not found",
+        }
+    # Create in new location
+    try:
+        new_file = store.create_knowledge_file(
+            body.target_category, body.source_filename, f.content
+        )
+    except ValueError as e:
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=409, content={"error": True, "error_message": str(e)}
+        )
+    # Delete old
+    store.delete_knowledge_file(body.source_category, body.source_filename)
+    logger.info(
+        "[context] Moved KB file: %s/%s → %s/%s",
+        body.source_category,
+        body.source_filename,
+        body.target_category,
+        body.source_filename,
+    )
+    return new_file.model_dump()

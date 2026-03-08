@@ -694,3 +694,495 @@ class TestMetaFields:
         assert meta["input_tokens_est"] == 400
         assert meta["output_tokens_est"] == 150
         assert meta["cost_est_usd"] == 0.0025
+
+
+# ---------------------------------------------------------------------------
+# Auto mode — sync
+# ---------------------------------------------------------------------------
+
+
+class TestAutoMode:
+    @patch("app.routers.webhook.run_auto_pipeline")
+    @patch("app.routers.webhook.settings")
+    def test_auto_success(self, mock_settings, mock_run):
+        mock_settings.default_model = "sonnet"
+        mock_run.return_value = {"coordinator": {"plan": {}}, "results": []}
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={"skill": "auto", "data": {"company": "Acme"}})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "coordinator" in body
+        mock_run.assert_called_once()
+        call_kwargs = mock_run.call_args[1]
+        assert call_kwargs["data"] == {"company": "Acme"}
+        assert call_kwargs["model"] == "sonnet"
+
+    @patch("app.routers.webhook.run_auto_pipeline")
+    @patch("app.routers.webhook.settings")
+    def test_auto_with_model_override(self, mock_settings, mock_run):
+        mock_settings.default_model = "sonnet"
+        mock_run.return_value = {"result": "ok"}
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={"skill": "auto", "data": {}, "model": "opus"})
+        assert resp.status_code == 200
+        call_kwargs = mock_run.call_args[1]
+        assert call_kwargs["model"] == "opus"
+
+    @patch("app.routers.webhook.run_auto_pipeline")
+    @patch("app.routers.webhook.settings")
+    def test_auto_error_returns_error_dict(self, mock_settings, mock_run):
+        mock_settings.default_model = "sonnet"
+        mock_run.side_effect = RuntimeError("coordinator crash")
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={"skill": "auto", "data": {}})
+        body = resp.json()
+        assert body["error"] is True
+        assert "Auto pipeline error" in body["error_message"]
+        assert body["skill"] == "auto"
+
+    @patch("app.routers.webhook.run_auto_pipeline")
+    @patch("app.routers.webhook.settings")
+    def test_auto_with_instructions(self, mock_settings, mock_run):
+        mock_settings.default_model = "haiku"
+        mock_run.return_value = {"done": True}
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={
+            "skill": "auto", "data": {}, "instructions": "Focus on email"
+        })
+        assert resp.status_code == 200
+        call_kwargs = mock_run.call_args[1]
+        assert call_kwargs["instructions"] == "Focus on email"
+
+    @patch("app.routers.webhook.run_auto_pipeline")
+    @patch("app.routers.webhook.settings")
+    def test_auto_skips_load_skill_config(self, mock_settings, mock_run):
+        """Auto mode should use empty config, not call load_skill_config."""
+        mock_settings.default_model = "sonnet"
+        mock_run.return_value = {}
+        app = _make_app()
+        client = TestClient(app)
+
+        with patch("app.routers.webhook.load_skill_config") as mock_config:
+            resp = client.post("/webhook", json={"skill": "auto", "data": {}})
+            mock_config.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Agent executor path
+# ---------------------------------------------------------------------------
+
+
+class TestAgentExecutor:
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.01)
+    @patch("app.routers.webhook.estimate_tokens", return_value=500)
+    @patch("app.routers.webhook.build_agent_prompts", return_value="agent prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={
+        "executor": "agent", "timeout": 120, "max_turns": 10,
+        "allowed_tools": ["Read", "Write"],
+    })
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_agent_uses_build_agent_prompts(self, mock_load, mock_config, mock_resolve,
+                                             mock_ctx, mock_agent_prompt,
+                                             mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"research": "done"}, "duration_ms": 5000,
+            "prompt_chars": 2000, "response_chars": 1000,
+        }
+        app = _make_app(pool=pool)
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={"skill": "researcher", "data": {"company": "Acme"}})
+        assert resp.status_code == 200
+        mock_agent_prompt.assert_called_once()
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.01)
+    @patch("app.routers.webhook.estimate_tokens", return_value=500)
+    @patch("app.routers.webhook.build_agent_prompts", return_value="agent prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={
+        "executor": "agent", "timeout": 120, "max_turns": 10,
+        "allowed_tools": ["Read", "Write"],
+    })
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_agent_config_passed_to_pool(self, mock_load, mock_config, mock_resolve,
+                                          mock_ctx, mock_agent_prompt,
+                                          mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"r": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        app = _make_app(pool=pool)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "researcher", "data": {}})
+        call_args, call_kwargs = pool.submit.call_args
+        assert call_args[0] == "agent prompt"
+        assert call_args[1] == "opus"
+        assert call_args[2] == 120  # agent timeout from config
+        assert call_kwargs["executor_type"] == "agent"
+        assert call_kwargs["max_turns"] == 10
+        assert call_kwargs["allowed_tools"] == ["Read", "Write"]
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="cli prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="sonnet")
+    @patch("app.routers.webhook.load_skill_config", return_value={"model_tier": "sonnet"})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_non_agent_uses_build_prompt(self, mock_load, mock_config, mock_resolve,
+                                          mock_ctx, mock_prompt,
+                                          mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        app = _make_app(pool=pool)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        call_args, call_kwargs = pool.submit.call_args
+        assert call_kwargs["executor_type"] == "cli"
+        assert call_kwargs["max_turns"] == 1
+        assert call_kwargs["allowed_tools"] is None
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.01)
+    @patch("app.routers.webhook.estimate_tokens", return_value=500)
+    @patch("app.routers.webhook.build_agent_prompts", return_value="agent prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={
+        "executor": "agent",
+    })
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_agent_defaults_when_config_missing_fields(self, mock_load, mock_config, mock_resolve,
+                                                        mock_ctx, mock_agent_prompt,
+                                                        mock_tokens, mock_cost, mock_settings):
+        """Agent with no timeout/max_turns/allowed_tools in config uses defaults."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"r": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        app = _make_app(pool=pool)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "researcher", "data": {}})
+        call_args, call_kwargs = pool.submit.call_args
+        assert call_args[2] == 30  # falls back to settings.request_timeout
+        assert call_kwargs["max_turns"] == 15  # default
+        assert call_kwargs["allowed_tools"] is None  # not in config
+
+
+# ---------------------------------------------------------------------------
+# Memory store interaction
+# ---------------------------------------------------------------------------
+
+
+class TestMemoryStore:
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_memory_store_called_after_success(self, mock_load, mock_config, mock_resolve,
+                                                mock_ctx, mock_prompt, mock_tokens,
+                                                mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"email": "Hi"}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        memory_store = MagicMock()
+        app = _make_app(pool=pool, memory_store=memory_store)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "email-gen", "data": {"company": "Acme"}})
+        memory_store.store_from_data.assert_called_once_with(
+            {"company": "Acme"}, "email-gen", {"email": "Hi"}
+        )
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_memory_store_exception_silently_caught(self, mock_load, mock_config, mock_resolve,
+                                                     mock_ctx, mock_prompt, mock_tokens,
+                                                     mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"email": "Hi"}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        memory_store = MagicMock()
+        memory_store.store_from_data.side_effect = RuntimeError("memory broken")
+        app = _make_app(pool=pool, memory_store=memory_store)
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        # Should succeed despite memory store error
+        assert resp.status_code == 200
+        assert resp.json()["email"] == "Hi"
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_no_memory_store_skips_storage(self, mock_load, mock_config, mock_resolve,
+                                            mock_ctx, mock_prompt, mock_tokens,
+                                            mock_cost, mock_settings):
+        """When memory_store is None, store_from_data is not called."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        app = _make_app(pool=pool)
+        # Ensure no memory_store on state
+        if hasattr(app.state, "memory_store"):
+            del app.state.memory_store
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        assert resp.status_code == 200
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_memory_and_context_index_passed_to_build_prompt(self, mock_load, mock_config,
+                                                              mock_resolve, mock_ctx,
+                                                              mock_prompt, mock_tokens,
+                                                              mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        memory_store = MagicMock()
+        context_index = MagicMock()
+        app = _make_app(pool=pool, memory_store=memory_store, context_index=context_index)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        call_kwargs = mock_prompt.call_args[1]
+        assert call_kwargs["memory_store"] is memory_store
+        assert call_kwargs["context_index"] is context_index
+
+
+# ---------------------------------------------------------------------------
+# Usage recording edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestUsageRecordingEdges:
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_empty_usage_dict_is_falsy(self, mock_load, mock_config, mock_resolve,
+                                        mock_ctx, mock_prompt, mock_tokens,
+                                        mock_cost, mock_settings):
+        """Empty dict {} is falsy, so usage recording falls back to estimates."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+            "usage": {},  # empty dict — falsy
+        }
+        usage_store = MagicMock()
+        app = _make_app(pool=pool, usage_store=usage_store)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        entry = usage_store.record.call_args[0][0]
+        assert entry.is_actual is False  # {} is falsy
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_usage_none_is_falsy(self, mock_load, mock_config, mock_resolve,
+                                  mock_ctx, mock_prompt, mock_tokens,
+                                  mock_cost, mock_settings):
+        """usage=None should fall back to estimates."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+            "usage": None,
+        }
+        usage_store = MagicMock()
+        app = _make_app(pool=pool, usage_store=usage_store)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        entry = usage_store.record.call_args[0][0]
+        assert entry.is_actual is False
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_usage_partial_envelope(self, mock_load, mock_config, mock_resolve,
+                                     mock_ctx, mock_prompt, mock_tokens,
+                                     mock_cost, mock_settings):
+        """Usage envelope with only input_tokens (missing output_tokens) defaults to 0."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+            "usage": {"input_tokens": 250},  # no output_tokens
+        }
+        usage_store = MagicMock()
+        app = _make_app(pool=pool, usage_store=usage_store)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        entry = usage_store.record.call_args[0][0]
+        assert entry.input_tokens == 250
+        assert entry.output_tokens == 0
+        assert entry.is_actual is True
+
+
+# ---------------------------------------------------------------------------
+# Subscription monitor absent
+# ---------------------------------------------------------------------------
+
+
+class TestNoSubscriptionMonitor:
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_no_subscription_monitor_proceeds(self, mock_load, mock_config, mock_resolve,
+                                                mock_ctx, mock_prompt, mock_tokens,
+                                                mock_cost, mock_settings):
+        """When subscription_monitor attr doesn't exist, request proceeds normally."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        app = _make_app(pool=pool)
+        del app.state.subscription_monitor
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Auto mode — async (callback_url + auto)
+# ---------------------------------------------------------------------------
+
+
+class TestAutoModeAsync:
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_auto_async_queues(self, mock_load, mock_settings):
+        """Auto mode with callback_url queues the job normally."""
+        mock_settings.default_model = "sonnet"
+        job_queue = AsyncMock()
+        job_queue.enqueue.return_value = "job-auto"
+        job_queue.pending = 2
+        app = _make_app(job_queue=job_queue)
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={
+            "skill": "auto", "data": {"x": 1},
+            "callback_url": "https://example.com/cb",
+        })
+        assert resp.status_code == 202
+        body = resp.json()
+        assert body["job_id"] == "job-auto"
+        assert body["skill"] == "auto"
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.load_skill", return_value=None)
+    def test_auto_async_skill_not_found(self, mock_load, mock_settings):
+        """Auto mode with callback_url but skill 'auto' not found returns error."""
+        mock_settings.default_model = "sonnet"
+        app = _make_app()
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={
+            "skill": "auto", "data": {},
+            "callback_url": "https://example.com/cb",
+        })
+        body = resp.json()
+        assert body["error"] is True
+        assert "not found" in body["error_message"]
