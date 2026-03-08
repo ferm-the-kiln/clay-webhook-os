@@ -1,9 +1,14 @@
 ---
 model_tier: medium
 executor: agent
-max_turns: 3
-timeout: 120
-prefetch: exa
+max_turns: 5
+timeout: 180
+prefetch:
+  - exa
+  - sumble
+sumble_endpoints:
+  - organizations/enrich
+  - jobs/find
 allowed_tools:
   - WebSearch
   - WebFetch
