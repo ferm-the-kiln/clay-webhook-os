@@ -28,39 +28,52 @@ def _mock_response(status_code: int, json_data: dict | None = None):
 
 
 MOCK_ORG_ENRICH = {
+    "id": "abc-123",
+    "credits_used": 10,
+    "credits_remaining": 490,
+    "technologies_found": "Ruby, React",
+    "technologies_count": 2,
+    "source_data_url": "https://sumble.com/org/stripe",
     "organization": {
+        "id": 1,
+        "slug": "stripe",
         "name": "Stripe",
         "domain": "stripe.com",
-        "industry": "Financial Technology",
-        "employee_count": 8000,
-        "jobs_count": 150,
-        "teams_count": 42,
-        "technologies": [
-            {"name": "Ruby", "category": "Languages", "first_seen": "2012-01-01"},
-            {"name": "React", "category": "Frontend", "first_seen": "2016-06-01"},
-        ],
     },
-    "meta": {"credits_used": 10},
+    "technologies": [
+        {"name": "Ruby", "jobs_count": 45, "people_count": 120, "teams_count": 8},
+        {"name": "React", "jobs_count": 30, "people_count": 80, "teams_count": 5},
+    ],
 }
 
 MOCK_PEOPLE = {
+    "id": "def-456",
+    "credits_used": 2,
+    "credits_remaining": 488,
+    "organization": {"id": 1, "slug": "stripe", "name": "Stripe", "domain": "stripe.com"},
+    "people_count": 2,
     "people": [
         {
+            "id": 101,
             "name": "Jane Doe",
-            "title": "VP Engineering",
-            "function": "Engineering",
-            "level": "VP",
+            "job_title": "VP Engineering",
+            "job_function": "Engineering",
+            "job_level": "VP",
+            "location": "San Francisco, CA",
+            "country": "United States",
             "linkedin_url": "https://linkedin.com/in/janedoe",
         },
         {
+            "id": 102,
             "name": "John Smith",
-            "title": "CTO",
-            "function": "Executive",
-            "level": "C-Level",
+            "job_title": "CTO",
+            "job_function": "Executive",
+            "job_level": "C-Level",
+            "location": "New York, NY",
+            "country": "United States",
             "linkedin_url": "https://linkedin.com/in/johnsmith",
         },
     ],
-    "meta": {"credits_used": 2},
 }
 
 MOCK_JOBS = {
@@ -72,7 +85,7 @@ MOCK_JOBS = {
             "posted_date": "2026-03-01",
         },
     ],
-    "meta": {"credits_used": 3},
+    "credits_used": 3,
 }
 
 
@@ -84,7 +97,10 @@ class TestBuildPayload:
     def test_org_enrich_basic(self):
         p = _make_prefetcher()
         payload = p._build_payload("organizations/enrich", "stripe.com", {})
-        assert payload == {"organization": {"domain": "stripe.com"}}
+        assert payload["organization"]["domain"] == "stripe.com"
+        # Default technologies are always included (API requires filters)
+        assert "technologies" in payload["filters"]
+        assert len(payload["filters"]["technologies"]) > 0
 
     def test_org_enrich_with_tech_stack(self):
         p = _make_prefetcher()
@@ -102,6 +118,7 @@ class TestBuildPayload:
         payload = p._build_payload("people/find", "stripe.com", {})
         assert payload["organization"]["domain"] == "stripe.com"
         assert payload["filters"]["job_functions"] == ["Engineering", "Executive"]
+        assert payload["filters"]["job_levels"] == ["VP", "Director", "C-Level"]
         assert payload["limit"] == 10
 
     def test_people_find_custom_functions(self):
@@ -368,8 +385,8 @@ class TestFormat:
         assert "Technology Profile" in text
         assert "Ruby" in text
         assert "React" in text
-        assert "Financial Technology" in text
-        assert "8000" in text
+        assert "stripe.com" in text
+        assert "2" in text  # technologies_count
 
     def test_people_format(self):
         p = _make_prefetcher()
@@ -394,7 +411,7 @@ class TestFormat:
 
     def test_org_enrich_no_technologies(self):
         p = _make_prefetcher()
-        data = {"organization": {"name": "Acme", "industry": "SaaS"}}
+        data = {"organization": {"name": "Acme", "domain": "acme.com"}, "technologies": []}
         text = p._format("Acme", "acme.com", {"organizations/enrich": data})
         assert "No technology data available" in text
 

@@ -30,6 +30,7 @@ class SumblePrefetcher:
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
+                "User-Agent": "clay-webhook-os/3.0",
             },
             timeout=timeout,
         )
@@ -124,7 +125,7 @@ class SumblePrefetcher:
                 return None
 
             body = resp.json()
-            credits_used = body.get("meta", {}).get("credits_used", 0)
+            credits_used = body.get("credits_used", 0)
             return {"data": body, "credits_used": credits_used}
 
         except httpx.TimeoutException:
@@ -134,6 +135,15 @@ class SumblePrefetcher:
             logger.warning("[prefetch] Sumble %s error: %s", endpoint, e)
             return None
 
+    # Broad default technologies for org enrichment when no specific tech_stack is provided.
+    # Covers the most common enterprise stack categories to get wide coverage.
+    _DEFAULT_TECHNOLOGIES = [
+        "python", "java", "go", "ruby", "typescript", "react", "node.js",
+        "kubernetes", "docker", "aws", "gcp", "azure", "terraform",
+        "postgresql", "mongodb", "redis", "elasticsearch",
+        "kafka", "spark", "snowflake", "databricks",
+    ]
+
     def _build_payload(self, endpoint: str, domain: str, data: dict) -> dict:
         """Build request body for a Sumble endpoint based on webhook data."""
         tech_stack = data.get("tech_stack", [])
@@ -141,10 +151,12 @@ class SumblePrefetcher:
             tech_stack = [t.strip() for t in tech_stack.split(",") if t.strip()]
 
         if endpoint == "organizations/enrich":
-            payload: dict = {"organization": {"domain": domain}}
-            if tech_stack:
-                payload["filters"] = {"technologies": tech_stack}
-            return payload
+            # filters.technologies is REQUIRED by the API
+            technologies = tech_stack or self._DEFAULT_TECHNOLOGIES
+            return {
+                "organization": {"domain": domain},
+                "filters": {"technologies": technologies},
+            }
 
         if endpoint == "organizations/find":
             filters: dict = {}
@@ -159,14 +171,17 @@ class SumblePrefetcher:
             job_functions = data.get("job_functions", ["Engineering", "Executive"])
             if isinstance(job_functions, str):
                 job_functions = [f.strip() for f in job_functions.split(",") if f.strip()]
+            job_levels = data.get("job_levels", ["VP", "Director", "C-Level"])
+            if isinstance(job_levels, str):
+                job_levels = [l.strip() for l in job_levels.split(",") if l.strip()]
             return {
                 "organization": {"domain": domain},
-                "filters": {"job_functions": job_functions},
+                "filters": {"job_functions": job_functions, "job_levels": job_levels},
                 "limit": data.get("people_limit", 10),
             }
 
         if endpoint == "jobs/find":
-            payload = {
+            payload: dict = {
                 "organization": {"domain": domain},
                 "limit": data.get("jobs_limit", 10),
             }
@@ -206,41 +221,46 @@ class SumblePrefetcher:
         return "\n".join(parts)
 
     def _format_org_enrich(self, data: dict) -> str:
-        """Format organizations/enrich response."""
+        """Format organizations/enrich response.
+
+        Actual Sumble response shape:
+        {
+            "organization": {"id", "slug", "name", "domain"},
+            "technologies_found": "...",
+            "technologies_count": N,
+            "technologies": [{"name", "jobs_count", "people_count", "teams_count"}, ...]
+        }
+        """
         lines = ["## Technology Profile"]
-        org = data.get("organization", data)
+        org = data.get("organization", {})
 
         name = org.get("name", "")
         if name:
             lines.append(f"**Company**: {name}")
 
-        industry = org.get("industry", "")
-        if industry:
-            lines.append(f"**Industry**: {industry}")
+        domain = org.get("domain", "")
+        if domain:
+            lines.append(f"**Domain**: {domain}")
 
-        size = org.get("employee_count") or org.get("people_count")
-        if size:
-            lines.append(f"**Employees**: {size}")
+        tech_count = data.get("technologies_count", 0)
+        if tech_count:
+            lines.append(f"**Technologies Found**: {tech_count}")
 
-        jobs_count = org.get("jobs_count")
-        if jobs_count:
-            lines.append(f"**Open Jobs**: {jobs_count}")
-
-        teams_count = org.get("teams_count")
-        if teams_count:
-            lines.append(f"**Teams**: {teams_count}")
-
-        # Technology stack table
-        technologies = org.get("technologies", [])
+        # Technology stack table (top-level in response, not under organization)
+        technologies = data.get("technologies", [])
         if technologies:
             lines.append(f"\n### Tech Stack ({len(technologies)} technologies)")
-            lines.append("| Technology | Category | First Seen |")
-            lines.append("|-----------|----------|------------|")
+            lines.append("| Technology | Jobs | People | Teams |")
+            lines.append("|-----------|------|--------|-------|")
             for tech in technologies:
-                t_name = tech.get("name", tech) if isinstance(tech, dict) else str(tech)
-                category = tech.get("category", "") if isinstance(tech, dict) else ""
-                first_seen = tech.get("first_seen", "") if isinstance(tech, dict) else ""
-                lines.append(f"| {t_name} | {category} | {first_seen} |")
+                if isinstance(tech, dict):
+                    t_name = tech.get("name", "")
+                    jobs = tech.get("jobs_count", 0)
+                    people = tech.get("people_count", 0)
+                    teams = tech.get("teams_count", 0)
+                    lines.append(f"| {t_name} | {jobs} | {people} | {teams} |")
+                else:
+                    lines.append(f"| {tech} | | | |")
         else:
             lines.append("\n*No technology data available.*")
 
@@ -248,23 +268,28 @@ class SumblePrefetcher:
         return "\n".join(lines)
 
     def _format_people(self, data: dict) -> str:
-        """Format people/find response."""
-        people = data.get("people", data.get("results", []))
+        """Format people/find response.
+
+        Actual fields per person: id, url, linkedin_url, name, job_title,
+        job_function, job_level, location, country, start_date, country_code.
+        """
+        people = data.get("people", [])
         lines = [f"## Key People ({len(people)} contacts)"]
 
         if not people:
             lines.append("*No contacts found.*\n")
             return "\n".join(lines)
 
-        lines.append("| Name | Title | Function | Level | LinkedIn |")
-        lines.append("|------|-------|----------|-------|----------|")
+        lines.append("| Name | Title | Function | Level | Location | LinkedIn |")
+        lines.append("|------|-------|----------|-------|----------|----------|")
         for p in people:
-            name = p.get("name", p.get("full_name", ""))
-            title = p.get("title", "")
-            function = p.get("function", p.get("job_function", ""))
-            level = p.get("level", p.get("seniority", ""))
-            linkedin = p.get("linkedin_url", "")
-            lines.append(f"| {name} | {title} | {function} | {level} | {linkedin} |")
+            name = p.get("name", "")
+            title = p.get("job_title", "") or ""
+            function = p.get("job_function", "") or ""
+            level = p.get("job_level", "") or ""
+            location = p.get("location", "") or ""
+            linkedin = p.get("linkedin_url", "") or ""
+            lines.append(f"| {name} | {title} | {function} | {level} | {location} | {linkedin} |")
 
         lines.append("")
         return "\n".join(lines)
@@ -292,22 +317,28 @@ class SumblePrefetcher:
         return "\n".join(lines)
 
     def _format_org_find(self, data: dict) -> str:
-        """Format organizations/find response."""
-        orgs = data.get("organizations", data.get("results", []))
-        lines = [f"## Matching Organizations ({len(orgs)} found)"]
+        """Format organizations/find response.
+
+        Actual fields per org: id, name, url, domain, industry, total_employees,
+        headquarters_country, linkedin_organization_url, matching_entities.
+        """
+        orgs = data.get("organizations", [])
+        total = data.get("total", len(orgs))
+        lines = [f"## Matching Organizations ({total} total, showing {len(orgs)})"]
 
         if not orgs:
             lines.append("*No matching organizations found.*\n")
             return "\n".join(lines)
 
-        lines.append("| Company | Domain | Industry | Employees |")
-        lines.append("|---------|--------|----------|-----------|")
+        lines.append("| Company | Domain | Industry | Employees | HQ |")
+        lines.append("|---------|--------|----------|-----------|-----|")
         for o in orgs:
             name = o.get("name", "")
-            dom = o.get("domain", "")
-            industry = o.get("industry", "")
-            emp = o.get("employee_count", "")
-            lines.append(f"| {name} | {dom} | {industry} | {emp} |")
+            dom = o.get("domain", "") or ""
+            industry = o.get("industry", "") or ""
+            emp = o.get("total_employees", "") or ""
+            hq = o.get("headquarters_country", "") or ""
+            lines.append(f"| {name} | {dom} | {industry} | {emp} | {hq} |")
 
         lines.append("")
         return "\n".join(lines)
