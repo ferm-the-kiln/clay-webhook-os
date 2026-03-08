@@ -1,7 +1,6 @@
 ---
 model_tier: standard
-executor: agent
-max_turns: 1
+executor: cli
 timeout: 90
 prefetch:
   - exa
@@ -9,9 +8,6 @@ prefetch:
 sumble_endpoints:
   - organizations/enrich
   - jobs/find
-allowed_tools:
-  - WebSearch
-  - WebFetch
 context:
   - knowledge_base/signals/signal-taxonomy.md
   - knowledge_base/signals/signal-scoring.md
