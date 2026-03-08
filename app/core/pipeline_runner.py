@@ -109,6 +109,43 @@ def load_pipeline(name: str) -> dict | None:
     return yaml.safe_load(path.read_text())
 
 
+async def _run_prefetch(
+    skill_name: str,
+    config: dict,
+    data: dict,
+    prefetcher: ExaPrefetcher | None = None,
+    sumble_prefetcher: SumblePrefetcher | None = None,
+) -> str | None:
+    """Run prefetch for a skill step. Returns combined prefetched text or None."""
+    prefetch_sources = parse_prefetch_config(config)
+    if not prefetch_sources:
+        return None
+
+    company_name = data.get("company_name", "")
+    company_domain = data.get("company_domain", "")
+    parts: list[str] = []
+    coros = []
+
+    if "exa" in prefetch_sources and prefetcher and company_name and company_domain:
+        coros.append(prefetcher.fetch(company_name, company_domain))
+
+    if "sumble" in prefetch_sources and sumble_prefetcher and company_domain:
+        endpoints = config.get("sumble_endpoints", ["organizations/enrich"])
+        coros.append(sumble_prefetcher.fetch(company_domain, company_name, endpoints, data))
+
+    if not coros:
+        return None
+
+    results = await asyncio.gather(*coros, return_exceptions=True)
+    for r in results:
+        if isinstance(r, str):
+            parts.append(r)
+        elif isinstance(r, Exception):
+            logger.warning("[pipeline] Prefetch failed for %s: %s", skill_name, r)
+
+    return "\n\n---\n\n".join(parts) if parts else None
+
+
 async def _run_single_step(
     skill_name: str,
     current_data: dict,
@@ -148,32 +185,9 @@ async def _run_single_step(
 
     # Load skill config for prefetch and semantic context settings
     skill_cfg = load_skill_config(skill_name)
-
-    # Pre-fetch intelligence if configured
-    prefetch_sources = parse_prefetch_config(skill_cfg)
-    prefetched_parts: list[str] = []
-
-    if prefetch_sources:
-        company_name = current_data.get("company_name", "")
-        company_domain = current_data.get("company_domain", "")
-        coros: list = []
-
-        if "exa" in prefetch_sources and prefetcher and company_name and company_domain:
-            coros.append(prefetcher.fetch(company_name, company_domain))
-
-        if "sumble" in prefetch_sources and sumble_prefetcher and company_domain:
-            sumble_endpoints = skill_cfg.get("sumble_endpoints", ["organizations/enrich"])
-            coros.append(sumble_prefetcher.fetch(company_domain, company_name, sumble_endpoints, current_data))
-
-        if coros:
-            results = await asyncio.gather(*coros, return_exceptions=True)
-            for r in results:
-                if isinstance(r, str):
-                    prefetched_parts.append(r)
-                elif isinstance(r, Exception):
-                    logger.warning("[pipeline:%s] Prefetch failed: %s", skill_name, r)
-
-    prefetched_context = "\n\n---\n\n".join(prefetched_parts) if prefetched_parts else None
+    prefetched_context = await _run_prefetch(
+        skill_name, skill_cfg, current_data, prefetcher, sumble_prefetcher
+    )
     skip_semantic = not skill_cfg.get("semantic_context", True)
 
     context_files = load_context_files(skill_content, current_data, skill_name=skill_name)
@@ -496,30 +510,9 @@ async def _execute_steps(
 
         # Pre-fetch intelligence if configured
         skill_cfg = load_skill_config(skill_name)
-        prefetch_sources = parse_prefetch_config(skill_cfg)
-        prefetched_parts: list[str] = []
-
-        if prefetch_sources:
-            company_name = current_data.get("company_name", "")
-            company_domain = current_data.get("company_domain", "")
-            pf_coros: list = []
-
-            if "exa" in prefetch_sources and prefetcher and company_name and company_domain:
-                pf_coros.append(prefetcher.fetch(company_name, company_domain))
-
-            if "sumble" in prefetch_sources and sumble_prefetcher and company_domain:
-                sumble_eps = skill_cfg.get("sumble_endpoints", ["organizations/enrich"])
-                pf_coros.append(sumble_prefetcher.fetch(company_domain, company_name, sumble_eps, current_data))
-
-            if pf_coros:
-                pf_results = await asyncio.gather(*pf_coros, return_exceptions=True)
-                for r in pf_results:
-                    if isinstance(r, str):
-                        prefetched_parts.append(r)
-                    elif isinstance(r, Exception):
-                        logger.warning("[pipeline:%s] Prefetch failed for %s: %s", plan_name, skill_name, r)
-
-        prefetched_context = "\n\n---\n\n".join(prefetched_parts) if prefetched_parts else None
+        prefetched_context = await _run_prefetch(
+            skill_name, skill_cfg, current_data, prefetcher, sumble_prefetcher
+        )
         skip_semantic = not skill_cfg.get("semantic_context", True)
 
         # Build prompt and execute
