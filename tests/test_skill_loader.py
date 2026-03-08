@@ -409,3 +409,84 @@ class TestLoadContextFiles:
             files = load_context_files(content, {"industry": "SaaS"})
         paths = [f["path"] for f in files]
         assert paths.count("knowledge_base/industries/saas.md") == 1
+
+
+# ---------------------------------------------------------------------------
+# context_max_chars truncation
+# ---------------------------------------------------------------------------
+
+
+class TestContextMaxChars:
+    def test_truncates_long_context_files(self, tmp_path, mock_settings):
+        """When context_max_chars is set in frontmatter, long files get truncated."""
+        # Create a skill with context_max_chars
+        skill_dir = tmp_path / "skills" / "truncated-skill"
+        skill_dir.mkdir(parents=True)
+        skill_content = (
+            "---\nmodel_tier: sonnet\ncontext:\n"
+            "  - knowledge_base/big.md\ncontext_max_chars: 100\n---\n# Skill"
+        )
+        (skill_dir / "skill.md").write_text(skill_content)
+
+        # Create the context file (bigger than 100 chars)
+        kb_dir = tmp_path / "knowledge_base"
+        kb_dir.mkdir(parents=True)
+        (kb_dir / "big.md").write_text("A" * 500)
+
+        mock_settings.skills_dir = tmp_path / "skills"
+        _skill_cache.clear()
+        with patch("app.core.skill_loader.settings", mock_settings):
+            files = load_context_files(skill_content, {}, skill_name="truncated-skill")
+
+        big_file = [f for f in files if f["path"] == "knowledge_base/big.md"]
+        assert len(big_file) == 1
+        content = big_file[0]["content"]
+        assert len(content) < 500
+        assert content.startswith("A" * 100)
+        assert "[...truncated]" in content
+
+    def test_no_truncation_when_under_limit(self, tmp_path, mock_settings):
+        """Files under the limit are not truncated."""
+        skill_dir = tmp_path / "skills" / "short-skill"
+        skill_dir.mkdir(parents=True)
+        skill_content = (
+            "---\nmodel_tier: sonnet\ncontext:\n"
+            "  - knowledge_base/short.md\ncontext_max_chars: 1000\n---\n# Skill"
+        )
+        (skill_dir / "skill.md").write_text(skill_content)
+
+        kb_dir = tmp_path / "knowledge_base"
+        kb_dir.mkdir(parents=True)
+        (kb_dir / "short.md").write_text("Short content")
+
+        mock_settings.skills_dir = tmp_path / "skills"
+        _skill_cache.clear()
+        with patch("app.core.skill_loader.settings", mock_settings):
+            files = load_context_files(skill_content, {}, skill_name="short-skill")
+
+        short_file = [f for f in files if f["path"] == "knowledge_base/short.md"]
+        assert len(short_file) == 1
+        assert short_file[0]["content"] == "Short content"
+
+    def test_no_truncation_without_setting(self, tmp_path, mock_settings):
+        """Without context_max_chars, no truncation happens."""
+        skill_dir = tmp_path / "skills" / "normal-skill"
+        skill_dir.mkdir(parents=True)
+        skill_content = (
+            "---\nmodel_tier: sonnet\ncontext:\n"
+            "  - knowledge_base/big.md\n---\n# Skill"
+        )
+        (skill_dir / "skill.md").write_text(skill_content)
+
+        kb_dir = tmp_path / "knowledge_base"
+        kb_dir.mkdir(parents=True)
+        (kb_dir / "big.md").write_text("B" * 10000)
+
+        mock_settings.skills_dir = tmp_path / "skills"
+        _skill_cache.clear()
+        with patch("app.core.skill_loader.settings", mock_settings):
+            files = load_context_files(skill_content, {}, skill_name="normal-skill")
+
+        big_file = [f for f in files if f["path"] == "knowledge_base/big.md"]
+        assert len(big_file) == 1
+        assert big_file[0]["content"] == "B" * 10000

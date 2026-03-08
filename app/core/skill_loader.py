@@ -130,9 +130,11 @@ def load_context_files(
                 files.append({"path": rel, "content": content})
 
     # --- Context refs: from frontmatter (preferred) or regex fallback ---
+    context_max_chars = None
     if skill_name:
         config = load_skill_config(skill_name)
         refs = config.get("context", []) or []
+        context_max_chars = config.get("context_max_chars")
         if not refs:
             refs = parse_context_refs(skill_content)
     else:
@@ -162,6 +164,12 @@ def load_context_files(
                     content = industry_file.read_text()
                     seen.add(rel)
                     files.append({"path": rel, "content": content})
+
+    # --- Truncate context files if context_max_chars is set ---
+    if context_max_chars and isinstance(context_max_chars, int):
+        for ctx in files:
+            if len(ctx["content"]) > context_max_chars:
+                ctx["content"] = ctx["content"][:context_max_chars] + "\n\n[...truncated]"
 
     return files
 

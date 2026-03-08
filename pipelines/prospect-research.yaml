@@ -1,0 +1,20 @@
+name: prospect-research
+description: >
+  Sequential research pipeline — find buying signals first, then assess
+  company fit using those signals. Returns a qualified yes/no/maybe with
+  evidence. Use this before outreach to decide if a prospect is worth pursuing.
+steps:
+  # Step 1: Find recent buying signals (funding, hiring, leadership, product launches)
+  - skill: signal-researcher
+    confidence_field: confidence_score
+
+  # Step 2: Assess company fit — receives signals from step 1 as input
+  - skill: account-researcher
+    confidence_field: confidence_score
+
+  # Step 3: Numeric score + tier (Tier 1/2/3/Skip)
+  - skill: icp-scorer
+    condition: "confidence_score >= 0.5"
+    confidence_field: confidence_score
+
+confidence_threshold: 0.6
