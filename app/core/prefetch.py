@@ -78,7 +78,7 @@ class ExaPrefetcher:
             category="news",
             num_results=min(self._num_results, 5),
             start_published_date=_days_ago_iso(90),
-            highlights={"max_characters": 500},
+            highlights={"max_characters": 250},
         )
         return self._parse_response(response, "news")
 

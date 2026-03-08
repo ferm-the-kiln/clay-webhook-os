@@ -6,6 +6,8 @@ sumble_endpoints:
 context:
   - clients/{{client_slug}}.md
 context_max_chars: 4000
+skip_defaults: true
+semantic_context: false
 ---
 
 # ICP Scorer — Lead Qualification

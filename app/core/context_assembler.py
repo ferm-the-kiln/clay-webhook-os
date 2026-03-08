@@ -59,6 +59,7 @@ def build_prompt(
     memory_store: "MemoryStore | None" = None,
     context_index: "ContextIndex | None" = None,
     prefetched_context: str | None = None,
+    skip_semantic: bool = False,
 ) -> str:
     parts: list[str] = []
 
@@ -84,7 +85,7 @@ def build_prompt(
     all_context = list(context_files)
 
     # Layer 3.5: Semantic context (auto-discovered relevant files)
-    if context_index is not None:
+    if context_index is not None and not skip_semantic:
         semantic_hits = context_index.search_by_data(data, top_k=3)
         for rel_path, score in semantic_hits:
             if rel_path in seen_paths:
@@ -146,6 +147,7 @@ def build_agent_prompts(
     memory_store: "MemoryStore | None" = None,
     context_index: "ContextIndex | None" = None,
     prefetched_context: str | None = None,
+    skip_semantic: bool = False,
 ) -> str:
     """Build a prompt for agent-type skills (multi-turn with tool use).
 
@@ -185,7 +187,7 @@ def build_agent_prompts(
     all_context = list(context_files)
 
     # Layer 3.5: Semantic context
-    if context_index is not None:
+    if context_index is not None and not skip_semantic:
         semantic_hits = context_index.search_by_data(data, top_k=3)
         for rel_path, score in semantic_hits:
             if rel_path in seen_paths:

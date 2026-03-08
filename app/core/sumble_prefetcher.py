@@ -221,16 +221,7 @@ class SumblePrefetcher:
         return "\n".join(parts)
 
     def _format_org_enrich(self, data: dict) -> str:
-        """Format organizations/enrich response.
-
-        Actual Sumble response shape:
-        {
-            "organization": {"id", "slug", "name", "domain"},
-            "technologies_found": "...",
-            "technologies_count": N,
-            "technologies": [{"name", "jobs_count", "people_count", "teams_count"}, ...]
-        }
-        """
+        """Format organizations/enrich response in compact inline format."""
         lines = ["## Technology Profile"]
         org = data.get("organization", {})
 
@@ -242,25 +233,26 @@ class SumblePrefetcher:
         if domain:
             lines.append(f"**Domain**: {domain}")
 
-        tech_count = data.get("technologies_count", 0)
-        if tech_count:
-            lines.append(f"**Technologies Found**: {tech_count}")
-
-        # Technology stack table (top-level in response, not under organization)
         technologies = data.get("technologies", [])
         if technologies:
             lines.append(f"\n### Tech Stack ({len(technologies)} technologies)")
-            lines.append("| Technology | Jobs | People | Teams |")
-            lines.append("|-----------|------|--------|-------|")
             for tech in technologies:
                 if isinstance(tech, dict):
                     t_name = tech.get("name", "")
+                    parts = []
                     jobs = tech.get("jobs_count", 0)
                     people = tech.get("people_count", 0)
                     teams = tech.get("teams_count", 0)
-                    lines.append(f"| {t_name} | {jobs} | {people} | {teams} |")
+                    if jobs:
+                        parts.append(f"{jobs} jobs")
+                    if people:
+                        parts.append(f"{people} people")
+                    if teams:
+                        parts.append(f"{teams} teams")
+                    detail = ", ".join(parts) if parts else "detected"
+                    lines.append(f"- {t_name}: {detail}")
                 else:
-                    lines.append(f"| {tech} | | | |")
+                    lines.append(f"- {tech}")
         else:
             lines.append("\n*No technology data available.*")
 
@@ -268,11 +260,7 @@ class SumblePrefetcher:
         return "\n".join(lines)
 
     def _format_people(self, data: dict) -> str:
-        """Format people/find response.
-
-        Actual fields per person: id, url, linkedin_url, name, job_title,
-        job_function, job_level, location, country, start_date, country_code.
-        """
+        """Format people/find response in compact inline format."""
         people = data.get("people", [])
         lines = [f"## Key People ({len(people)} contacts)"]
 
@@ -280,22 +268,25 @@ class SumblePrefetcher:
             lines.append("*No contacts found.*\n")
             return "\n".join(lines)
 
-        lines.append("| Name | Title | Function | Level | Location | LinkedIn |")
-        lines.append("|------|-------|----------|-------|----------|----------|")
         for p in people:
             name = p.get("name", "")
             title = p.get("job_title", "") or ""
-            function = p.get("job_function", "") or ""
             level = p.get("job_level", "") or ""
             location = p.get("location", "") or ""
-            linkedin = p.get("linkedin_url", "") or ""
-            lines.append(f"| {name} | {title} | {function} | {level} | {location} | {linkedin} |")
+            parts = [name]
+            if title:
+                parts.append(title)
+            if level:
+                parts.append(f"({level})")
+            if location:
+                parts.append(f"— {location}")
+            lines.append(f"- {' | '.join(parts)}")
 
         lines.append("")
         return "\n".join(lines)
 
     def _format_jobs(self, data: dict) -> str:
-        """Format jobs/find response."""
+        """Format jobs/find response in compact inline format."""
         jobs = data.get("jobs", data.get("results", []))
         lines = [f"## Recent Job Postings ({len(jobs)} jobs)"]
 
@@ -303,15 +294,19 @@ class SumblePrefetcher:
             lines.append("*No job postings found.*\n")
             return "\n".join(lines)
 
-        lines.append("| Title | Location | Technologies | Posted |")
-        lines.append("|-------|----------|-------------|--------|")
         for j in jobs:
             title = j.get("title", "")
             location = j.get("location", "")
             techs = j.get("technologies", [])
-            tech_str = ", ".join(techs[:5]) if techs else ""
             posted = j.get("posted_date", j.get("created_at", ""))
-            lines.append(f"| {title} | {location} | {tech_str} | {posted} |")
+            parts = [title]
+            if location:
+                parts.append(location)
+            if techs:
+                parts.append(", ".join(techs[:5]))
+            if posted:
+                parts.append(posted)
+            lines.append(f"- {' | '.join(parts)}")
 
         lines.append("")
         return "\n".join(lines)

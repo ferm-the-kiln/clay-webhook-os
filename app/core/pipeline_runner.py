@@ -1,17 +1,28 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import operator
 import re
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
 from app.config import settings
 from app.core.cache import ResultCache
 from app.core.context_assembler import build_prompt
-from app.core.skill_loader import load_context_files, load_skill
+from app.core.prefetch import parse_prefetch_config
+from app.core.skill_loader import load_context_files, load_skill, load_skill_config
 from app.core.worker_pool import WorkerPool
+
+if TYPE_CHECKING:
+    from app.core.context_index import ContextIndex
+    from app.core.memory_store import MemoryStore
+    from app.core.prefetch import ExaPrefetcher
+    from app.core.sumble_prefetcher import SumblePrefetcher
 
 logger = logging.getLogger("clay-webhook-os")
 
@@ -105,6 +116,10 @@ async def _run_single_step(
     model: str,
     pool: WorkerPool,
     cache: ResultCache | None = None,
+    prefetcher: ExaPrefetcher | None = None,
+    sumble_prefetcher: SumblePrefetcher | None = None,
+    memory_store: MemoryStore | None = None,
+    context_index: ContextIndex | None = None,
 ) -> dict:
     """Execute a single skill step. Returns a result dict."""
     step_start = time.monotonic()
@@ -131,8 +146,42 @@ async def _run_single_step(
                 "response_chars": 0,
             }
 
+    # Load skill config for prefetch and semantic context settings
+    skill_cfg = load_skill_config(skill_name)
+
+    # Pre-fetch intelligence if configured
+    prefetch_sources = parse_prefetch_config(skill_cfg)
+    prefetched_parts: list[str] = []
+
+    if prefetch_sources:
+        company_name = current_data.get("company_name", "")
+        company_domain = current_data.get("company_domain", "")
+        coros: list = []
+
+        if "exa" in prefetch_sources and prefetcher and company_name and company_domain:
+            coros.append(prefetcher.fetch(company_name, company_domain))
+
+        if "sumble" in prefetch_sources and sumble_prefetcher and company_domain:
+            sumble_endpoints = skill_cfg.get("sumble_endpoints", ["organizations/enrich"])
+            coros.append(sumble_prefetcher.fetch(company_domain, company_name, sumble_endpoints, current_data))
+
+        if coros:
+            results = await asyncio.gather(*coros, return_exceptions=True)
+            for r in results:
+                if isinstance(r, str):
+                    prefetched_parts.append(r)
+                elif isinstance(r, Exception):
+                    logger.warning("[pipeline:%s] Prefetch failed: %s", skill_name, r)
+
+    prefetched_context = "\n\n---\n\n".join(prefetched_parts) if prefetched_parts else None
+    skip_semantic = not skill_cfg.get("semantic_context", True)
+
     context_files = load_context_files(skill_content, current_data, skill_name=skill_name)
-    prompt = build_prompt(skill_content, context_files, current_data, instructions)
+    prompt = build_prompt(
+        skill_content, context_files, current_data, instructions,
+        memory_store=memory_store, context_index=context_index,
+        prefetched_context=prefetched_context, skip_semantic=skip_semantic,
+    )
 
     try:
         result = await pool.submit(prompt, model)
@@ -170,6 +219,10 @@ async def _run_parallel_step(
     pool: WorkerPool,
     cache: ResultCache | None,
     merge_strategy: str = "deep",
+    prefetcher: ExaPrefetcher | None = None,
+    sumble_prefetcher: SumblePrefetcher | None = None,
+    memory_store: MemoryStore | None = None,
+    context_index: ContextIndex | None = None,
 ) -> tuple[list[dict], dict]:
     """Run multiple skill steps concurrently. Returns (results_list, merged_data)."""
     parallel_start = time.monotonic()
@@ -187,6 +240,10 @@ async def _run_parallel_step(
             model=step_model,
             pool=pool,
             cache=cache,
+            prefetcher=prefetcher,
+            sumble_prefetcher=sumble_prefetcher,
+            memory_store=memory_store,
+            context_index=context_index,
         ))
 
     # Fan out — run all concurrently through the existing semaphore-controlled pool
@@ -224,6 +281,10 @@ async def run_skill_chain(
     model: str,
     pool: WorkerPool,
     cache: ResultCache | None = None,
+    prefetcher: ExaPrefetcher | None = None,
+    sumble_prefetcher: SumblePrefetcher | None = None,
+    memory_store: MemoryStore | None = None,
+    context_index: ContextIndex | None = None,
 ) -> dict:
     results = []
     current_data = dict(data)
@@ -237,6 +298,10 @@ async def run_skill_chain(
             model=model,
             pool=pool,
             cache=cache,
+            prefetcher=prefetcher,
+            sumble_prefetcher=sumble_prefetcher,
+            memory_store=memory_store,
+            context_index=context_index,
         )
         results.append(step_result)
         if step_result.get("success") and step_result.get("output"):
@@ -262,6 +327,10 @@ async def run_pipeline(
     model: str,
     pool: WorkerPool,
     cache: ResultCache,
+    prefetcher: ExaPrefetcher | None = None,
+    sumble_prefetcher: SumblePrefetcher | None = None,
+    memory_store: MemoryStore | None = None,
+    context_index: ContextIndex | None = None,
 ) -> dict:
     pipeline = load_pipeline(name)
     if pipeline is None:
@@ -279,6 +348,10 @@ async def run_pipeline(
         pool=pool,
         cache=cache,
         confidence_threshold=confidence_threshold,
+        prefetcher=prefetcher,
+        sumble_prefetcher=sumble_prefetcher,
+        memory_store=memory_store,
+        context_index=context_index,
     )
 
 
@@ -291,6 +364,10 @@ async def run_pipeline_from_plan(
     pool: WorkerPool,
     cache: ResultCache,
     confidence_threshold: float = 0.8,
+    prefetcher: ExaPrefetcher | None = None,
+    sumble_prefetcher: SumblePrefetcher | None = None,
+    memory_store: MemoryStore | None = None,
+    context_index: ContextIndex | None = None,
 ) -> dict:
     """Execute a dynamically generated pipeline plan (from coordinator)."""
     return await _execute_steps(
@@ -302,6 +379,10 @@ async def run_pipeline_from_plan(
         pool=pool,
         cache=cache,
         confidence_threshold=confidence_threshold,
+        prefetcher=prefetcher,
+        sumble_prefetcher=sumble_prefetcher,
+        memory_store=memory_store,
+        context_index=context_index,
     )
 
 
@@ -314,6 +395,10 @@ async def _execute_steps(
     pool: WorkerPool,
     cache: ResultCache,
     confidence_threshold: float = 0.8,
+    prefetcher: ExaPrefetcher | None = None,
+    sumble_prefetcher: SumblePrefetcher | None = None,
+    memory_store: MemoryStore | None = None,
+    context_index: ContextIndex | None = None,
 ) -> dict:
     """Core step execution engine — handles sequential, parallel, and conditional steps."""
     results = []
@@ -339,6 +424,10 @@ async def _execute_steps(
                 pool=pool,
                 cache=cache,
                 merge_strategy=merge_strategy,
+                prefetcher=prefetcher,
+                sumble_prefetcher=sumble_prefetcher,
+                memory_store=memory_store,
+                context_index=context_index,
             )
             # Track confidence from parallel results
             for pr in parallel_results:
@@ -405,9 +494,41 @@ async def _execute_steps(
             current_data.update(cached)
             continue
 
+        # Pre-fetch intelligence if configured
+        skill_cfg = load_skill_config(skill_name)
+        prefetch_sources = parse_prefetch_config(skill_cfg)
+        prefetched_parts: list[str] = []
+
+        if prefetch_sources:
+            company_name = current_data.get("company_name", "")
+            company_domain = current_data.get("company_domain", "")
+            pf_coros: list = []
+
+            if "exa" in prefetch_sources and prefetcher and company_name and company_domain:
+                pf_coros.append(prefetcher.fetch(company_name, company_domain))
+
+            if "sumble" in prefetch_sources and sumble_prefetcher and company_domain:
+                sumble_eps = skill_cfg.get("sumble_endpoints", ["organizations/enrich"])
+                pf_coros.append(sumble_prefetcher.fetch(company_domain, company_name, sumble_eps, current_data))
+
+            if pf_coros:
+                pf_results = await asyncio.gather(*pf_coros, return_exceptions=True)
+                for r in pf_results:
+                    if isinstance(r, str):
+                        prefetched_parts.append(r)
+                    elif isinstance(r, Exception):
+                        logger.warning("[pipeline:%s] Prefetch failed for %s: %s", plan_name, skill_name, r)
+
+        prefetched_context = "\n\n---\n\n".join(prefetched_parts) if prefetched_parts else None
+        skip_semantic = not skill_cfg.get("semantic_context", True)
+
         # Build prompt and execute
         context_files = load_context_files(skill_content, current_data, skill_name=skill_name)
-        prompt = build_prompt(skill_content, context_files, current_data, effective_instructions)
+        prompt = build_prompt(
+            skill_content, context_files, current_data, effective_instructions,
+            memory_store=memory_store, context_index=context_index,
+            prefetched_context=prefetched_context, skip_semantic=skip_semantic,
+        )
 
         try:
             result = await pool.submit(prompt, effective_model)

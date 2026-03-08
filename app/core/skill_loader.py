@@ -120,8 +120,14 @@ def load_context_files(
     seen = set()
 
     # --- Defaults layer: auto-load knowledge_base/_defaults/*.md ---
+    # Skills can opt out with `skip_defaults: true` in frontmatter
+    skip_defaults = False
+    if skill_name:
+        config = load_skill_config(skill_name)
+        skip_defaults = config.get("skip_defaults", False)
+
     defaults_dir = settings.knowledge_dir / "_defaults"
-    if defaults_dir.exists():
+    if not skip_defaults and defaults_dir.exists():
         for f in sorted(defaults_dir.iterdir()):
             if f.suffix == ".md":
                 rel = f"knowledge_base/_defaults/{f.name}"
@@ -132,7 +138,7 @@ def load_context_files(
     # --- Context refs: from frontmatter (preferred) or regex fallback ---
     context_max_chars = None
     if skill_name:
-        config = load_skill_config(skill_name)
+        # config already loaded above for skip_defaults check
         refs = config.get("context", []) or []
         context_max_chars = config.get("context_max_chars")
         if not refs:
