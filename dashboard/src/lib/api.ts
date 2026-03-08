@@ -716,12 +716,22 @@ export function testPlay(
 }
 
 // System Status
-export function fetchRetries(): Promise<{
+export async function fetchRetries(): Promise<{
   pending: number;
-  max_retries: number;
   items: { job_id: string; skill: string; retry_count: number; last_error: string; next_retry_at: number }[];
 }> {
-  return apiFetch("/retries");
+  const res = await apiFetch<{ stats: Record<string, unknown>; pending: Array<Record<string, unknown>>; dead_letters: Array<Record<string, unknown>> }>("/retries");
+  const pending = res.pending ?? [];
+  return {
+    pending: pending.length,
+    items: pending.map((item) => ({
+      job_id: String(item.job_id ?? item.id ?? ""),
+      skill: String(item.skill ?? ""),
+      retry_count: Number(item.attempt ?? 0),
+      last_error: String(item.last_error ?? ""),
+      next_retry_at: Number(item.next_retry_at ?? 0),
+    })),
+  };
 }
 
 export function fetchSubscriptions(): Promise<{
@@ -731,7 +741,7 @@ export function fetchSubscriptions(): Promise<{
   today_tokens: number;
   today_errors: number;
 }> {
-  return apiFetch("/subscriptions");
+  return apiFetch("/subscription");
 }
 
 export async function fetchDeadLetter(): Promise<{
