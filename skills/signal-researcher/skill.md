@@ -1,8 +1,8 @@
 ---
 model_tier: standard
 executor: agent
-max_turns: 2
-timeout: 60
+max_turns: 1
+timeout: 90
 prefetch:
   - exa
   - sumble
