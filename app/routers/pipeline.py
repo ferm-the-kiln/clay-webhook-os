@@ -18,9 +18,13 @@ async def pipeline(body: PipelineRequest, request: Request):
 
     logger.info("[pipeline:%s] Starting", body.pipeline)
 
+    prefetcher = getattr(request.app.state, "prefetcher", None)
+    sumble_prefetcher = getattr(request.app.state, "sumble_prefetcher", None)
+
     try:
         result = await run_pipeline(
-            body.pipeline, body.data, body.instructions, model, pool, cache
+            body.pipeline, body.data, body.instructions, model, pool, cache,
+            prefetcher=prefetcher, sumble_prefetcher=sumble_prefetcher,
         )
     except FileNotFoundError as e:
         return {"error": True, "error_message": str(e), "skill": "pipeline"}
