@@ -144,10 +144,24 @@ async def webhook(body: WebhookRequest, request: Request):
     memory_store = getattr(request.app.state, "memory_store", None)
     context_index = getattr(request.app.state, "context_index", None)
 
+    # Pre-fetch intelligence if configured
+    prefetched_context = None
+    if is_agent and config.get("prefetch") == "exa":
+        prefetcher = getattr(request.app.state, "prefetcher", None)
+        if prefetcher:
+            company_name = body.data.get("company_name", "")
+            company_domain = body.data.get("company_domain", "")
+            if company_name and company_domain:
+                try:
+                    prefetched_context = await prefetcher.fetch(company_name, company_domain)
+                except Exception as e:
+                    logger.warning("[%s] Exa prefetch failed: %s", primary_skill, e)
+
     if is_agent:
         prompt = build_agent_prompts(
             skill_content, context_files, body.data, body.instructions,
             memory_store=memory_store, context_index=context_index,
+            prefetched_context=prefetched_context,
         )
     else:
         prompt = build_prompt(
