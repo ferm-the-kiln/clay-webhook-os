@@ -6,6 +6,7 @@ from app.core.context_assembler import (
     _PRIORITY_ORDER,
     _context_priority,
     _get_role,
+    build_agent_prompts,
     build_prompt,
 )
 
@@ -196,3 +197,66 @@ class TestBuildPrompt:
             data={},
         )
         assert json.dumps({}) in prompt
+
+
+class TestBuildAgentPrompts:
+    @patch("app.core.context_assembler.settings")
+    def test_default_researcher_role(self, mock_settings):
+        """Without prefetched_context, uses autonomous researcher role."""
+        mock_settings.prompt_size_warn_tokens = 50000
+        prompt = build_agent_prompts(
+            skill_content="Skill body",
+            context_files=[],
+            data={"company_name": "Acme"},
+        )
+        assert "autonomous research agent" in prompt
+        assert "signal analyst" not in prompt
+        assert "Research the target" in prompt
+
+    @patch("app.core.context_assembler.settings")
+    def test_analyst_role_with_prefetched_context(self, mock_settings):
+        """With prefetched_context, switches to analyst role."""
+        mock_settings.prompt_size_warn_tokens = 50000
+        prefetched = "# Pre-Fetched Intelligence for Acme\n## News\nSome news here."
+        prompt = build_agent_prompts(
+            skill_content="Skill body",
+            context_files=[],
+            data={"company_name": "Acme"},
+            prefetched_context=prefetched,
+        )
+        assert "signal analyst" in prompt
+        assert "autonomous research agent" not in prompt
+        assert "Analyze the pre-fetched intelligence" in prompt
+        assert prefetched in prompt
+
+    @patch("app.core.context_assembler.settings")
+    def test_prefetched_context_injected_before_data(self, mock_settings):
+        """Pre-fetched context appears before the data section."""
+        mock_settings.prompt_size_warn_tokens = 50000
+        prefetched = "# Pre-Fetched Intelligence\nIMPORTANT_MARKER"
+        prompt = build_agent_prompts(
+            skill_content="Skill body",
+            context_files=[],
+            data={"key": "DATA_MARKER"},
+            prefetched_context=prefetched,
+        )
+        prefetch_pos = prompt.index("IMPORTANT_MARKER")
+        data_pos = prompt.index("DATA_MARKER")
+        assert prefetch_pos < data_pos
+
+    @patch("app.core.context_assembler.settings")
+    def test_none_prefetched_context_is_backward_compatible(self, mock_settings):
+        """Passing prefetched_context=None produces same result as not passing it."""
+        mock_settings.prompt_size_warn_tokens = 50000
+        prompt_default = build_agent_prompts(
+            skill_content="Skill",
+            context_files=[],
+            data={"x": 1},
+        )
+        prompt_none = build_agent_prompts(
+            skill_content="Skill",
+            context_files=[],
+            data={"x": 1},
+            prefetched_context=None,
+        )
+        assert prompt_default == prompt_none

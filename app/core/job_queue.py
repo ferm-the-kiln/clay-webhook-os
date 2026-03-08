@@ -278,10 +278,24 @@ class JobQueue:
                     mem = getattr(self, '_memory_store', None)
                     ctx_idx = getattr(self, '_context_index', None)
 
+                    # Pre-fetch intelligence if configured
+                    prefetched_context = None
+                    if is_agent and skill_cfg.get("prefetch") == "exa":
+                        prefetcher = getattr(self, '_prefetcher', None)
+                        if prefetcher:
+                            company_name = job.data.get("company_name", "")
+                            company_domain = job.data.get("company_domain", "")
+                            if company_name and company_domain:
+                                try:
+                                    prefetched_context = await prefetcher.fetch(company_name, company_domain)
+                                except Exception as e:
+                                    logger.warning("[queue] Exa prefetch failed for %s: %s", job.id, e)
+
                     if is_agent:
                         prompt = build_agent_prompts(
                             skill_content, context_files, job.data, job.instructions,
                             memory_store=mem, context_index=ctx_idx,
+                            prefetched_context=prefetched_context,
                         )
                     else:
                         prompt = build_prompt(

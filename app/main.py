@@ -13,6 +13,7 @@ from app.core.worker_pool import WorkerPool
 from app.middleware.auth import ApiKeyMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
 from app.core.context_index import ContextIndex
+from app.core.prefetch import ExaPrefetcher
 from app.core.context_store import ContextStore
 from app.core.destination_store import DestinationStore
 from app.core.feedback_store import FeedbackStore
@@ -115,6 +116,21 @@ async def startup():
     )
     app.state.context_index.build()
     app.state.job_queue._context_index = app.state.context_index
+
+    # Exa pre-fetch (optional — enhances agent skills)
+    if settings.exa_api_key:
+        from exa_py import Exa
+        exa_client = Exa(api_key=settings.exa_api_key)
+        app.state.prefetcher = ExaPrefetcher(
+            exa_client=exa_client,
+            num_results=settings.exa_num_results,
+            cache_ttl=settings.exa_cache_ttl,
+        )
+        logger.info("  Exa pre-fetch: enabled")
+    else:
+        app.state.prefetcher = None
+        logger.info("  Exa pre-fetch: disabled (no EXA_API_KEY)")
+    app.state.job_queue._prefetcher = app.state.prefetcher
 
     # Retry worker
     app.state.retry_worker = RetryWorker(
