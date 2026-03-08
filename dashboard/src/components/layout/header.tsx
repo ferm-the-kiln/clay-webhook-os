@@ -10,9 +10,41 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Menu, Search, Wifi, WifiOff, Activity } from "lucide-react";
+import { Menu, Search, Wifi, WifiOff, Activity, RefreshCw } from "lucide-react";
 import { CommandPalette } from "@/components/command-palette";
+import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { formatTokens, formatNumber } from "@/lib/utils";
+import Link from "next/link";
+
+interface Breadcrumb {
+  label: string;
+  href?: string;
+}
+
+interface HeaderProps {
+  title: string;
+  breadcrumbs?: Breadcrumb[];
+  lastUpdated?: Date | null;
+  onRefresh?: () => void;
+}
+
+function LiveRelativeTime({ date }: { date: Date }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+  const label =
+    diffSec < 5
+      ? "just now"
+      : diffSec < 60
+        ? `${diffSec}s ago`
+        : diffSec < 3600
+          ? `${Math.floor(diffSec / 60)}m ago`
+          : `${Math.floor(diffSec / 3600)}h ago`;
+  return <span className="text-xs text-clay-600">{label}</span>;
+}
 
 const HEALTH_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
   healthy: { dot: "bg-kiln-teal", bg: "bg-kiln-teal/10", text: "text-kiln-teal" },
@@ -21,7 +53,7 @@ const HEALTH_COLORS: Record<string, { dot: string; bg: string; text: string }> =
   exhausted: { dot: "bg-kiln-coral", bg: "bg-kiln-coral/10", text: "text-kiln-coral" },
 };
 
-export function Header({ title }: { title: string }) {
+export function Header({ title, breadcrumbs, lastUpdated, onRefresh }: HeaderProps) {
   const [healthy, setHealthy] = useState<boolean | null>(null);
   const [showReconnect, setShowReconnect] = useState(false);
   const [usageHealth, setUsageHealth] = useState<UsageHealth | null>(null);
@@ -116,9 +148,41 @@ export function Header({ title }: { title: string }) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h2 className="text-xl font-semibold font-[family-name:var(--font-sans)] text-clay-100">
-            {title}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold font-[family-name:var(--font-sans)] text-clay-100">
+              {title}
+            </h2>
+            {breadcrumbs && breadcrumbs.length > 0 && (
+              <div className="hidden sm:flex items-center gap-1.5 text-sm">
+                {breadcrumbs.map((crumb, i) => (
+                  <span key={i} className="flex items-center gap-1.5">
+                    <span className="text-clay-600">/</span>
+                    {crumb.href ? (
+                      <Link href={crumb.href} className="text-clay-500 hover:text-clay-300 transition-colors">
+                        {crumb.label}
+                      </Link>
+                    ) : (
+                      <span className="text-clay-300">{crumb.label}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          {lastUpdated && (
+            <div className="hidden sm:flex items-center gap-1.5 ml-3">
+              <LiveRelativeTime date={lastUpdated} />
+              {onRefresh && (
+                <button
+                  onClick={onRefresh}
+                  className="text-clay-600 hover:text-clay-400 transition-colors"
+                  aria-label="Refresh"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -157,9 +221,12 @@ export function Header({ title }: { title: string }) {
                 {usageHealth.today_errors > 0 && (
                   <p className="text-kiln-coral">{usageHealth.today_errors} errors today</p>
                 )}
+                <p className="text-clay-500 mt-1">Press <kbd className="rounded border border-clay-700 bg-clay-800 px-1 py-0.5 font-mono">?</kbd> for shortcuts</p>
               </TooltipContent>
             </Tooltip>
           )}
+
+          <NotificationPanel />
 
           <div role="status" aria-live="polite">
             <Badge

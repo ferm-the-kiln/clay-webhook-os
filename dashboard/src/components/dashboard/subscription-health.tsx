@@ -80,6 +80,19 @@ export function SubscriptionHealth() {
   const health = HEALTH_CONFIG[data.subscription_health] || HEALTH_CONFIG.healthy;
   const showBanner = data.subscription_health === "critical" || data.subscription_health === "exhausted";
 
+  // Usage forecasting: trailing 3-day average hourly consumption
+  const recentDays = data.daily_history.slice(-3);
+  const avgDailyTokens = recentDays.length > 0
+    ? recentDays.reduce((sum, d) => sum + d.total_tokens, 0) / recentDays.length
+    : 0;
+  const avgHourlyTokens = avgDailyTokens / 24;
+  // Rough estimate: 5M tokens/day typical max for Claude Max subscription
+  const dailyCapEst = 5_000_000;
+  const remainingTokensEst = Math.max(0, dailyCapEst - data.today.total_tokens);
+  const hoursRemaining = avgHourlyTokens > 0
+    ? Math.floor(remainingTokensEst / avgHourlyTokens)
+    : null;
+
   // Last 7 days for mini chart
   const chartData = data.daily_history.slice(-7).map((d) => ({
     date: d.date.slice(5), // MM-DD
@@ -147,6 +160,24 @@ export function SubscriptionHealth() {
             </p>
           </div>
         </div>
+
+        {/* Usage forecast */}
+        {hoursRemaining !== null && avgHourlyTokens > 0 && (
+          <div className="rounded-md bg-clay-800/50 border border-clay-700 p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-clay-500">Projected Capacity</p>
+              <p className="text-sm font-medium text-clay-200">
+                ~{hoursRemaining}h remaining at current rate
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-clay-500">Avg/hour</p>
+              <p className="text-sm font-mono text-clay-300">
+                {formatTokens(Math.round(avgHourlyTokens))}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Mini 7-day bar chart */}
         {chartData.length > 0 && (

@@ -37,10 +37,25 @@ import {
   RotateCcw,
   Send,
   Zap,
+  Download,
+  Copy,
+  ClipboardCheck,
 } from "lucide-react";
+import Papa from "papaparse";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu";
 import { FeedbackButtons } from "@/components/feedback/feedback-buttons";
 import { FormattedResult } from "@/components/playground/formatted-results";
+import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "sonner";
+import { runWebhook } from "@/lib/api";
 
 const PRIORITY_ICONS: Record<string, typeof ArrowUp> = {
   high: ArrowUp,
@@ -69,6 +84,7 @@ export function JobList() {
   const [page, setPage] = useState(0);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
@@ -222,6 +238,33 @@ export function JobList() {
             {filtered.length} result{filtered.length !== 1 ? "s" : ""}
           </span>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-clay-700 text-clay-400 hover:text-clay-200 ml-auto"
+          onClick={() => {
+            const rows = sorted.map((j) => ({
+              id: j.id,
+              skill: j.skill,
+              status: j.status,
+              duration_ms: j.duration_ms || "",
+              retries: j.retry_count ?? 0,
+              priority: j.priority || "normal",
+              created_at: new Date(j.created_at * 1000).toISOString(),
+            }));
+            const csv = Papa.unparse(rows);
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `jobs-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          <Download className="h-3.5 w-3.5 mr-1.5" />
+          Export CSV
+        </Button>
       </div>
 
       <div className="rounded-xl border border-clay-800 bg-white shadow-sm overflow-hidden" aria-live="polite" aria-atomic="false">
@@ -230,7 +273,19 @@ export function JobList() {
           <Table>
             <TableHeader>
               <TableRow className="border-clay-800 hover:bg-transparent">
-                <TableHead className="text-clay-500 text-xs uppercase tracking-wider w-8" />
+                <TableHead className="text-clay-500 text-xs uppercase tracking-wider w-10 px-3">
+                  <Checkbox
+                    checked={paged.length > 0 && paged.every((j) => selectedIds.has(j.id))}
+                    onCheckedChange={(checked) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        paged.forEach((j) => (checked ? next.add(j.id) : next.delete(j.id)));
+                        return next;
+                      });
+                    }}
+                    className="border-clay-600 data-[state=checked]:bg-kiln-teal data-[state=checked]:border-kiln-teal"
+                  />
+                </TableHead>
                 <TableHead className="text-clay-500 text-xs uppercase tracking-wider">Job ID</TableHead>
                 <TableHead
                   className="text-clay-500 text-xs uppercase tracking-wider cursor-pointer select-none hover:text-clay-300"
@@ -281,42 +336,103 @@ export function JobList() {
                 const prio = job.priority || "normal";
                 const PrioIcon = PRIORITY_ICONS[prio];
                 return (
-                  <TableRow
-                    key={job.id}
-                    className="border-clay-800 hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => handleRowClick(job.id)}
-                  >
-                    <TableCell className="text-clay-600">
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </TableCell>
-                    <TableCell className="font-[family-name:var(--font-mono)] text-xs text-clay-400">
-                      {job.id.slice(0, 8)}...
-                    </TableCell>
-                    <TableCell className="text-kiln-teal font-medium">
-                      {job.skill}
-                    </TableCell>
-                    <TableCell className="text-clay-500 font-[family-name:var(--font-mono)] text-xs">
-                      {job.row_id || "\u2014"}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center gap-1 text-xs font-medium uppercase ${PRIORITY_COLORS[prio]}`}>
-                        <PrioIcon className="h-3 w-3" />
-                        {prio}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={job.status} />
-                    </TableCell>
-                    <TableCell className="font-[family-name:var(--font-mono)] text-xs text-clay-500">
-                      {(job.retry_count ?? 0) > 0 ? `${job.retry_count}/3` : "\u2014"}
-                    </TableCell>
-                    <TableCell className="font-[family-name:var(--font-mono)] text-xs">
-                      {job.duration_ms ? formatDuration(job.duration_ms) : "\u2014"}
-                    </TableCell>
-                    <TableCell className="text-clay-500 text-xs" title={new Date(job.created_at * 1000).toLocaleString()}>
-                      {formatRelativeTime(job.created_at)}
-                    </TableCell>
-                  </TableRow>
+                  <ContextMenu key={job.id}>
+                    <ContextMenuTrigger asChild>
+                      <TableRow
+                        className="border-clay-800 hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => handleRowClick(job.id)}
+                      >
+                        <TableCell className="px-3" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(job.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                checked ? next.add(job.id) : next.delete(job.id);
+                                return next;
+                              });
+                            }}
+                            className="border-clay-600 data-[state=checked]:bg-kiln-teal data-[state=checked]:border-kiln-teal"
+                          />
+                        </TableCell>
+                        <TableCell className="font-[family-name:var(--font-mono)] text-xs text-clay-400">
+                          {job.id.slice(0, 8)}...
+                        </TableCell>
+                        <TableCell className="text-kiln-teal font-medium">
+                          {job.skill}
+                        </TableCell>
+                        <TableCell className="text-clay-500 font-[family-name:var(--font-mono)] text-xs">
+                          {job.row_id || "\u2014"}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium uppercase ${PRIORITY_COLORS[prio]}`}>
+                            <PrioIcon className="h-3 w-3" />
+                            {prio}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={job.status} />
+                        </TableCell>
+                        <TableCell className="font-[family-name:var(--font-mono)] text-xs text-clay-500">
+                          {(job.retry_count ?? 0) > 0 ? `${job.retry_count}/3` : "\u2014"}
+                        </TableCell>
+                        <TableCell className="font-[family-name:var(--font-mono)] text-xs">
+                          {job.duration_ms ? formatDuration(job.duration_ms) : "\u2014"}
+                        </TableCell>
+                        <TableCell className="text-clay-500 text-xs" title={new Date(job.created_at * 1000).toLocaleString()}>
+                          {formatRelativeTime(job.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="border-clay-700 bg-clay-900 min-w-[160px]">
+                      <ContextMenuItem
+                        onClick={() => handleRowClick(job.id)}
+                        className="text-clay-300 focus:bg-kiln-teal/10 focus:text-kiln-teal"
+                      >
+                        <Search className="h-3.5 w-3.5 mr-2" />
+                        View Details
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onClick={() => {
+                          navigator.clipboard.writeText(job.id);
+                          toast.success("Job ID copied");
+                        }}
+                        className="text-clay-300 focus:bg-kiln-teal/10 focus:text-kiln-teal"
+                      >
+                        <Copy className="h-3.5 w-3.5 mr-2" />
+                        Copy Job ID
+                      </ContextMenuItem>
+                      <ContextMenuSeparator className="bg-clay-800" />
+                      <ContextMenuItem
+                        onClick={() => {
+                          window.location.href = `/run?skill=${job.skill}`;
+                        }}
+                        className="text-clay-300 focus:bg-kiln-teal/10 focus:text-kiln-teal"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 mr-2" />
+                        Re-run Skill
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onClick={() => {
+                          const row = {
+                            id: job.id,
+                            skill: job.skill,
+                            status: job.status,
+                            duration_ms: job.duration_ms || "",
+                            retries: job.retry_count ?? 0,
+                            priority: job.priority || "normal",
+                            created_at: new Date(job.created_at * 1000).toISOString(),
+                          };
+                          navigator.clipboard.writeText(JSON.stringify(row, null, 2));
+                          toast.success("Job JSON copied");
+                        }}
+                        className="text-clay-300 focus:bg-kiln-teal/10 focus:text-kiln-teal"
+                      >
+                        <Download className="h-3.5 w-3.5 mr-2" />
+                        Export JSON
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 );
               })}
             </TableBody>
@@ -409,7 +525,7 @@ export function JobList() {
                 </div>
 
                 {/* Quick actions */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     variant="outline"
                     size="sm"
@@ -420,6 +536,18 @@ export function JobList() {
                   >
                     <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
                     Run again
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-clay-700 text-clay-400 hover:text-clay-200"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedJob.id);
+                      toast.success("Job ID copied");
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                    Copy ID
                   </Button>
                 </div>
 
@@ -435,9 +563,21 @@ export function JobList() {
                 {/* Output — formatted */}
                 {selectedJob.result && (
                   <div>
-                    <p className="text-xs text-clay-500 uppercase tracking-wider mb-2 font-[family-name:var(--font-sans)]">
-                      Output
-                    </p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-clay-500 uppercase tracking-wider font-[family-name:var(--font-sans)]">
+                        Output
+                      </p>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(JSON.stringify(selectedJob.result, null, 2));
+                          toast.success("Output JSON copied");
+                        }}
+                        className="text-xs text-clay-500 hover:text-clay-300 flex items-center gap-1 transition-colors"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copy JSON
+                      </button>
+                    </div>
                     <div className="rounded-lg bg-clay-950 border border-clay-800 overflow-hidden max-h-96 overflow-y-auto">
                       <FormattedResult skill={selectedJob.skill} data={selectedJob.result} />
                     </div>
@@ -504,6 +644,62 @@ export function JobList() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Floating bulk action bar */}
+      <AnimatePresence>
+        {selectedIds.size > 0 && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-xl border border-clay-700 bg-clay-900 px-4 py-2.5 shadow-2xl"
+          >
+            <span className="text-sm text-clay-300 font-medium">
+              {selectedIds.size} selected
+            </span>
+            <div className="h-4 w-px bg-clay-700" />
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-clay-700 text-clay-400 hover:text-clay-200"
+              onClick={() => {
+                const selectedJobs = sorted.filter((j) => selectedIds.has(j.id));
+                const rows = selectedJobs.map((j) => ({
+                  id: j.id,
+                  skill: j.skill,
+                  status: j.status,
+                  duration_ms: j.duration_ms || "",
+                  retries: j.retry_count ?? 0,
+                  priority: j.priority || "normal",
+                  created_at: new Date(j.created_at * 1000).toISOString(),
+                }));
+                const csv = Papa.unparse(rows);
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `jobs-selected-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+                toast.success(`Exported ${selectedJobs.length} jobs`);
+              }}
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              Export
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-clay-500 hover:text-clay-300"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X className="h-3.5 w-3.5 mr-1" />
+              Clear
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

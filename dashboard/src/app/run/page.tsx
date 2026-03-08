@@ -4,9 +4,11 @@ import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { SkillSelector } from "@/components/playground/skill-selector";
-import { JsonEditor } from "@/components/playground/json-editor";
+import { FormEditor } from "@/components/playground/form-editor";
 import { ModelSelector } from "@/components/playground/model-selector";
 import { ResultViewer } from "@/components/playground/result-viewer";
+import { PromptDrawer } from "@/components/playground/prompt-drawer";
+import { RunHistory, loadHistory, saveToHistory, clearHistory, type HistoryEntry } from "@/components/playground/run-history";
 import { CsvUploader } from "@/components/batch/csv-uploader";
 import { CsvPreview } from "@/components/batch/csv-preview";
 import { ColumnMapper, autoMap } from "@/components/batch/column-mapper";
@@ -62,6 +64,7 @@ function RunInner() {
   const [result, setResult] = useState<WebhookResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   // ─── Batch mode state ───
   const [batchPhase, setBatchPhase] = useState<BatchPhase>("upload");
@@ -82,11 +85,12 @@ function RunInner() {
   const [costSummary, setCostSummary] = useState<Pick<BatchStatus, "tokens" | "cost"> | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load destinations on mount
+  // Load destinations and history on mount
   useEffect(() => {
     fetchDestinations()
       .then((res) => setDestinations(res.destinations))
       .catch(() => {});
+    setHistory(loadHistory());
   }, []);
 
   // Handle skill from URL param (single mode)
@@ -133,6 +137,9 @@ function RunInner() {
         toast.success("Webhook executed successfully", {
           description: duration ? `Completed in ${(duration / 1000).toFixed(1)}s` : undefined,
         });
+        // Save to history on success
+        const updated = saveToHistory({ skill, model, input: json, result: res });
+        setHistory(updated);
       }
     } catch (e) {
       const msg = (e as Error).message;
@@ -147,6 +154,18 @@ function RunInner() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRestoreHistory = (entry: HistoryEntry) => {
+    setSkill(entry.skill);
+    setModel(entry.model as Model);
+    setJson(entry.input);
+    setResult(entry.result);
+  };
+
+  const handleClearHistory = () => {
+    clearHistory();
+    setHistory([]);
   };
 
   // Keyboard shortcut: Cmd+Enter to run (single mode)
@@ -407,49 +426,84 @@ function RunInner() {
 
   return (
     <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6 pb-20 md:pb-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-clay-900 border border-clay-800">
-          <TabsTrigger
-            value="single"
-            className="data-[state=active]:bg-kiln-teal/10 data-[state=active]:text-kiln-teal text-clay-400"
-          >
-            Single
-          </TabsTrigger>
-          <TabsTrigger
-            value="batch"
-            className="data-[state=active]:bg-kiln-teal/10 data-[state=active]:text-kiln-teal text-clay-400"
-          >
-            Batch
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex items-center gap-3">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="bg-clay-900 border border-clay-800">
+            <TabsTrigger
+              value="single"
+              className="data-[state=active]:bg-kiln-teal/10 data-[state=active]:text-kiln-teal text-clay-400"
+            >
+              Single
+            </TabsTrigger>
+            <TabsTrigger
+              value="batch"
+              className="data-[state=active]:bg-kiln-teal/10 data-[state=active]:text-kiln-teal text-clay-400"
+            >
+              Batch
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        {activeTab === "single" && (
+          <div className="ml-auto">
+            <RunHistory
+              history={history}
+              onRestore={handleRestoreHistory}
+              onClear={handleClearHistory}
+            />
+          </div>
+        )}
+      </div>
 
       {/* ─── Single Mode ─── */}
       {activeTab === "single" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
           <div className="flex flex-col gap-4">
             <SkillSelector value={skill} onChange={handleSkillChange} />
-            <JsonEditor value={json} onChange={setJson} />
+            <FormEditor value={json} onChange={setJson} skill={skill} />
             <ModelSelector value={model} onChange={setModel} />
-            <Button
-              onClick={handleRun}
-              disabled={!skill || loading}
-              className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold transition-all duration-200"
-            >
-              <Play className="h-4 w-4 mr-2" />
-              {loading
-                ? "Processing..."
-                : skill
-                  ? `Run with ${model.charAt(0).toUpperCase() + model.slice(1)}`
-                  : "Run"}
-              {!loading && (
-                <kbd className="hidden md:inline-block ml-2 text-[10px] opacity-60 border border-kiln-teal-dark rounded px-1 py-0.5">
-                  {"\u2318"}Enter
-                </kbd>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleRun}
+                disabled={!skill || loading}
+                className="flex-1 bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold transition-all duration-200"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                {loading
+                  ? "Processing..."
+                  : skill
+                    ? `Run with ${model.charAt(0).toUpperCase() + model.slice(1)}`
+                    : "Run"}
+                {!loading && (
+                  <kbd className="hidden md:inline-block ml-2 text-[10px] opacity-60 border border-kiln-teal-dark rounded px-1 py-0.5">
+                    {"\u2318"}Enter
+                  </kbd>
+                )}
+              </Button>
+              <PromptDrawer skill={skill} json={json} />
+            </div>
           </div>
-          <ResultViewer result={result} loading={loading} skill={skill} model={model} destinations={destinations} />
+          <ResultViewer
+            result={result}
+            loading={loading}
+            skill={skill}
+            model={model}
+            destinations={destinations}
+            onLoadSkill={handleSkillChange}
+          />
+        </div>
+      )}
+
+      {/* ─── Sticky Run button on mobile ─── */}
+      {activeTab === "single" && (
+        <div className="fixed bottom-0 left-0 right-0 md:hidden p-3 bg-clay-950/80 backdrop-blur-sm border-t border-clay-800 z-40">
+          <Button
+            onClick={handleRun}
+            disabled={!skill || loading}
+            className="w-full bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold"
+          >
+            <Play className="h-4 w-4 mr-2" />
+            {loading ? "Processing..." : "Run"}
+          </Button>
         </div>
       )}
 

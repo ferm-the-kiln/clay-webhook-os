@@ -10,6 +10,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+function getFieldNames(skill: string): string[] {
+  const raw = SKILL_FIELDS[skill] || [];
+  return raw.map((f) => (typeof f === "string" ? f : f.name));
+}
+
 export function ColumnMapper({
   skill,
   csvHeaders,
@@ -21,7 +26,7 @@ export function ColumnMapper({
   mapping: Record<string, string>;
   onMappingChange: (mapping: Record<string, string>) => void;
 }) {
-  const fields = SKILL_FIELDS[skill] || [];
+  const fields = getFieldNames(skill);
 
   return (
     <Card className="border-clay-800 bg-white shadow-sm">
@@ -77,7 +82,7 @@ export function autoMap(
   skill: string,
   csvHeaders: string[]
 ): Record<string, string> {
-  const fields = SKILL_FIELDS[skill] || [];
+  const fields = getFieldNames(skill);
   const mapping: Record<string, string> = {};
   const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 

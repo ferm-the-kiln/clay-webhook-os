@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default function RootLayout({
         <TooltipProvider>
           <Sidebar />
           <main id="main-content" className="relative flex-1 overflow-auto">{children}</main>
+          <KeyboardShortcutsDialog />
         </TooltipProvider>
         <Toaster
           position="bottom-right"

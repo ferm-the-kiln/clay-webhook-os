@@ -37,6 +37,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Plus, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 const TIME_RANGES = [
@@ -44,6 +45,7 @@ const TIME_RANGES = [
   { label: "30 days", value: "30" },
   { label: "90 days", value: "90" },
   { label: "All time", value: "all" },
+  { label: "Custom", value: "custom" },
 ];
 
 type SettingsTab = "context" | "destinations" | "analytics";
@@ -77,6 +79,8 @@ function SettingsInner() {
   const [skills, setSkills] = useState<string[]>([]);
   const [skillFilter, setSkillFilter] = useState("all");
   const [timeRange, setTimeRange] = useState("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
   // ─── Destinations logic ───
@@ -178,7 +182,14 @@ function SettingsInner() {
     try {
       const params: { skill?: string; days?: number } = {};
       if (skillFilter !== "all") params.skill = skillFilter;
-      if (timeRange !== "all") params.days = parseInt(timeRange);
+      if (timeRange === "custom" && customFrom && customTo) {
+        const from = new Date(customFrom);
+        const to = new Date(customTo);
+        const diffDays = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / 86400000));
+        params.days = diffDays;
+      } else if (timeRange !== "all" && timeRange !== "custom") {
+        params.days = parseInt(timeRange);
+      }
       const summary = await fetchFeedbackAnalytics(params);
       setAnalyticsData(summary);
     } catch {
@@ -186,7 +197,7 @@ function SettingsInner() {
     } finally {
       setAnalyticsLoading(false);
     }
-  }, [skillFilter, timeRange]);
+  }, [skillFilter, timeRange, customFrom, customTo]);
 
   useEffect(() => {
     fetchSkills()
@@ -343,6 +354,25 @@ function SettingsInner() {
                 ))}
               </SelectContent>
             </Select>
+
+            {timeRange === "custom" && (
+              <>
+                <Input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="w-36 border-clay-700 bg-clay-900 text-clay-200 h-9 text-sm"
+                  placeholder="From"
+                />
+                <Input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="w-36 border-clay-700 bg-clay-900 text-clay-200 h-9 text-sm"
+                  placeholder="To"
+                />
+              </>
+            )}
 
             <Button
               variant="outline"

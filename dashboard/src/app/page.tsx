@@ -109,14 +109,8 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Dashboard" />
+      <Header title="Dashboard" lastUpdated={lastUpdated} onRefresh={load} />
       <div className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6">
-        {/* Last updated indicator */}
-        {lastUpdated && (
-          <p className="text-xs text-clay-600 mb-4">
-            Last updated {lastUpdated.toLocaleTimeString()}
-          </p>
-        )}
 
         {/* ─── Overview ─── */}
         <section>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import type { Destination, WebhookResponse } from "@/lib/types";
 import { pushDataToDestination } from "@/lib/api";
-import { formatSmartDuration } from "@/lib/utils";
+import { formatSmartDuration, formatTokens, formatCost } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState } from "@/components/ui/empty-state";
-import { CheckCircle, Loader2, Send, Sparkles, XCircle, Code } from "lucide-react";
+import { CheckCircle, Loader2, Send, Sparkles, XCircle, Code, Copy, Check, Mail, Target, Linkedin } from "lucide-react";
 import { toast } from "sonner";
 import { FeedbackButtons } from "@/components/feedback/feedback-buttons";
 import { FormattedResult } from "@/components/playground/formatted-results";
@@ -27,8 +26,13 @@ const STEPS = [
   { label: "Complete", icon: CheckCircle },
 ];
 
+const FEATURED_SKILLS = [
+  { name: "email-gen", label: "Email Gen", description: "Generate personalized outbound emails from prospect signals", icon: Mail },
+  { name: "icp-scorer", label: "ICP Scorer", description: "Score prospects against your ideal customer profile", icon: Target },
+  { name: "linkedin-note", label: "LinkedIn Note", description: "Draft concise LinkedIn connection messages", icon: Linkedin },
+];
+
 function ProgressSteps({ elapsed }: { elapsed: number }) {
-  // Heuristic: estimate step based on elapsed time
   const step = elapsed < 500 ? 0 : elapsed < 2000 ? 1 : elapsed < 3000 ? 2 : 3;
 
   return (
@@ -67,6 +71,7 @@ export function ResultViewer({
   model,
   destinations = [],
   jobId,
+  onLoadSkill,
 }: {
   result: WebhookResponse | null;
   loading: boolean;
@@ -74,10 +79,12 @@ export function ResultViewer({
   model?: string;
   destinations?: Destination[];
   jobId?: string;
+  onLoadSkill?: (skill: string) => void;
 }) {
   const [elapsed, setElapsed] = useState(0);
   const [pushDestId, setPushDestId] = useState("");
   const [pushing, setPushing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!loading) {
@@ -91,6 +98,12 @@ export function ResultViewer({
     return () => clearInterval(id);
   }, [loading]);
 
+  const handleCopy = async (data: Record<string, unknown>) => {
+    await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   if (loading) {
     return (
       <Card className="border-clay-800 bg-white shadow-sm h-full">
@@ -103,11 +116,34 @@ export function ResultViewer({
 
   if (!result) {
     return (
-      <div className="h-full flex items-center">
-        <EmptyState
-          title="Ready to test"
-          description="Pick a skill, tweak the data, and hit Run. Results appear here instantly."
-        />
+      <div className="h-full flex flex-col items-center justify-center gap-6 py-8">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-clay-200 mb-1">Ready to test</h3>
+          <p className="text-sm text-clay-500">Pick a skill, tweak the data, and hit Run.</p>
+        </div>
+        {onLoadSkill && (
+          <div className="grid gap-3 w-full max-w-sm">
+            {FEATURED_SKILLS.map((fs) => {
+              const Icon = fs.icon;
+              return (
+                <button
+                  key={fs.name}
+                  onClick={() => onLoadSkill(fs.name)}
+                  className="flex items-start gap-3 rounded-lg border border-clay-800 bg-clay-900/50 p-3 text-left hover:border-kiln-teal/30 hover:bg-clay-900 transition-colors"
+                >
+                  <Icon className="h-4 w-4 text-kiln-teal mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-sm font-medium text-clay-200">{fs.label}</span>
+                    <p className="text-xs text-clay-500 mt-0.5">{fs.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <p className="text-xs text-clay-600">
+          Pro tip: <kbd className="border border-clay-700 rounded px-1 py-0.5 text-clay-500">{"\u2318"}Enter</kbd> to run
+        </p>
       </div>
     );
   }
@@ -140,7 +176,28 @@ export function ResultViewer({
               cached
             </Badge>
           )}
+          {meta.input_tokens_est != null && meta.output_tokens_est != null && (
+            <span className="text-xs text-clay-500">
+              {formatTokens(meta.input_tokens_est + meta.output_tokens_est)} tok
+            </span>
+          )}
+          {meta.cost_est_usd != null && (
+            <span className="text-xs text-clay-500">
+              ~{formatCost(meta.cost_est_usd)}
+            </span>
+          )}
           <div className="flex items-center gap-1 ml-auto">
+            <button
+              onClick={() => handleCopy(display)}
+              className="p-1 rounded transition-colors text-clay-500 hover:text-clay-300"
+              title="Copy result JSON"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-kiln-teal" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+            </button>
             {!isError && skill && (
               <button
                 onClick={() => setShowRaw(!showRaw)}

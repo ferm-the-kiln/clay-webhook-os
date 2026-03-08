@@ -609,6 +609,41 @@ export function fetchUsageHealth(): Promise<UsageHealth> {
   return apiFetch("/usage/health");
 }
 
+// System Status
+export function fetchRetries(): Promise<{
+  pending: number;
+  max_retries: number;
+  items: { job_id: string; skill: string; retry_count: number; last_error: string; next_retry_at: number }[];
+}> {
+  return apiFetch("/retries");
+}
+
+export function fetchSubscriptions(): Promise<{
+  status: string;
+  health: string;
+  today_requests: number;
+  today_tokens: number;
+  today_errors: number;
+}> {
+  return apiFetch("/subscriptions");
+}
+
+export async function fetchDeadLetter(): Promise<{
+  count: number;
+  items: { job_id: string; skill: string; error: string; failed_at: number }[];
+}> {
+  const res = await apiFetch<{ jobs: JobListItem[] }>("/jobs?status=dead_letter");
+  return {
+    count: res.jobs.length,
+    items: res.jobs.map((j) => ({
+      job_id: j.id,
+      skill: j.skill,
+      error: "",
+      failed_at: j.created_at,
+    })),
+  };
+}
+
 export function createJobStream(
   onEvent: (eventType: string, data: Record<string, unknown>) => void
 ): EventSource {
