@@ -1,8 +1,8 @@
 ---
 model_tier: standard
 executor: agent
-max_turns: 5
-timeout: 120
+max_turns: 2
+timeout: 60
 prefetch:
   - exa
   - sumble
@@ -27,27 +27,20 @@ target company via automated web search. Your job is to **analyze** this data fo
 signals — funding rounds, leadership changes, hiring surges, product launches,
 partnerships, acquisitions, and expansion moves.
 
-Use **WebSearch** and **WebFetch** ONLY to fill gaps or verify critical details. Most of
-the research is already done for you. Never fabricate signals.
+**IMPORTANT: Do NOT use WebSearch or WebFetch.** All the data you need is in the
+pre-fetched intelligence above. Analyze what's provided and produce your JSON output
+immediately. Never fabricate signals.
 
 ## Research Protocol
 
 ### Step 1: Review Pre-Fetched Intelligence
-Analyze the pre-fetched data provided above. Identify potential buying signals from the
-news articles, company profiles, and leadership/hiring results.
+Analyze the pre-fetched data provided above. Identify buying signals from the news
+articles, company profiles, and leadership/hiring results.
 
-### Step 2: Score and Classify Signals
-Apply the Scoring Rules below to each signal found. Calculate effective_score using base
-score and time decay. Assess client relevance using the loaded client profile.
-
-### Step 3: Gap-Fill (only if needed)
-If the pre-fetched data is insufficient (e.g., no results returned, or key signal
-categories are missing), use WebSearch to fill gaps:
-- `{company_name} funding round 2025 2026`
-- `{company_name} new VP CTO CMO leadership hire`
-- `{company_name} product launch announcement`
-
-Do NOT run searches that duplicate what was already pre-fetched.
+### Step 2: Score, Classify, and Output JSON
+Apply the Scoring Rules below to each signal. Calculate effective_score using base score
+and time decay. Assess client relevance using the loaded client profile. Return the JSON
+output immediately — do not search the web.
 
 ## Scoring Rules
 
