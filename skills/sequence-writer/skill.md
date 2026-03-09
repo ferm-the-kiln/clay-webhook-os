@@ -24,6 +24,8 @@ Exact keys required:
 {
   "sequence_name": "string, descriptive name for the sequence",
   "sequence_type": "string, cold|linkedin-first|warm-intro",
+  "angle_used": "string, the outreach angle driving the sequence (e.g., 'build-vs-buy', 'hiring-signal', 'funding-trigger')",
+  "angle_reasoning": "string, 1-2 sentences on why this angle fits this prospect",
   "total_touches": 5,
   "touches": [
     {
@@ -51,6 +53,14 @@ accordingly:
 - Just name + company: confidence 0.3-0.5
 
 Default `sequence_type` to "cold" if not specified.
+
+## Angle Self-Selection
+Before writing the sequence, select the best outreach angle for this prospect:
+1. Review the client's value propositions and campaign angles from their profile
+2. Match the prospect's signal, role, industry, and pain points to the strongest angle
+3. If `campaign_angle` is provided in the data, use it; otherwise self-select
+4. Record your selection in `angle_used` and `angle_reasoning` output fields
+5. The angle should drive the personalization thread woven across all 5 touches
 
 ## Rules
 1. Generate exactly 5 touches per sequence
@@ -88,6 +98,8 @@ Default `sequence_type` to "cold" if not specified.
 {
   "sequence_name": "Mux — VP Eng — ML Hiring Signal — Cold",
   "sequence_type": "cold",
+  "angle_used": "stop-building-video-ml",
+  "angle_reasoning": "Mux is actively hiring ML engineers for video understanding — they're investing in building in-house. The build-vs-buy angle directly addresses the cost and timeline of that decision.",
   "total_touches": 5,
   "touches": [
     {
@@ -152,6 +164,8 @@ Default `sequence_type` to "cold" if not specified.
 {
   "sequence_name": "TechCo — CTO — General — Cold",
   "sequence_type": "cold",
+  "angle_used": "general-efficiency",
+  "angle_reasoning": "Minimal data — no signal or tech stack. Defaulting to general efficiency angle targeting CTO-level build-vs-buy concerns.",
   "total_touches": 5,
   "touches": [
     {

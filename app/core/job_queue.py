@@ -250,7 +250,6 @@ class JobQueue:
                         model=job.model,
                         pool=self._pool,
                         cache=self._cache,
-                        company_cache=getattr(self, "_company_cache", None),
                     )
                     job.status = JobStatus.completed
                     job.result = result
@@ -275,24 +274,6 @@ class JobQueue:
                     context_files = load_context_files(skill_content, job.data, skill_name=job.skill)
                     skill_cfg = load_skill_config(job.skill)
                     is_agent = skill_cfg.get("executor") == "agent"
-
-                    # Company-level dedup check
-                    cc = getattr(self, "_company_cache", None)
-                    is_company_scoped = skill_cfg.get("scope") == "company"
-                    cc_key = ""
-                    if is_company_scoped and cc is not None:
-                        cc_key = (job.data.get("company_domain") or "").lower().strip()
-                        if cc_key:
-                            cc_hit = cc.get(cc_key, job.skill)
-                            if cc_hit is not None:
-                                job.status = JobStatus.completed
-                                job.result = cc_hit
-                                job.duration_ms = 0
-                                job.completed_at = time.time()
-                                if self._event_bus:
-                                    self._event_bus.publish("job_updated", {"job_id": job.id, "status": "completed"})
-                                await self._send_callback(job)
-                                continue
 
                     # Get memory and context index if available
                     mem = getattr(self, '_memory_store', None)
@@ -379,8 +360,6 @@ class JobQueue:
                     # Cache the result
                     if self._cache is not None:
                         self._cache.put(job.skill, job.data, job.instructions, parsed)
-                    if is_company_scoped and cc is not None and cc_key:
-                        cc.put(cc_key, job.skill, parsed)
 
                     # Store memory for this entity
                     if hasattr(self, '_memory_store') and self._memory_store:

@@ -19,7 +19,6 @@ from app.core.skill_loader import load_context_files, load_skill, load_skill_con
 from app.core.worker_pool import WorkerPool
 
 if TYPE_CHECKING:
-    from app.core.company_cache import CompanyCache
     from app.core.context_index import ContextIndex
     from app.core.memory_store import MemoryStore
     from app.core.prefetch import ExaPrefetcher
@@ -158,7 +157,6 @@ async def _run_single_step(
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-    company_cache: CompanyCache | None = None,
 ) -> dict:
     """Execute a single skill step. Returns a result dict."""
     step_start = time.monotonic()
@@ -172,24 +170,7 @@ async def _run_single_step(
             "error": f"Skill '{skill_name}' not found",
         }
 
-    # Company-level dedup: check before row-level cache
     skill_cfg = load_skill_config(skill_name)
-    company_key = ""
-    is_company_scoped = skill_cfg.get("scope") == "company"
-    if is_company_scoped and company_cache is not None:
-        company_key = (current_data.get("company_domain") or "").lower().strip()
-        if company_key:
-            cc_hit = company_cache.get(company_key, skill_name)
-            if cc_hit is not None:
-                return {
-                    "skill": skill_name,
-                    "success": True,
-                    "duration_ms": 0,
-                    "output": cc_hit,
-                    "prompt_chars": 0,
-                    "response_chars": 0,
-                    "company_cache_hit": True,
-                }
 
     # Check row-level cache
     if cache is not None:
@@ -225,10 +206,6 @@ async def _run_single_step(
         if cache is not None:
             cache.put(skill_name, current_data, instructions, parsed)
 
-        # Store in company cache for dedup across contacts
-        if is_company_scoped and company_cache is not None and company_key:
-            company_cache.put(company_key, skill_name, parsed)
-
         return {
             "skill": skill_name,
             "success": True,
@@ -261,7 +238,7 @@ async def _run_parallel_step(
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-    company_cache: CompanyCache | None = None,
+
 ) -> tuple[list[dict], dict]:
     """Run multiple skill steps concurrently. Returns (results_list, merged_data)."""
     parallel_start = time.monotonic()
@@ -283,7 +260,6 @@ async def _run_parallel_step(
             sumble_prefetcher=sumble_prefetcher,
             memory_store=memory_store,
             context_index=context_index,
-            company_cache=company_cache,
         ))
 
     # Fan out — run all concurrently through the existing semaphore-controlled pool
@@ -325,7 +301,7 @@ async def run_skill_chain(
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-    company_cache: CompanyCache | None = None,
+
 ) -> dict:
     results = []
     current_data = dict(data)
@@ -343,7 +319,6 @@ async def run_skill_chain(
             sumble_prefetcher=sumble_prefetcher,
             memory_store=memory_store,
             context_index=context_index,
-            company_cache=company_cache,
         )
         results.append(step_result)
         if step_result.get("success") and step_result.get("output"):
@@ -373,7 +348,7 @@ async def run_pipeline(
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-    company_cache: CompanyCache | None = None,
+
 ) -> dict:
     pipeline = load_pipeline(name)
     if pipeline is None:
@@ -395,7 +370,6 @@ async def run_pipeline(
         sumble_prefetcher=sumble_prefetcher,
         memory_store=memory_store,
         context_index=context_index,
-        company_cache=company_cache,
     )
 
 
@@ -412,7 +386,7 @@ async def run_pipeline_from_plan(
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-    company_cache: CompanyCache | None = None,
+
 ) -> dict:
     """Execute a dynamically generated pipeline plan (from coordinator)."""
     return await _execute_steps(
@@ -428,7 +402,6 @@ async def run_pipeline_from_plan(
         sumble_prefetcher=sumble_prefetcher,
         memory_store=memory_store,
         context_index=context_index,
-        company_cache=company_cache,
     )
 
 
@@ -445,7 +418,7 @@ async def _execute_steps(
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-    company_cache: CompanyCache | None = None,
+
 ) -> dict:
     """Core step execution engine — handles sequential, parallel, and conditional steps."""
     results = []
@@ -475,8 +448,7 @@ async def _execute_steps(
                 sumble_prefetcher=sumble_prefetcher,
                 memory_store=memory_store,
                 context_index=context_index,
-                company_cache=company_cache,
-            )
+                )
             # Track confidence from parallel results
             for pr in parallel_results:
                 if pr.get("output"):
@@ -525,29 +497,7 @@ async def _execute_steps(
             })
             continue
 
-        # Company-level dedup: check before row-level cache
         skill_cfg = load_skill_config(skill_name)
-        company_key = ""
-        is_company_scoped = skill_cfg.get("scope") == "company"
-        if is_company_scoped and company_cache is not None:
-            company_key = (current_data.get("company_domain") or "").lower().strip()
-            if company_key:
-                cc_hit = company_cache.get(company_key, skill_name)
-                if cc_hit is not None:
-                    confidence = extract_confidence(cc_hit, step_confidence_field)
-                    min_confidence = min(min_confidence, confidence)
-                    results.append({
-                        "skill": skill_name,
-                        "success": True,
-                        "duration_ms": 0,
-                        "output": cc_hit,
-                        "confidence": confidence,
-                        "prompt_chars": 0,
-                        "response_chars": 0,
-                        "company_cache_hit": True,
-                    })
-                    current_data.update(cc_hit)
-                    continue
 
         # Check row-level cache
         cached = cache.get(skill_name, current_data, effective_instructions)
@@ -586,8 +536,6 @@ async def _execute_steps(
             duration_ms = result["duration_ms"]
 
             cache.put(skill_name, current_data, effective_instructions, parsed)
-            if is_company_scoped and company_cache is not None and company_key:
-                company_cache.put(company_key, skill_name, parsed)
             current_data.update(parsed)
 
             confidence = extract_confidence(parsed, step_confidence_field)

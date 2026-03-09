@@ -11,7 +11,6 @@ from app.core.model_router import resolve_model
 from app.core.pipeline_runner import run_skill_chain
 from app.core.prefetch import parse_prefetch_config
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config
-from app.core.team_router import run_auto_pipeline
 from app.core.token_estimator import estimate_cost, estimate_tokens
 from app.models.requests import WebhookRequest
 from app.models.usage import UsageEntry
@@ -41,13 +40,8 @@ async def webhook(body: WebhookRequest, request: Request):
     skill_chain = body.skills or [body.skill]
     primary_skill = skill_chain[0]
 
-    # Auto mode bypasses normal skill config lookup
-    if primary_skill == "auto":
-        config = {}
-        model = body.model or settings.default_model
-    else:
-        config = load_skill_config(primary_skill)
-        model = resolve_model(request_model=body.model, skill_config=config)
+    config = load_skill_config(primary_skill)
+    model = resolve_model(request_model=body.model, skill_config=config)
     is_chain = len(skill_chain) > 1
     priority = body.priority or "normal"
     max_retries = body.max_retries or 3
@@ -84,22 +78,6 @@ async def webhook(body: WebhookRequest, request: Request):
         )
 
     # --- Sync mode: process and return result ---
-    company_cache = getattr(request.app.state, "company_cache", None)
-
-    # Auto mode: coordinator generates pipeline dynamically
-    if primary_skill == "auto":
-        try:
-            result = await run_auto_pipeline(
-                data=body.data,
-                instructions=body.instructions,
-                model=model,
-                pool=pool,
-                cache=cache,
-            )
-            return result
-        except Exception as e:
-            logger.error("[auto] Execution error: %s", e)
-            return _error(f"Auto pipeline error: {e}", "auto")
 
     # Skill chain sync mode
     if is_chain:
@@ -115,7 +93,6 @@ async def webhook(body: WebhookRequest, request: Request):
                 sumble_prefetcher=getattr(request.app.state, "sumble_prefetcher", None),
                 memory_store=getattr(request.app.state, "memory_store", None),
                 context_index=getattr(request.app.state, "context_index", None),
-                company_cache=company_cache,
             )
             return result
         except Exception as e:
@@ -126,28 +103,6 @@ async def webhook(body: WebhookRequest, request: Request):
     skill_content = load_skill(primary_skill)
     if skill_content is None:
         return _error(f"Skill '{primary_skill}' not found", primary_skill)
-
-    # Company-level dedup: check before row-level cache
-    is_company_scoped = config.get("scope") == "company"
-    company_key = ""
-    if is_company_scoped and company_cache is not None:
-        company_key = (body.data.get("company_domain") or "").lower().strip()
-        if company_key:
-            cc_hit = company_cache.get(company_key, primary_skill)
-            if cc_hit is not None:
-                return {
-                    **cc_hit,
-                    "_meta": {
-                        "skill": primary_skill,
-                        "model": model,
-                        "duration_ms": 0,
-                        "cached": True,
-                        "company_cache_hit": True,
-                        "input_tokens_est": 0,
-                        "output_tokens_est": 0,
-                        "cost_est_usd": 0.0,
-                    },
-                }
 
     # Check row-level cache
     cached = cache.get(primary_skill, body.data, body.instructions, model)
@@ -292,8 +247,6 @@ async def webhook(body: WebhookRequest, request: Request):
 
     # Cache result
     cache.put(primary_skill, body.data, body.instructions, parsed, model)
-    if is_company_scoped and company_cache is not None and company_key:
-        company_cache.put(company_key, primary_skill, parsed)
 
     # Store memory for this entity
     if memory_store is not None:

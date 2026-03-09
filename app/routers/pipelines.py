@@ -61,8 +61,6 @@ async def test_pipeline(name: str, body: PipelineTestRequest, request: Request):
     pool = request.app.state.pool
     cache = request.app.state.cache
 
-    company_cache = getattr(request.app.state, "company_cache", None)
-
     try:
         result = await run_pipeline(
             name=name,
@@ -71,7 +69,6 @@ async def test_pipeline(name: str, body: PipelineTestRequest, request: Request):
             model=body.model,
             pool=pool,
             cache=cache,
-            company_cache=company_cache,
         )
         return result
     except Exception as e:

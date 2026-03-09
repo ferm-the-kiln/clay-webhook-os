@@ -2,7 +2,6 @@
 
 import type { WebhookResponse } from "@/lib/types";
 import { EmailResult } from "./email-result";
-import { ScoreResult } from "./score-result";
 import { LinkedInResult } from "./linkedin-result";
 import { BriefResult } from "./brief-result";
 
@@ -12,9 +11,11 @@ const FORMATTERS: Record<
 > = {
   "email-gen": EmailResult,
   "follow-up": EmailResult,
-  "icp-scorer": ScoreResult,
+  "sequence-writer": EmailResult,
   "linkedin-note": LinkedInResult,
   "meeting-prep": BriefResult,
+  "campaign-brief": BriefResult,
+  "discovery-questions": BriefResult,
 };
 
 export function FormattedResult({

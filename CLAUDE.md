@@ -1,7 +1,11 @@
 # Clay Webhook OS
 
-AI-powered webhook server for Clay HTTP Actions. Spawns `claude --print` subprocesses
+Context-heavy intelligence layer for sales teams. Spawns `claude --print` subprocesses
 using a Claude Code Max subscription — no API key needed, flat-rate at scale.
+
+Two pillars: **Content Generation** (email-gen, sequence-writer, linkedin-note, follow-up,
+quality-gate) and **Strategic Analysis** (account-researcher, meeting-prep, discovery-questions,
+competitive-response, champion-enabler, campaign-brief, multi-thread-mapper).
 
 ```
 Clay Row → POST /webhook → Load Skill + Context → claude --print → JSON → Clay
@@ -19,10 +23,12 @@ Clay Row → POST /webhook → Load Skill + Context → claude --print → JSON 
 ```
 app/              → FastAPI backend (routers, core logic, models, middleware)
 dashboard/        → Next.js 15 frontend (pages, components, API client)
-skills/           → Skill definitions (each dir has a skill.md)
+skills/           → Active skill definitions (each dir has a skill.md)
+skills/_archived/ → Retired skills (coordinator, signal-researcher, icp-scorer, etc.)
 knowledge_base/   → Reusable context (frameworks, voice, industries)
 clients/          → Per-client profiles ({{client_slug}}.md)
-pipelines/        → Multi-step YAML pipeline definitions
+pipelines/        → Active multi-step YAML pipeline definitions
+pipelines/_archived/ → Retired pipelines
 data/             → Runtime data (destinations, feedback, usage — gitignored)
 scripts/          → deploy.sh, setup.sh
 docs/             → Reference docs (API, architecture, skills guide)
@@ -71,7 +77,7 @@ cd dashboard && npx vercel --prod --yes
 
 ### Add a new skill
 1. Create `skills/{name}/skill.md` following the template in `docs/skills-guide.md`
-2. Test: `curl -X POST localhost:8000/webhook -H "Content-Type: application/json" -d '{"skill":"name","data":{}}'`
+2. Test: `curl -X POST localhost:8000/webhook -H "Content-Type: application/json" -d '{"skill":"email-gen","data":{"first_name":"Test","company_name":"Acme","client_slug":"demo"}}'`
 3. Skills auto-discover — no registration needed
 
 ### Add a new API endpoint

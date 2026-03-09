@@ -47,7 +47,6 @@ def _build_startup_patches():
         "ReviewQueue": {"has_load": True},
         "CampaignRunner": {"has_start": True},
         "DataCleanupWorker": {"has_start": True},
-        "CompanyCache": {},
     }
     patches = {}
     instances = {}
@@ -208,7 +207,6 @@ class TestStartup:
                 assert hasattr(app.state, "retry_worker")
                 assert hasattr(app.state, "subscription_monitor")
                 assert hasattr(app.state, "cleanup_worker")
-                assert hasattr(app.state, "company_cache")
 
                 # Verify async starts were called
                 app.state.job_queue.start_workers.assert_called_once()
@@ -339,7 +337,6 @@ class TestStartupConstructorArgs:
             mock_settings.exa_api_key = ""
             mock_settings.base_dir = "/tmp"
             mock_settings.sumble_api_key = ""
-            mock_settings.company_cache_ttl = 86400
             for p in patches.values():
                 p.start()
             try:
@@ -378,7 +375,6 @@ class TestStartupConstructorArgs:
             mock_settings.exa_api_key = ""
             mock_settings.base_dir = "/tmp"
             mock_settings.sumble_api_key = ""
-            mock_settings.company_cache_ttl = 86400
             for p in patches.values():
                 p.start()
             try:
@@ -417,7 +413,6 @@ class TestStartupConstructorArgs:
             mock_settings.exa_api_key = ""
             mock_settings.base_dir = "/tmp"
             mock_settings.sumble_api_key = ""
-            mock_settings.company_cache_ttl = 86400
             for p in patches.values():
                 p.start()
             try:

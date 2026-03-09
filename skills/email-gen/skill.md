@@ -24,6 +24,8 @@ Exact keys required:
   "email_subject": "string, max 50 chars, lowercase, no clickbait",
   "email_body": "string, plain text, 3-5 sentences max",
   "personalization_hook": "string, the specific detail you referenced",
+  "angle_used": "string, the outreach angle you selected (e.g., 'build-vs-buy', 'hiring-signal', 'funding-trigger', 'competitive-displacement')",
+  "angle_reasoning": "string, 1-2 sentences on why this angle fits this prospect",
   "framework_notes": "string, how PVC was applied",
   "confidence_score": "number 0.0-1.0"
 }
@@ -40,6 +42,14 @@ accordingly:
 
 If `instructions` are provided in the request, treat them as campaign-specific
 context that overrides general defaults (e.g., specific angle, client value prop).
+
+## Angle Self-Selection
+Before writing the email, select the best outreach angle for this prospect:
+1. Review the client's value propositions and campaign angles from their profile
+2. Match the prospect's signal, role, industry, and pain points to the strongest angle
+3. If `campaign_angle` is provided in the data, use it; otherwise self-select
+4. Record your selection in `angle_used` and `angle_reasoning` output fields
+5. The angle should drive the email's Permission line and Value proposition
 
 ## Rules
 1. Subject line: lowercase, conversational, under 50 chars
@@ -78,6 +88,8 @@ context that overrides general defaults (e.g., specific angle, client value prop
   "email_subject": "lattice series d — congrats",
   "email_body": "Sarah — congrats on the $175M round. Scaling an enterprise sales team post-raise is one of the hardest transitions (especially coming from Salesforce's playbook to building your own).\n\nWe help teams like yours build outbound engines that don't break at scale — without adding headcount faster than pipeline.\n\nWorth a quick look?",
   "personalization_hook": "Series D raise + scaling enterprise sales + Salesforce background",
+  "angle_used": "funding-trigger",
+  "angle_reasoning": "Series D raise is a strong buying signal — companies post-raise need to scale fast, making build-vs-buy decisions urgent. Sarah's Salesforce background means she understands enterprise sales infrastructure.",
   "framework_notes": "P: Acknowledged raise + specific challenge. V: Outbound at scale without headcount bloat. C: Low-commitment 'worth a quick look?'",
   "confidence_score": 0.92
 }
@@ -96,6 +108,8 @@ context that overrides general defaults (e.g., specific angle, client value prop
   "email_subject": "quick question about your eng team",
   "email_body": "Mike — I work with engineering leaders who are rethinking how their teams handle video content at scale.\n\nIf TechCorp processes any video, there might be a simpler path than building ML infrastructure in-house.\n\nWorth a quick look?",
   "personalization_hook": "Engineering leader title + implied team management responsibility",
+  "angle_used": "general-efficiency",
+  "angle_reasoning": "Minimal data — no signal or tech stack. Defaulting to general efficiency angle targeting engineering leaders' build-vs-buy concerns.",
   "framework_notes": "P: Referenced their role and likely challenge. V: Simpler path than building in-house. C: Low-commitment 'worth a quick look?'",
   "confidence_score": 0.35
 }

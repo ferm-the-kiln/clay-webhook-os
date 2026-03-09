@@ -24,6 +24,7 @@ clay-webhook-os/
 │   │   ├── skill_loader.py       # Parse skill.md, extract context refs
 │   │   ├── context_assembler.py  # 6-layer prompt builder
 │   │   ├── claude_executor.py    # Async subprocess: claude --print
+│   │   ├── agent_executor.py     # Agent-mode executor (tool-enabled)
 │   │   ├── worker_pool.py        # Semaphore-based pool (default 10)
 │   │   ├── job_queue.py          # Async job queue with SSE streaming
 │   │   ├── pipeline_runner.py    # Chain skills with YAML definitions
@@ -33,13 +34,23 @@ clay-webhook-os/
 │   │   ├── scheduler.py          # Batch scheduling
 │   │   ├── token_estimator.py    # Token cost tracking
 │   │   ├── context_store.py      # Client profiles + knowledge base
+│   │   ├── context_index.py      # Context file usage index
 │   │   ├── destination_store.py  # Push destinations (webhooks, APIs)
 │   │   ├── feedback_store.py     # Quality feedback tracking
 │   │   ├── usage_store.py        # Subscription usage tracking
 │   │   ├── experiment_store.py   # A/B experiment management
 │   │   ├── campaign_store.py     # Campaign persistence
 │   │   ├── review_queue.py       # Review queue for low-confidence outputs
-│   │   └── campaign_runner.py    # Autopilot campaign executor
+│   │   ├── campaign_runner.py    # Autopilot campaign executor
+│   │   ├── model_router.py       # Route skills to appropriate model tier
+│   │   ├── memory_store.py       # Persistent memory store
+│   │   ├── prefetch.py           # Exa neural search pre-fetcher
+│   │   ├── batch_optimizer.py    # Batch job optimization
+│   │   ├── play_store.py         # Play persistence
+│   │   ├── retry_worker.py       # Background retry worker
+│   │   ├── subscription_monitor.py # Subscription health monitor
+│   │   ├── cleanup_worker.py     # Background cleanup worker
+│   │   └── sumble_prefetcher.py  # Sumble enrichment pre-fetcher
 │   ├── models/                   # Pydantic models
 │   │   ├── requests.py           # WebhookRequest, PipelineRequest, BatchRequest
 │   │   ├── responses.py          # Response models
@@ -84,13 +95,15 @@ clay-webhook-os/
 │           ├── types.ts          # TypeScript interfaces
 │           ├── utils.ts          # Helpers (cn, formatting)
 │           └── constants.ts      # App constants
-├── skills/                       # Skill definitions (each dir has skill.md)
+├── skills/                       # Active skill definitions (each dir has skill.md)
+│   └── _archived/                # Retired skills (coordinator, signal-researcher, etc.)
 ├── knowledge_base/               # Reusable knowledge injected into prompts
 │   ├── frameworks/               # Methodologies (PVC, etc.)
 │   ├── voice/                    # Writing style guides
 │   └── industries/               # Auto-loaded by data.industry
 ├── clients/                      # Per-client context ({{client_slug}})
-├── pipelines/                    # Multi-step YAML definitions
+├── pipelines/                    # Active multi-step YAML definitions
+│   └── _archived/                # Retired pipelines
 ├── data/                         # Runtime data (destinations, feedback, usage)
 ├── scripts/
 │   ├── setup.sh                  # VPS one-time setup
@@ -100,10 +113,13 @@ clay-webhook-os/
 
 ## How a Request Flows
 
+Every request requires an explicit `skill` name — there is no auto-routing mode.
+
 ```
 POST /webhook { skill: "email-gen", data: { ... } }
   → WebhookRequest validated (Pydantic)
   → skill_loader.load_skill("email-gen") reads skills/email-gen/skill.md
+  → model_router selects model tier from skill frontmatter (haiku/sonnet/opus)
   → skill_loader.load_context_files() resolves context refs:
       - knowledge_base/frameworks/josh-braun-pvc.md
       - knowledge_base/voice/writing-style.md

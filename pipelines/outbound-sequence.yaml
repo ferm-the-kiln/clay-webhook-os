@@ -1,0 +1,5 @@
+name: outbound-sequence
+description: Generate a full 5-touch outbound sequence with quality validation
+steps:
+  - skill: sequence-writer
+  - skill: quality-gate

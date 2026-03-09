@@ -1,0 +1,6 @@
+name: competitive-deal
+description: Competitive displacement package — research, response strategy, and champion enablement
+steps:
+  - skill: account-researcher
+  - skill: competitive-response
+  - skill: champion-enabler

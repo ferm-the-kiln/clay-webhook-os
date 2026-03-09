@@ -2,24 +2,34 @@
 
 ## Available Skills
 
+Skills are organized into two pillars:
+
+### Content Generation
+
 | Skill | What It Does |
 |-------|-------------|
 | email-gen | Cold email using PVC framework |
-| icp-scorer | Lead qualification (0-100 score + tier) |
-| angle-selector | Match prospect to best campaign angle |
-| linkedin-note | LinkedIn connection note (300 char limit) |
-| objection-handler | Respond to sales objections |
-| meeting-prep | Pre-call intelligence brief |
-| follow-up | Follow-up email with value-add |
-| campaign-brief | Generate campaign brief with sequence |
-| quality-gate | QA review of generated content |
-| account-researcher | Company research & video relevance assessment |
 | sequence-writer | Multi-touch outbound sequence (5 touches) |
+| linkedin-note | LinkedIn connection note (300 char limit) |
+| follow-up | Follow-up email with value-add |
+| quality-gate | QA review of generated content |
+
+### Strategic Analysis
+
+| Skill | What It Does |
+|-------|-------------|
+| account-researcher | Company research & video relevance assessment |
+| meeting-prep | Pre-call intelligence brief |
+| discovery-questions | Tailored discovery questions by persona/signal |
 | competitive-response | Technical competitive displacement responses |
 | champion-enabler | Internal pitch for developer champions |
-| roi-calculator | Build vs. buy ROI analysis |
+| campaign-brief | Generate campaign brief with sequence |
 | multi-thread-mapper | Buying committee mapping & outreach |
-| discovery-questions | Tailored discovery questions by persona/signal |
+
+### Archived
+
+The following skills have been retired to `skills/_archived/`:
+`icp-scorer`, `angle-selector`, `objection-handler`, `roi-calculator`, `coordinator`, `signal-researcher`
 
 ## Adding a New Skill
 

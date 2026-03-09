@@ -1,0 +1,5 @@
+name: outbound-email
+description: Generate a personalized cold email with quality validation
+steps:
+  - skill: email-gen
+  - skill: quality-gate

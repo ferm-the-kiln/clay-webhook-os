@@ -1,5 +1,6 @@
 name: meeting-prep-suite
-description: Score prospect → Meeting prep brief
+description: Complete pre-call package — account research, meeting brief, and discovery questions
 steps:
-  - skill: icp-scorer
+  - skill: account-researcher
   - skill: meeting-prep
+  - skill: discovery-questions

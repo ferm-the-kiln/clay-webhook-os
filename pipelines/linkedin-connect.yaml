@@ -1,0 +1,4 @@
+name: linkedin-connect
+description: Generate a LinkedIn connection request note
+steps:
+  - skill: linkedin-note

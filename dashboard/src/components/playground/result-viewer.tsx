@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle, Loader2, Send, Sparkles, XCircle, Code, Copy, Check, Mail, Target, Linkedin } from "lucide-react";
+import { CheckCircle, Loader2, Send, Sparkles, XCircle, Code, Copy, Check, Mail, Search, Linkedin } from "lucide-react";
 import { toast } from "sonner";
 import { FeedbackButtons } from "@/components/feedback/feedback-buttons";
 import { FormattedResult } from "@/components/playground/formatted-results";
@@ -28,7 +28,7 @@ const STEPS = [
 
 const FEATURED_SKILLS = [
   { name: "email-gen", label: "Email Gen", description: "Generate personalized outbound emails from prospect signals", icon: Mail },
-  { name: "icp-scorer", label: "ICP Scorer", description: "Score prospects against your ideal customer profile", icon: Target },
+  { name: "account-researcher", label: "Account Researcher", description: "Deep-dive research on target accounts and key stakeholders", icon: Search },
   { name: "linkedin-note", label: "LinkedIn Note", description: "Draft concise LinkedIn connection messages", icon: Linkedin },
 ];
 

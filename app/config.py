@@ -18,9 +18,6 @@ class Settings(BaseSettings):
     auto_route_thresholds: dict[str, int] = {"light_max_tokens": 2000, "standard_max_tokens": 10000}
     enable_smart_routing: bool = False
 
-    # Company cache
-    company_cache_ttl: int = 86400
-
     # Exa pre-fetch
     exa_api_key: str = ""
     exa_enabled: bool = True

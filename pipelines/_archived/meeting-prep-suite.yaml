@@ -1,0 +1,5 @@
+name: meeting-prep-suite
+description: Score prospect → Meeting prep brief
+steps:
+  - skill: icp-scorer
+  - skill: meeting-prep
