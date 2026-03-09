@@ -530,3 +530,297 @@ class TestPushApproved:
         result = await runner.push_approved("r1")
         assert result["ok"] is True
         assert "no destination" in result["message"].lower()
+
+    async def test_push_uses_correct_review_item_id(self, runner, deps):
+        _, rq, *_ = deps
+        rq.get.return_value = None
+        await runner.push_approved("review-abc-123")
+        rq.get.assert_called_once_with("review-abc-123")
+
+    async def test_push_progress_without_dest_no_sent(self, runner, deps):
+        cs, rq, _, _, ds, _ = deps
+        item = MagicMock()
+        item.campaign_id = "c1"
+        rq.get.return_value = item
+        cs.get.return_value = _mock_campaign(destination_id=None)
+
+        result = await runner.push_approved("r1")
+        # Without destination: approved=1, pending_review=-1, no sent
+        call_kwargs = cs.update_progress.call_args[1]
+        assert call_kwargs["approved"] == 1
+        assert call_kwargs["pending_review"] == -1
+        assert "sent" not in call_kwargs
+
+
+# ---------------------------------------------------------------------------
+# Constructor
+# ---------------------------------------------------------------------------
+
+
+class TestConstructor:
+    def test_stores_all_deps(self, deps):
+        cs, rq, pool, cache, ds, jq = deps
+        runner = CampaignRunner(
+            campaign_store=cs, review_queue=rq, pool=pool,
+            cache=cache, destination_store=ds, job_queue=jq,
+        )
+        assert runner._campaigns is cs
+        assert runner._review is rq
+        assert runner._pool is pool
+        assert runner._cache is cache
+        assert runner._destinations is ds
+        assert runner._job_queue is jq
+        assert runner._task is None
+
+
+# ---------------------------------------------------------------------------
+# Loop — additional edges
+# ---------------------------------------------------------------------------
+
+
+class TestLoopEdges:
+    async def test_loop_no_due_campaigns(self, runner, deps):
+        cs, *_ = deps
+        cs.get_due_campaigns.return_value = []
+
+        with patch("app.core.campaign_runner.asyncio.sleep", side_effect=asyncio.CancelledError):
+            with pytest.raises(asyncio.CancelledError):
+                await runner._loop()
+
+    async def test_loop_multiple_due_campaigns(self, runner, deps):
+        cs, *_ = deps
+        c1 = _mock_campaign(id="c1")
+        c2 = _mock_campaign(id="c2")
+        cs.get_due_campaigns.return_value = [c1, c2]
+
+        call_ids = []
+
+        async def track_batch(cid):
+            call_ids.append(cid)
+            return {}
+
+        with patch.object(runner, "run_batch", side_effect=track_batch):
+            with patch("app.core.campaign_runner.asyncio.sleep", side_effect=asyncio.CancelledError):
+                with pytest.raises(asyncio.CancelledError):
+                    await runner._loop()
+
+        assert call_ids == ["c1", "c2"]
+
+    async def test_loop_reraises_cancelled_error(self, runner, deps):
+        cs, *_ = deps
+        cs.get_due_campaigns.side_effect = asyncio.CancelledError
+
+        with pytest.raises(asyncio.CancelledError):
+            await runner._loop()
+
+    async def test_loop_one_campaign_fails_other_runs(self, runner, deps):
+        """If first campaign raises, second campaign still runs."""
+        cs, *_ = deps
+        c1 = _mock_campaign(id="c1")
+        c2 = _mock_campaign(id="c2")
+        cs.get_due_campaigns.return_value = [c1, c2]
+
+        call_ids = []
+
+        async def flaky(cid):
+            call_ids.append(cid)
+            if cid == "c1":
+                raise ValueError("boom")
+            return {}
+
+        with patch.object(runner, "run_batch", side_effect=flaky):
+            with patch("app.core.campaign_runner.asyncio.sleep", side_effect=asyncio.CancelledError):
+                with pytest.raises(asyncio.CancelledError):
+                    await runner._loop()
+
+        assert call_ids == ["c1", "c2"]
+
+
+# ---------------------------------------------------------------------------
+# run_batch — additional edges
+# ---------------------------------------------------------------------------
+
+
+class TestRunBatchEdges:
+    @patch("app.core.campaign_runner.run_pipeline")
+    async def test_pipeline_receives_correct_args(self, mock_pipeline, runner, deps):
+        cs, *_ = deps
+        cs.get.return_value = _mock_campaign(
+            pipeline="full-outbound", model="sonnet", instructions="Be brief"
+        )
+        cs.get_next_batch.return_value = [{"name": "Alice"}]
+        mock_pipeline.return_value = {
+            "confidence": 0.9, "routing": "auto", "final_output": {},
+        }
+
+        await runner.run_batch("c1")
+        call_kwargs = mock_pipeline.call_args[1]
+        assert call_kwargs["name"] == "full-outbound"
+        assert call_kwargs["data"] == {"name": "Alice"}
+        assert call_kwargs["instructions"] == "Be brief"
+        assert call_kwargs["model"] == "sonnet"
+        assert call_kwargs["pool"] is runner._pool
+        assert call_kwargs["cache"] is runner._cache
+
+    @patch("app.core.campaign_runner.run_pipeline")
+    async def test_routing_review_overrides_high_confidence(self, mock_pipeline, runner, deps):
+        """Even with confidence=1.0, routing='review' sends to review queue."""
+        cs, rq, *_ = deps
+        cs.get.return_value = _mock_campaign()
+        cs.get_next_batch.return_value = [{"n": 1}]
+        mock_pipeline.return_value = {
+            "confidence": 1.0,
+            "routing": "review",  # explicit review override
+            "final_output": {"email": "hi"},
+        }
+
+        result = await runner.run_batch("c1")
+        assert result["results"][0]["routing"] == "review"
+        assert result["queued_for_review"] == 1
+        rq.add.assert_called_once()
+
+    @patch("app.core.campaign_runner.run_pipeline")
+    async def test_no_client_slug_leaves_data_unchanged(self, mock_pipeline, runner, deps):
+        cs, *_ = deps
+        cs.get.return_value = _mock_campaign(client_slug=None)
+        cs.get_next_batch.return_value = [{"name": "Alice"}]
+        mock_pipeline.return_value = {
+            "confidence": 0.9, "routing": "auto", "final_output": {},
+        }
+
+        await runner.run_batch("c1")
+        call_data = mock_pipeline.call_args[1]["data"]
+        assert "client_slug" not in call_data
+        assert call_data == {"name": "Alice"}
+
+    @patch("app.core.campaign_runner.run_pipeline")
+    async def test_all_rows_fail_still_advances(self, mock_pipeline, runner, deps):
+        cs, *_ = deps
+        cs.get.return_value = _mock_campaign()
+        cs.get_next_batch.return_value = [{"n": 1}, {"n": 2}]
+        mock_pipeline.side_effect = RuntimeError("fail")
+
+        result = await runner.run_batch("c1")
+        assert all(r["routing"] == "error" for r in result["results"])
+        cs.advance_cursor.assert_called_once_with("c1", 2)
+        cs.update_progress.assert_called_once()
+        cs.schedule_next_run.assert_called_once_with("c1")
+
+    @patch("app.core.campaign_runner.run_pipeline")
+    async def test_auto_sent_result_has_output(self, mock_pipeline, runner, deps):
+        cs, *_ = deps
+        cs.get.return_value = _mock_campaign()
+        cs.get_next_batch.return_value = [{"n": 1}]
+        mock_pipeline.return_value = {
+            "confidence": 0.95, "routing": "auto",
+            "final_output": {"subject": "Hi", "body": "Hello"},
+        }
+
+        result = await runner.run_batch("c1")
+        r = result["results"][0]
+        assert r["routing"] == "auto_sent"
+        assert r["confidence"] == 0.95
+        assert r["output"] == {"subject": "Hi", "body": "Hello"}
+        assert r["row_index"] == 0
+
+    @patch("app.core.campaign_runner.run_pipeline")
+    async def test_review_result_has_review_item_id(self, mock_pipeline, runner, deps):
+        cs, rq, *_ = deps
+        cs.get.return_value = _mock_campaign()
+        cs.get_next_batch.return_value = [{"n": 1}]
+        mock_pipeline.return_value = {
+            "confidence": 0.3, "routing": "review", "final_output": {},
+        }
+
+        result = await runner.run_batch("c1")
+        r = result["results"][0]
+        assert r["routing"] == "review"
+        assert "review_item_id" in r
+        assert r["confidence"] == 0.3
+
+    @patch("app.core.campaign_runner.run_pipeline")
+    async def test_review_item_job_id_format(self, mock_pipeline, runner, deps):
+        cs, rq, *_ = deps
+        cs.get.return_value = _mock_campaign(id="camp-42", audience_cursor=10)
+        cs.get_next_batch.return_value = [{"n": 1}]
+        mock_pipeline.return_value = {
+            "confidence": 0.3, "routing": "review", "final_output": {},
+        }
+
+        await runner.run_batch("camp-42")
+        review_item = rq.add.call_args[0][0]
+        assert review_item.job_id == "camp-camp-42-10"
+
+    async def test_campaign_paused_returns_error(self, runner, deps):
+        cs, *_ = deps
+        cs.get.return_value = _mock_campaign(status=CampaignStatus.paused)
+        result = await runner.run_batch("c1")
+        assert "error" in result
+        assert "paused" in result["error"]
+
+    async def test_campaign_completed_returns_error(self, runner, deps):
+        cs, *_ = deps
+        cs.get.return_value = _mock_campaign(status=CampaignStatus.completed)
+        result = await runner.run_batch("c1")
+        assert "error" in result
+        assert "completed" in result["error"]
+
+    @patch("app.core.campaign_runner.run_pipeline")
+    async def test_error_result_includes_row_index(self, mock_pipeline, runner, deps):
+        cs, *_ = deps
+        cs.get.return_value = _mock_campaign(audience_cursor=5)
+        cs.get_next_batch.return_value = [{"n": 1}]
+        mock_pipeline.side_effect = RuntimeError("boom")
+
+        result = await runner.run_batch("c1")
+        assert result["results"][0]["row_index"] == 5
+        assert result["results"][0]["routing"] == "error"
+        assert "boom" in result["results"][0]["error"]
+
+    @patch("app.core.campaign_runner.run_pipeline")
+    async def test_progress_all_errors(self, mock_pipeline, runner, deps):
+        cs, *_ = deps
+        cs.get.return_value = _mock_campaign()
+        cs.get_next_batch.return_value = [{"n": 1}, {"n": 2}]
+        mock_pipeline.side_effect = RuntimeError("fail")
+
+        await runner.run_batch("c1")
+        progress = cs.update_progress.call_args[1]
+        assert progress["processed"] == 2
+        assert progress["sent"] == 0
+        assert progress["pending_review"] == 0
+
+    @patch("app.core.campaign_runner.run_pipeline")
+    async def test_client_slug_injected_per_row(self, mock_pipeline, runner, deps):
+        """Client slug is injected into each row individually."""
+        cs, *_ = deps
+        cs.get.return_value = _mock_campaign(client_slug="acme")
+        cs.get_next_batch.return_value = [{"name": "A"}, {"name": "B"}]
+        mock_pipeline.return_value = {
+            "confidence": 0.9, "routing": "auto", "final_output": {},
+        }
+
+        await runner.run_batch("c1")
+        calls = mock_pipeline.call_args_list
+        assert calls[0][1]["data"]["client_slug"] == "acme"
+        assert calls[1][1]["data"]["client_slug"] == "acme"
+
+
+# ---------------------------------------------------------------------------
+# Start / stop — additional edges
+# ---------------------------------------------------------------------------
+
+
+class TestStartStopEdges:
+    async def test_task_is_none_before_start(self, runner):
+        assert runner._task is None
+
+    async def test_start_sets_task(self, runner):
+        with patch.object(runner, "_loop", new_callable=AsyncMock):
+            await runner.start()
+            assert runner._task is not None
+            runner._task.cancel()
+            try:
+                await runner._task
+            except asyncio.CancelledError:
+                pass

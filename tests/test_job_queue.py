@@ -1008,3 +1008,1467 @@ class TestPauseResumeEdges:
             assert queue.is_paused
             queue.resume()
             assert not queue.is_paused
+
+
+# ---------------------------------------------------------------------------
+# _worker — single skill (CLI) success path
+# ---------------------------------------------------------------------------
+
+
+async def _run_worker_once(queue):
+    """Helper: start a worker, wait for job processing, cancel."""
+    worker_task = asyncio.create_task(queue._worker(0))
+    await asyncio.wait_for(queue._queue.join(), timeout=5)
+    worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        pass
+
+
+class TestWorkerSingleSkillSuccess:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.01)
+    @patch("app.core.job_queue.estimate_tokens", return_value=100)
+    @patch("app.core.job_queue.build_prompt", return_value="full prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=["ctx1"])
+    @patch("app.core.job_queue.load_skill", return_value="skill content")
+    async def test_completed_status_and_result(self, mock_load, mock_ctx, mock_cfg,
+                                                mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"answer": 42}, "duration_ms": 1234,
+            "prompt_chars": 500, "response_chars": 200,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="test-skill", data={"k": 1}, instructions="inst",
+                                      model="opus", callback_url="http://x.com/cb", row_id="r1")
+        await _run_worker_once(queue)
+        job = queue.get_job(job_id)
+        assert job.status == JobStatus.completed
+        assert job.result == {"answer": 42}
+        assert job.duration_ms == 1234
+        assert job.completed_at is not None
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.05)
+    @patch("app.core.job_queue.estimate_tokens", return_value=150)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_token_and_cost_estimates(self, mock_load, mock_ctx, mock_cfg,
+                                            mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100,
+            "prompt_chars": 600, "response_chars": 300,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="s", data={}, instructions=None,
+                                      model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        job = queue.get_job(job_id)
+        assert job.input_tokens_est == 150
+        assert job.output_tokens_est == 150
+        assert job.cost_est_usd == 0.05
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_cache_put_on_success(self, mock_load, mock_ctx, mock_cfg,
+                                        mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        cache = MagicMock()
+        cache.get.return_value = None
+        queue = JobQueue(pool=pool, cache=cache, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={"x": 1}, instructions="i",
+                            model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        cache.put.assert_called_once_with("s", {"x": 1}, "i", {"r": 1})
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_callback_sent_on_success(self, mock_load, mock_ctx, mock_cfg,
+                                             mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None,
+                            model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        queue._send_callback.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_pool_submit_args(self, mock_load, mock_ctx, mock_cfg,
+                                     mock_build, mock_tokens, mock_cost, mock_settings):
+        """Pool.submit receives prompt, model, timeout, executor_type, max_turns, allowed_tools."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None,
+                            model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        pool.submit.assert_called_once_with(
+            "prompt", "opus", 30,
+            executor_type="cli", max_turns=1, allowed_tools=None,
+        )
+
+
+# ---------------------------------------------------------------------------
+# _worker — agent executor path
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerAgentExecutor:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_agent_prompts", return_value="agent prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={
+        "executor": "agent", "timeout": 120, "max_turns": 10, "allowed_tools": ["Bash"],
+    })
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="skill md")
+    async def test_agent_uses_build_agent_prompts(self, mock_load, mock_ctx, mock_cfg,
+                                                   mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 200, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="researcher", data={}, instructions=None,
+                            model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        mock_build.assert_called_once()
+        pool.submit.assert_called_once_with(
+            "agent prompt", "opus", 120,
+            executor_type="agent", max_turns=10, allowed_tools=["Bash"],
+        )
+
+
+# ---------------------------------------------------------------------------
+# _worker — variant loading
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerVariantLoading:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_variant", return_value="variant content")
+    @patch("app.core.job_queue.load_skill")
+    async def test_variant_id_uses_load_skill_variant(self, mock_load, mock_variant, mock_ctx, mock_cfg,
+                                                       mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None,
+                            variant_id="variant-b")
+        await _run_worker_once(queue)
+        mock_variant.assert_called_once_with("s", "variant-b")
+        mock_load.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_variant")
+    @patch("app.core.job_queue.load_skill", return_value="default content")
+    async def test_default_variant_uses_load_skill(self, mock_load, mock_variant, mock_ctx, mock_cfg,
+                                                    mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None,
+                            variant_id="default")
+        await _run_worker_once(queue)
+        mock_load.assert_called_once_with("s")
+        mock_variant.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _worker — skill not found
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerSkillNotFound:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.load_skill", return_value=None)
+    async def test_skill_not_found_retries(self, mock_load, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="nonexistent", data={}, instructions=None,
+                                      model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        job = queue.get_job(job_id)
+        assert job.status == JobStatus.retrying
+        assert job.retry_count == 1
+
+
+# ---------------------------------------------------------------------------
+# _worker — skill chain (multi-skill)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerSkillChain:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.estimate_cost", return_value=0.02)
+    @patch("app.core.job_queue.estimate_tokens", return_value=200)
+    async def test_skill_chain_calls_run_skill_chain(self, mock_tokens, mock_cost):
+        pool = MagicMock()
+        cache = MagicMock()
+        cache.get.return_value = None
+        queue = JobQueue(pool=pool, cache=cache, event_bus=None)
+        queue._send_callback = AsyncMock()
+
+        with patch("app.core.pipeline_runner.run_skill_chain", new_callable=AsyncMock) as mock_chain:
+            mock_chain.return_value = {
+                "total_duration_ms": 3000,
+                "total_prompt_chars": 1000,
+                "total_response_chars": 500,
+                "steps": [{"skill": "enrich"}, {"skill": "score"}],
+            }
+            job_id = await queue.enqueue(
+                skill="chain", data={"company": "Acme"}, instructions="go",
+                model="opus", callback_url="http://x.com", row_id=None,
+                skills=["enrich", "score"],
+            )
+            await _run_worker_once(queue)
+
+        job = queue.get_job(job_id)
+        assert job.status == JobStatus.completed
+        assert job.duration_ms == 3000
+        mock_chain.assert_called_once()
+        call_kwargs = mock_chain.call_args[1]
+        assert call_kwargs["skills"] == ["enrich", "score"]
+        assert call_kwargs["model"] == "opus"
+
+
+# ---------------------------------------------------------------------------
+# _worker — smart model routing
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerSmartRouting:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.resolve_model", return_value="haiku")
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_smart_routing_overrides_model(self, mock_load, mock_ctx, mock_cfg,
+                                                  mock_build, mock_resolve, mock_tokens,
+                                                  mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = True
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="s", data={}, instructions=None,
+                                      model="sonnet", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        mock_resolve.assert_called_once()
+        job = queue.get_job(job_id)
+        assert job.model == "haiku"
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.resolve_model")
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_smart_routing_disabled_skips_resolve(self, mock_load, mock_ctx, mock_cfg,
+                                                        mock_build, mock_resolve, mock_tokens,
+                                                        mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None,
+                            model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        mock_resolve.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _worker — SubscriptionLimitError
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerSubscriptionLimit:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    async def test_subscription_limit_dead_letters(self, mock_build, mock_cfg, mock_ctx,
+                                                    mock_load, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(side_effect=SubscriptionLimitError("limit reached"))
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="s", data={}, instructions=None,
+                                      model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        job = queue.get_job(job_id)
+        assert job.status == JobStatus.dead_letter
+        assert "limit reached" in job.error
+        assert job.retry_count == 0  # No retries for subscription limits
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    async def test_subscription_limit_records_usage_error(self, mock_build, mock_cfg, mock_ctx,
+                                                           mock_load, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(side_effect=SubscriptionLimitError("limit reached"))
+        usage_store = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._usage_store = usage_store
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None,
+                            model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        usage_store.record_error.assert_called_once_with("subscription_limit", "limit reached")
+
+
+# ---------------------------------------------------------------------------
+# _worker — retry and dead letter on generic Exception
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerRetryAndDeadLetter:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    async def test_first_failure_sets_retrying(self, mock_build, mock_cfg, mock_ctx,
+                                                mock_load, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(side_effect=RuntimeError("oops"))
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="s", data={}, instructions=None,
+                                      model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        job = queue.get_job(job_id)
+        assert job.status == JobStatus.retrying
+        assert job.retry_count == 1
+        assert job.next_retry_at is not None
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    async def test_max_retries_dead_letters(self, mock_build, mock_cfg, mock_ctx,
+                                             mock_load, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(side_effect=RuntimeError("oops"))
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="s", data={}, instructions=None,
+                                      model="opus", callback_url="http://x.com", row_id=None,
+                                      max_retries=0)
+        await _run_worker_once(queue)
+        job = queue.get_job(job_id)
+        assert job.status == JobStatus.dead_letter
+        assert job.error == "oops"
+        assert job.completed_at is not None
+        queue._send_callback.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    async def test_retry_delay_is_exponential(self, mock_build, mock_cfg, mock_ctx,
+                                               mock_load, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(side_effect=RuntimeError("fail"))
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="s", data={}, instructions=None,
+                                      model="opus", callback_url="http://x.com", row_id=None)
+        before = time.time()
+        await _run_worker_once(queue)
+        job = queue.get_job(job_id)
+        # retry_count=1 → delay = 2^1 = 2s
+        assert job.next_retry_at >= before + 2
+        assert job.next_retry_at <= before + 4  # allow some slack
+
+
+# ---------------------------------------------------------------------------
+# _worker — event bus integration
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerEventBus:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_worker_publishes_processing_and_completed(self, mock_load, mock_ctx, mock_cfg,
+                                                              mock_build, mock_tokens, mock_cost,
+                                                              mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        bus = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=bus)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None,
+                            model="opus", callback_url="http://x.com", row_id=None)
+        bus.reset_mock()  # Clear the enqueue event
+        await _run_worker_once(queue)
+        calls = bus.publish.call_args_list
+        events = [c[0][0] for c in calls]
+        assert "job_updated" in events
+        statuses = [c[0][1]["status"] for c in calls]
+        assert "processing" in statuses
+        assert "completed" in statuses
+
+
+# ---------------------------------------------------------------------------
+# _worker — memory store integration
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerMemoryStore:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_memory_store_called_on_success(self, mock_load, mock_ctx, mock_cfg,
+                                                   mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"output": "hi"}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        mem_store = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._memory_store = mem_store
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="email-gen", data={"company": "Acme"}, instructions=None,
+                            model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        mem_store.store_from_data.assert_called_once_with(
+            {"company": "Acme"}, "email-gen", {"output": "hi"},
+        )
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_memory_store_exception_non_critical(self, mock_load, mock_ctx, mock_cfg,
+                                                        mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        mem_store = MagicMock()
+        mem_store.store_from_data.side_effect = Exception("memory error")
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._memory_store = mem_store
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="s", data={}, instructions=None,
+                                      model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        # Job should still complete successfully despite memory store error
+        job = queue.get_job(job_id)
+        assert job.status == JobStatus.completed
+
+
+# ---------------------------------------------------------------------------
+# _worker — experiment update
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerExperimentUpdate:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=100)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_experiment_store_updated(self, mock_load, mock_ctx, mock_cfg,
+                                             mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 500, "prompt_chars": 100, "response_chars": 50,
+        })
+        exp_store = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._experiment_store = exp_store
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None,
+                            experiment_id="exp-1", variant_id="default")
+        await _run_worker_once(queue)
+        exp_store.update_experiment_results.assert_called_once_with(
+            "exp-1", "default", 500, 200,  # 100 input + 100 output tokens
+        )
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=100)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_experiment_update_exception_non_critical(self, mock_load, mock_ctx, mock_cfg,
+                                                             mock_build, mock_tokens, mock_cost,
+                                                             mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        exp_store = MagicMock()
+        exp_store.update_experiment_results.side_effect = Exception("db error")
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._experiment_store = exp_store
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                                      callback_url="http://x.com", row_id=None,
+                                      experiment_id="exp-1", variant_id="default")
+        await _run_worker_once(queue)
+        job = queue.get_job(job_id)
+        assert job.status == JobStatus.completed
+
+
+# ---------------------------------------------------------------------------
+# _worker — exa prefetch
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerExaPrefetch:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_agent_prompts", return_value="agent prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "agent", "prefetch": "exa"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_prefetch_called_for_agent_with_exa(self, mock_load, mock_ctx, mock_cfg,
+                                                       mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        prefetcher = MagicMock()
+        prefetcher.fetch = AsyncMock(return_value="## News\nAcme raised $10M")
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._prefetcher = prefetcher
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(
+            skill="researcher", data={"company_name": "Acme", "company_domain": "acme.com"},
+            instructions=None, model="opus", callback_url="http://x.com", row_id=None,
+        )
+        await _run_worker_once(queue)
+        prefetcher.fetch.assert_called_once_with("Acme", "acme.com")
+        # Verify prefetched_context passed to build_agent_prompts
+        call_kwargs = mock_build.call_args[1]
+        assert call_kwargs["prefetched_context"] == "## News\nAcme raised $10M"
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_agent_prompts", return_value="agent prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "agent", "prefetch": "exa"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_prefetch_failure_non_critical(self, mock_load, mock_ctx, mock_cfg,
+                                                  mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        prefetcher = MagicMock()
+        prefetcher.fetch = AsyncMock(side_effect=Exception("exa down"))
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._prefetcher = prefetcher
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(
+            skill="researcher", data={"company_name": "Acme", "company_domain": "acme.com"},
+            instructions=None, model="opus", callback_url="http://x.com", row_id=None,
+        )
+        await _run_worker_once(queue)
+        job = queue.get_job(job_id)
+        assert job.status == JobStatus.completed
+        call_kwargs = mock_build.call_args[1]
+        assert call_kwargs["prefetched_context"] is None
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_agent_prompts", return_value="agent prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "agent", "prefetch": "exa"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_prefetch_skipped_without_company_data(self, mock_load, mock_ctx, mock_cfg,
+                                                          mock_build, mock_tokens, mock_cost, mock_settings):
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        prefetcher = MagicMock()
+        prefetcher.fetch = AsyncMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._prefetcher = prefetcher
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(
+            skill="researcher", data={},  # No company_name or company_domain
+            instructions=None, model="opus", callback_url="http://x.com", row_id=None,
+        )
+        await _run_worker_once(queue)
+        prefetcher.fetch.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _log_failed_callback — 1000 entry cap
+# ---------------------------------------------------------------------------
+
+
+class TestLogFailedCallbackCap:
+    def test_caps_at_1000_entries(self, tmp_path):
+        import json
+        queue = JobQueue(pool=MagicMock())
+        job = Job(id="j-new", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="http://x.com/cb", row_id=None, status=JobStatus.completed)
+
+        # Pre-populate with 1005 entries
+        existing = [{"job_id": f"j-{i}", "callback_url": "x", "skill": "s",
+                      "status": "completed", "timestamp": i} for i in range(1005)]
+        failed_path = tmp_path / "failed_callbacks.json"
+        failed_path.write_text(json.dumps(existing))
+
+        with patch("pathlib.Path", return_value=failed_path):
+            queue._log_failed_callback(job, {"job_id": "j-new"})
+            written = json.loads(failed_path.read_text())
+            assert len(written) == 1000
+            # Should keep the most recent entries (last 1000)
+            assert written[-1]["job_id"] == "j-new"
+
+    def test_corrupted_file_resets(self, tmp_path):
+        import json
+        queue = JobQueue(pool=MagicMock())
+        job = Job(id="j1", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="http://x.com/cb", row_id=None, status=JobStatus.completed)
+        failed_path = tmp_path / "failed_callbacks.json"
+        failed_path.write_text("not valid json{{{")
+
+        with patch("pathlib.Path", return_value=failed_path):
+            queue._log_failed_callback(job, {"job_id": "j1"})
+            written = json.loads(failed_path.read_text())
+            assert len(written) == 1
+            assert written[0]["job_id"] == "j1"
+
+
+# ---------------------------------------------------------------------------
+# DEEPER TESTS — Coverage gaps
+# ---------------------------------------------------------------------------
+
+
+class TestJobDataclassDeeper:
+    def test_lt_same_priority_is_false(self):
+        """Two jobs with the same priority: neither is less than the other."""
+        a = Job(id="a", skill="s", data={}, instructions=None, model="opus",
+                callback_url="", row_id=None, priority="high")
+        b = Job(id="b", skill="s", data={}, instructions=None, model="opus",
+                callback_url="", row_id=None, priority="high")
+        assert not (a < b)
+        assert not (b < a)
+
+    def test_lt_low_not_less_than_high(self):
+        low = Job(id="l", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None, priority="low")
+        high = Job(id="h", skill="s", data={}, instructions=None, model="opus",
+                   callback_url="", row_id=None, priority="high")
+        assert not (low < high)
+
+    def test_le_high_le_low_is_true(self):
+        high = Job(id="h", skill="s", data={}, instructions=None, model="opus",
+                   callback_url="", row_id=None, priority="high")
+        low = Job(id="l", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None, priority="low")
+        assert high <= low
+
+    def test_le_low_le_high_is_false(self):
+        high = Job(id="h", skill="s", data={}, instructions=None, model="opus",
+                   callback_url="", row_id=None, priority="high")
+        low = Job(id="l", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None, priority="low")
+        assert not (low <= high)
+
+    def test_data_and_instructions_preserved(self):
+        job = Job(id="j", skill="s", data={"company": "Acme", "role": "CEO"},
+                  instructions="Be concise", model="opus", callback_url="", row_id=None)
+        assert job.data == {"company": "Acme", "role": "CEO"}
+        assert job.instructions == "Be concise"
+
+    def test_skills_list_preserved(self):
+        job = Job(id="j", skill="chain", data={}, instructions=None, model="opus",
+                  callback_url="", row_id=None, skills=["enrich", "score", "email"])
+        assert job.skills == ["enrich", "score", "email"]
+
+    def test_all_fields_settable(self):
+        job = Job(
+            id="j", skill="s", data={}, instructions="inst", model="opus",
+            callback_url="http://cb.com", row_id="r1", priority="high",
+            skills=["a", "b"], status=JobStatus.processing, result={"x": 1},
+            error="err", created_at=100.0, completed_at=200.0, duration_ms=1000,
+            retry_count=2, max_retries=5, next_retry_at=300.0,
+            input_tokens_est=500, output_tokens_est=200, cost_est_usd=0.05,
+            batch_id="b1", experiment_id="exp-1", variant_id="var-a",
+        )
+        assert job.batch_id == "b1"
+        assert job.retry_count == 2
+        assert job.duration_ms == 1000
+
+
+class TestEnqueueDeeper:
+    @pytest.mark.asyncio
+    async def test_enqueue_preserves_data(self):
+        queue = JobQueue(pool=MagicMock())
+        job_id = await queue.enqueue(
+            skill="s", data={"company": "Acme", "industry": "tech"},
+            instructions="be brief", model="sonnet",
+            callback_url="http://cb.com", row_id="r1",
+        )
+        job = queue.get_job(job_id)
+        assert job.data == {"company": "Acme", "industry": "tech"}
+        assert job.instructions == "be brief"
+        assert job.model == "sonnet"
+
+    @pytest.mark.asyncio
+    async def test_enqueue_with_skills_list(self):
+        queue = JobQueue(pool=MagicMock())
+        job_id = await queue.enqueue(
+            skill="chain", data={}, instructions=None, model="opus",
+            callback_url="", row_id=None, skills=["enrich", "score"],
+        )
+        job = queue.get_job(job_id)
+        assert job.skills == ["enrich", "score"]
+
+    @pytest.mark.asyncio
+    async def test_get_jobs_empty_queue(self):
+        queue = JobQueue(pool=MagicMock())
+        assert queue.get_jobs() == []
+
+    @pytest.mark.asyncio
+    async def test_get_jobs_with_empty_skills_list(self):
+        """When skills is empty list, get_jobs falls back to j.skill."""
+        queue = JobQueue(pool=MagicMock())
+        await queue.enqueue(
+            skill="email-gen", data={}, instructions=None, model="opus",
+            callback_url="", row_id=None, skills=[],
+        )
+        jobs = queue.get_jobs()
+        assert jobs[0]["skill"] == "email-gen"
+
+    @pytest.mark.asyncio
+    async def test_multiple_enqueue_unique_ids(self):
+        queue = JobQueue(pool=MagicMock())
+        ids = set()
+        for _ in range(10):
+            jid = await queue.enqueue(skill="s", data={}, instructions=None,
+                                      model="opus", callback_url="", row_id=None)
+            ids.add(jid)
+        assert len(ids) == 10
+
+
+class TestCacheDedupDeeper:
+    @pytest.mark.asyncio
+    async def test_cache_hit_sends_callback(self):
+        """Cache hit should call _send_callback with cached_result=True."""
+        cache = MagicMock()
+        cache.get.return_value = {"cached": True}
+        queue = JobQueue(pool=MagicMock(), cache=cache)
+        queue._send_callback = AsyncMock()
+
+        await queue.enqueue(
+            skill="s", data={}, instructions=None, model="opus",
+            callback_url="http://cb.com", row_id=None,
+        )
+        queue._send_callback.assert_called_once()
+        call_kwargs = queue._send_callback.call_args[1]
+        assert call_kwargs["cached_result"] is True
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_job_completed_at_set(self):
+        cache = MagicMock()
+        cache.get.return_value = {"r": 1}
+        queue = JobQueue(pool=MagicMock(), cache=cache)
+        queue._send_callback = AsyncMock()
+
+        before = time.time()
+        job_id = await queue.enqueue(
+            skill="s", data={}, instructions=None, model="opus",
+            callback_url="http://cb.com", row_id=None,
+        )
+        job = queue.get_job(job_id)
+        assert job.completed_at is not None
+        assert job.completed_at >= before
+
+
+class TestSendCallbackDeeper:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.asyncio.sleep", new_callable=AsyncMock)
+    @patch("app.core.job_queue.httpx.AsyncClient")
+    async def test_callback_retry_sleep_delays(self, mock_client_cls, mock_sleep):
+        """Verifies the exact sleep delays: 1s after first failure, 4s after second."""
+        resp_500 = MagicMock(status_code=500)
+        resp_200 = MagicMock(status_code=200)
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = [resp_500, resp_500, resp_200]
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        queue = JobQueue(pool=MagicMock())
+        job = Job(id="j1", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="http://x.com/cb", row_id=None,
+                  status=JobStatus.completed, result={"r": 1})
+        await queue._send_callback(job)
+        # Two sleeps: after first and second 5xx failures
+        assert mock_sleep.call_count == 2
+        assert mock_sleep.call_args_list[0][0][0] == 1
+        assert mock_sleep.call_args_list[1][0][0] == 4
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.asyncio.sleep", new_callable=AsyncMock)
+    @patch("app.core.job_queue.httpx.AsyncClient")
+    async def test_callback_retry_worker_receives_correct_args(self, mock_client_cls, mock_sleep):
+        """Verify retry_worker.enqueue receives url, payload, headers, job_id."""
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = Exception("down")
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        retry_worker = MagicMock()
+        queue = JobQueue(pool=MagicMock())
+        queue._retry_worker = retry_worker
+        job = Job(id="j1", skill="email-gen", data={}, instructions=None, model="opus",
+                  callback_url="http://x.com/cb", row_id="r1",
+                  status=JobStatus.completed, result={"subject": "Hi"})
+        await queue._send_callback(job)
+
+        retry_worker.enqueue.assert_called_once()
+        args = retry_worker.enqueue.call_args
+        assert args[0][0] == "http://x.com/cb"  # url
+        assert args[0][1]["job_id"] == "j1"  # payload
+        assert args[0][1]["subject"] == "Hi"
+        assert args[0][2] == {"Content-Type": "application/json"}  # headers
+        assert args[1]["job_id"] == "j1"  # keyword arg
+
+
+class TestLogFailedCallbackDeeper:
+    def test_entry_structure(self, tmp_path):
+        """Verify the logged entry contains all expected fields."""
+        import json
+        queue = JobQueue(pool=MagicMock())
+        job = Job(id="j42", skill="email-gen", data={}, instructions=None, model="opus",
+                  callback_url="http://example.com/hook", row_id=None,
+                  status=JobStatus.dead_letter)
+        failed_path = tmp_path / "failed_callbacks.json"
+
+        before = time.time()
+        with patch("pathlib.Path", return_value=failed_path):
+            queue._log_failed_callback(job, {"job_id": "j42"})
+            written = json.loads(failed_path.read_text())
+
+        entry = written[0]
+        assert entry["job_id"] == "j42"
+        assert entry["callback_url"] == "http://example.com/hook"
+        assert entry["skill"] == "email-gen"
+        assert entry["status"] == JobStatus.dead_letter
+        assert entry["timestamp"] >= before
+
+    def test_creates_parent_directory(self, tmp_path):
+        """Verify mkdir(parents=True) is called for nested path."""
+        import json
+        queue = JobQueue(pool=MagicMock())
+        job = Job(id="j1", skill="s", data={}, instructions=None, model="opus",
+                  callback_url="http://x.com", row_id=None, status=JobStatus.completed)
+        nested_path = tmp_path / "subdir" / "failed_callbacks.json"
+
+        with patch("pathlib.Path", return_value=nested_path):
+            queue._log_failed_callback(job, {"job_id": "j1"})
+            assert nested_path.exists()
+            written = json.loads(nested_path.read_text())
+            assert len(written) == 1
+
+
+class TestWorkerSingleSkillDeeper:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_no_variant_uses_load_skill(self, mock_load, mock_ctx, mock_cfg,
+                                               mock_build, mock_tokens, mock_cost, mock_settings):
+        """variant_id=None should use load_skill, not load_skill_variant."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None, variant_id=None)
+        await _run_worker_once(queue)
+        mock_load.assert_called_once_with("s")
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_no_cache_skips_put(self, mock_load, mock_ctx, mock_cfg,
+                                      mock_build, mock_tokens, mock_cost, mock_settings):
+        """When cache is None, no cache.put call should happen."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        # No exception raised — cache is None, so no put attempted
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=["ctx1", "ctx2"])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_record_usage_called_on_success(self, mock_load, mock_ctx, mock_cfg,
+                                                   mock_build, mock_tokens, mock_cost, mock_settings):
+        """Verify _record_usage is called after successful single-skill execution."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+            "usage": {"input_tokens": 300, "output_tokens": 100},
+        })
+        usage_store = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._usage_store = usage_store
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        usage_store.record.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_context_and_memory_passed_to_build_prompt(self, mock_load, mock_ctx, mock_cfg,
+                                                              mock_build, mock_tokens, mock_cost,
+                                                              mock_settings):
+        """Verify memory_store and context_index are passed to build_prompt."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        mem = MagicMock()
+        ctx_idx = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._memory_store = mem
+        queue._context_index = ctx_idx
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        call_kwargs = mock_build.call_args[1]
+        assert call_kwargs["memory_store"] is mem
+        assert call_kwargs["context_index"] is ctx_idx
+
+
+class TestWorkerSmartRoutingDeeper:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.resolve_model", return_value="haiku")
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_smart_routing_default_model_sends_none(self, mock_load, mock_ctx, mock_cfg,
+                                                           mock_build, mock_resolve, mock_tokens,
+                                                           mock_cost, mock_settings):
+        """When job.model == default_model, request_model is passed as None."""
+        mock_settings.enable_smart_routing = True
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None,
+                            model="sonnet", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        call_kwargs = mock_resolve.call_args[1]
+        assert call_kwargs["request_model"] is None
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.resolve_model", return_value="opus")
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=["c1", "c2"])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_smart_routing_non_default_model_passes_model(self, mock_load, mock_ctx, mock_cfg,
+                                                                  mock_build, mock_resolve, mock_tokens,
+                                                                  mock_cost, mock_settings):
+        """When job.model != default_model, request_model is the actual model."""
+        mock_settings.enable_smart_routing = True
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None,
+                            model="opus", callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        call_kwargs = mock_resolve.call_args[1]
+        assert call_kwargs["request_model"] == "opus"
+        assert call_kwargs["context_file_count"] == 2
+
+
+class TestWorkerSkillChainDeeper:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.estimate_cost", return_value=0.02)
+    @patch("app.core.job_queue.estimate_tokens", return_value=200)
+    async def test_skill_chain_publishes_events(self, mock_tokens, mock_cost):
+        """Skill chain path should publish processing and completed events."""
+        pool = MagicMock()
+        cache = MagicMock()
+        cache.get.return_value = None
+        bus = MagicMock()
+        queue = JobQueue(pool=pool, cache=cache, event_bus=bus)
+        queue._send_callback = AsyncMock()
+
+        with patch("app.core.pipeline_runner.run_skill_chain", new_callable=AsyncMock) as mock_chain:
+            mock_chain.return_value = {
+                "total_duration_ms": 1000, "total_prompt_chars": 100, "total_response_chars": 50,
+            }
+            await queue.enqueue(
+                skill="chain", data={}, instructions=None, model="opus",
+                callback_url="http://x.com", row_id=None, skills=["a", "b"],
+            )
+            bus.reset_mock()
+            await _run_worker_once(queue)
+
+        events = [c[0][0] for c in bus.publish.call_args_list]
+        assert "job_updated" in events
+        statuses = [c[0][1]["status"] for c in bus.publish.call_args_list]
+        assert "processing" in statuses
+        assert "completed" in statuses
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    async def test_skill_chain_records_usage(self, mock_tokens, mock_cost):
+        """Skill chain path should call _record_usage."""
+        pool = MagicMock()
+        cache = MagicMock()
+        cache.get.return_value = None
+        usage_store = MagicMock()
+        queue = JobQueue(pool=pool, cache=cache, event_bus=None)
+        queue._usage_store = usage_store
+        queue._send_callback = AsyncMock()
+
+        with patch("app.core.pipeline_runner.run_skill_chain", new_callable=AsyncMock) as mock_chain:
+            mock_chain.return_value = {
+                "total_duration_ms": 1000, "total_prompt_chars": 100, "total_response_chars": 50,
+                "usage": {"input_tokens": 500, "output_tokens": 200},
+            }
+            await queue.enqueue(
+                skill="chain", data={}, instructions=None, model="opus",
+                callback_url="http://x.com", row_id=None, skills=["a", "b"],
+            )
+            await _run_worker_once(queue)
+
+        usage_store.record.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    async def test_skill_chain_sends_callback(self, mock_tokens, mock_cost):
+        """Skill chain should send callback on completion."""
+        pool = MagicMock()
+        cache = MagicMock()
+        cache.get.return_value = None
+        queue = JobQueue(pool=pool, cache=cache, event_bus=None)
+        queue._send_callback = AsyncMock()
+
+        with patch("app.core.pipeline_runner.run_skill_chain", new_callable=AsyncMock) as mock_chain:
+            mock_chain.return_value = {
+                "total_duration_ms": 500, "total_prompt_chars": 0, "total_response_chars": 0,
+            }
+            await queue.enqueue(
+                skill="chain", data={}, instructions=None, model="opus",
+                callback_url="http://x.com", row_id=None, skills=["a", "b"],
+            )
+            await _run_worker_once(queue)
+
+        queue._send_callback.assert_called_once()
+
+
+class TestWorkerSubscriptionLimitDeeper:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    async def test_subscription_limit_publishes_event(self, mock_build, mock_cfg, mock_ctx,
+                                                       mock_load, mock_settings):
+        """SubscriptionLimitError should publish dead_letter event with reason."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(side_effect=SubscriptionLimitError("limit"))
+        bus = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=bus)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None)
+        bus.reset_mock()
+        await _run_worker_once(queue)
+
+        events = [(c[0][0], c[0][1]) for c in bus.publish.call_args_list]
+        dead_letter_events = [(e, d) for e, d in events if d.get("status") == "dead_letter"]
+        assert len(dead_letter_events) >= 1
+        assert dead_letter_events[0][1].get("reason") == "subscription_limit"
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    async def test_subscription_limit_sends_callback(self, mock_build, mock_cfg, mock_ctx,
+                                                      mock_load, mock_settings):
+        """SubscriptionLimitError should still send callback."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(side_effect=SubscriptionLimitError("limit"))
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        queue._send_callback.assert_called_once()
+
+
+class TestWorkerRetryEventBus:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    async def test_retry_publishes_event(self, mock_build, mock_cfg, mock_ctx,
+                                          mock_load, mock_settings):
+        """Retry should publish job_updated with retrying status and retry_count."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(side_effect=RuntimeError("oops"))
+        bus = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=bus)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None)
+        bus.reset_mock()
+        await _run_worker_once(queue)
+
+        calls = bus.publish.call_args_list
+        retry_events = [c for c in calls if c[0][1].get("status") == "retrying"]
+        assert len(retry_events) == 1
+        assert retry_events[0][0][1]["retry_count"] == 1
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    async def test_dead_letter_publishes_event(self, mock_build, mock_cfg, mock_ctx,
+                                                mock_load, mock_settings):
+        """Dead letter from generic exception should publish event."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(side_effect=RuntimeError("fatal"))
+        bus = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=bus)
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None, max_retries=0)
+        bus.reset_mock()
+        await _run_worker_once(queue)
+
+        calls = bus.publish.call_args_list
+        dead_events = [c for c in calls if c[0][1].get("status") == "dead_letter"]
+        assert len(dead_events) == 1
+
+
+class TestWorkerExperimentNoStore:
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill_variant", return_value="variant content")
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_experiment_without_store_no_error(self, mock_load, mock_variant, mock_ctx, mock_cfg,
+                                                      mock_build, mock_tokens, mock_cost, mock_settings):
+        """experiment_id+variant_id set but no _experiment_store — should not error."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._send_callback = AsyncMock()
+        job_id = await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                                      callback_url="http://x.com", row_id=None,
+                                      experiment_id="exp-1", variant_id="var-a")
+        await _run_worker_once(queue)
+        job = queue.get_job(job_id)
+        assert job.status == JobStatus.completed
+
+    @pytest.mark.asyncio
+    @patch("app.core.job_queue.settings")
+    @patch("app.core.job_queue.estimate_cost", return_value=0.0)
+    @patch("app.core.job_queue.estimate_tokens", return_value=0)
+    @patch("app.core.job_queue.build_prompt", return_value="prompt")
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "cli"})
+    @patch("app.core.job_queue.load_context_files", return_value=[])
+    @patch("app.core.job_queue.load_skill", return_value="content")
+    async def test_no_experiment_skips_update(self, mock_load, mock_ctx, mock_cfg,
+                                               mock_build, mock_tokens, mock_cost, mock_settings):
+        """No experiment_id — experiment store should not be called."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        mock_settings.default_model = "sonnet"
+        pool = MagicMock()
+        pool.submit = AsyncMock(return_value={
+            "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
+        })
+        exp_store = MagicMock()
+        queue = JobQueue(pool=pool, cache=None, event_bus=None)
+        queue._experiment_store = exp_store
+        queue._send_callback = AsyncMock()
+        await queue.enqueue(skill="s", data={}, instructions=None, model="opus",
+                            callback_url="http://x.com", row_id=None)
+        await _run_worker_once(queue)
+        exp_store.update_experiment_results.assert_not_called()

@@ -866,3 +866,428 @@ class TestExtractConfidenceEdges:
 
     def test_none_field_name_returns_1(self):
         assert extract_confidence({"s": 0.5}, None) == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Deeper: evaluate_condition — operator boundaries
+# ---------------------------------------------------------------------------
+
+
+class TestEvaluateConditionDeeper:
+    def test_le_equal(self):
+        assert evaluate_condition("score <= 50", {"score": 50}) is True
+
+    def test_le_above(self):
+        assert evaluate_condition("score <= 50", {"score": 51}) is False
+
+    def test_gt_at_boundary(self):
+        assert evaluate_condition("score > 50", {"score": 50}) is False
+
+    def test_lt_at_boundary(self):
+        assert evaluate_condition("score < 50", {"score": 50}) is False
+
+    def test_ne_equal_returns_false(self):
+        assert evaluate_condition("score != 50", {"score": 50}) is False
+
+    def test_eq_numeric_false(self):
+        assert evaluate_condition("score == 50", {"score": 49}) is False
+
+    def test_string_comparison_gt(self):
+        """String comparison: 'b' > 'a' lexicographically."""
+        assert evaluate_condition("name > a", {"name": "b"}) is True
+
+    def test_field_is_zero(self):
+        """Zero is a valid value, not None."""
+        assert evaluate_condition("score >= 0", {"score": 0}) is True
+
+    def test_negative_number(self):
+        assert evaluate_condition("score > -10", {"score": -5}) is True
+
+
+# ---------------------------------------------------------------------------
+# Deeper: extract_confidence — normalization
+# ---------------------------------------------------------------------------
+
+
+class TestExtractConfidenceDeeper:
+    def test_50_normalized_to_half(self):
+        assert extract_confidence({"s": 50}, "s") == 0.5
+
+    def test_exactly_half(self):
+        assert extract_confidence({"s": 0.5}, "s") == 0.5
+
+    def test_very_small_value(self):
+        assert extract_confidence({"s": 0.001}, "s") == 0.001
+
+    def test_negative_clamped_to_zero(self):
+        assert extract_confidence({"s": -50}, "s") == 0.0
+
+    def test_large_percentage_clamped(self):
+        """200 -> 2.0 -> clamped to 1.0."""
+        assert extract_confidence({"s": 200}, "s") == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Deeper: _run_single_step — field defaults, arg verification
+# ---------------------------------------------------------------------------
+
+
+class TestRunSingleStepDeeper:
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_missing_prompt_chars_defaults_zero(self, mock_load, mock_ctx, mock_prompt):
+        """prompt_chars/response_chars default to 0 when not in pool result."""
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {"x": 1}, "duration_ms": 50}
+        result = await _run_single_step("skill", {}, None, "opus", pool)
+        assert result["prompt_chars"] == 0
+        assert result["response_chars"] == 0
+
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_cache_get_called_with_correct_args(self, mock_load):
+        """Cache.get receives skill_name, data, instructions."""
+        pool = AsyncMock()
+        cache = MagicMock()
+        cache.get.return_value = {"cached": True}
+        data = {"key": "val"}
+        await _run_single_step("my-skill", data, "inst", "opus", pool, cache=cache)
+        cache.get.assert_called_once_with("my-skill", data, "inst")
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_cache_put_called_with_correct_args(self, mock_load, mock_ctx, mock_prompt):
+        """Cache.put receives skill_name, data, instructions, parsed result."""
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {"out": 1}, "duration_ms": 50}
+        cache = MagicMock()
+        cache.get.return_value = None
+        data = {"in": 1}
+        await _run_single_step("sk", data, "inst", "opus", pool, cache=cache)
+        cache.put.assert_called_once_with("sk", data, "inst", {"out": 1})
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_load_context_files_receives_skill_name(self, mock_load, mock_ctx, mock_prompt):
+        """load_context_files is called with skill_name kwarg."""
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {}, "duration_ms": 50}
+        await _run_single_step("email-gen", {"k": 1}, None, "opus", pool)
+        _, kwargs = mock_ctx.call_args
+        assert kwargs["skill_name"] == "email-gen"
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_error_result_has_zero_chars(self, mock_load, mock_ctx, mock_prompt):
+        """Error result has prompt_chars=0 and response_chars=0."""
+        pool = AsyncMock()
+        pool.submit.side_effect = RuntimeError("fail")
+        result = await _run_single_step("sk", {}, None, "opus", pool)
+        assert result["prompt_chars"] == 0
+        assert result["response_chars"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Deeper: _run_parallel_step — sub-step variations
+# ---------------------------------------------------------------------------
+
+
+class TestRunParallelStepDeeper:
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_parallel_sub_step_instructions_override(self, mock_load, mock_ctx, mock_prompt):
+        """Sub-step with instructions overrides the pipeline-level instructions."""
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {}, "duration_ms": 50, "prompt_chars": 0, "response_chars": 0}
+        sub_steps = [{"skill": "s1", "instructions": "Be brief"}]
+        await _run_parallel_step(sub_steps, {}, "Global inst", "opus", pool, None)
+        # build_prompt should receive "Be brief" not "Global inst"
+        call_args = mock_prompt.call_args[0]
+        assert call_args[3] == "Be brief"
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill")
+    async def test_parallel_mixed_success_failure(self, mock_load, mock_ctx, mock_prompt):
+        """One sub-step succeeds, another fails — only success is merged."""
+        mock_load.side_effect = ["# Skill", None]  # s1 found, s2 not
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {"a": 1}, "duration_ms": 50, "prompt_chars": 10, "response_chars": 5}
+        sub_steps = [{"skill": "s1"}, {"skill": "s2"}]
+        results, merged = await _run_parallel_step(sub_steps, {"base": True}, None, "opus", pool, None)
+        assert results[0]["success"] is True
+        assert results[1]["success"] is False
+        assert merged["a"] == 1
+        assert merged["base"] is True
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_parallel_does_not_mutate_input_data(self, mock_load, mock_ctx, mock_prompt):
+        """Parallel step returns new merged dict, doesn't mutate input."""
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {"new": 1}, "duration_ms": 50, "prompt_chars": 0, "response_chars": 0}
+        original = {"original": True}
+        _, merged = await _run_parallel_step([{"skill": "s1"}], original, None, "opus", pool, None)
+        assert "new" in merged
+        assert "new" not in original
+
+
+# ---------------------------------------------------------------------------
+# Deeper: run_skill_chain — empty, failure, data flow
+# ---------------------------------------------------------------------------
+
+
+class TestRunSkillChainDeeper:
+    async def test_empty_skills_list(self):
+        """Empty skills list returns empty steps and original data."""
+        pool = AsyncMock()
+        result = await run_skill_chain([], {"x": 1}, None, "opus", pool)
+        assert result["steps"] == []
+        assert result["final_output"] == {"x": 1}
+        assert result["chain"] == []
+        assert result["total_prompt_chars"] == 0
+        assert result["total_response_chars"] == 0
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_failed_step_doesnt_merge(self, mock_load, mock_ctx, mock_prompt):
+        """A failed step's output is not merged into current_data."""
+        pool = AsyncMock()
+        pool.submit.side_effect = RuntimeError("fail")
+        result = await run_skill_chain(["bad-skill"], {"original": True}, None, "opus", pool)
+        assert result["final_output"] == {"original": True}
+        assert result["steps"][0]["success"] is False
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_data_from_step1_available_to_step2(self, mock_load, mock_ctx, mock_prompt):
+        """Second step receives data produced by first step."""
+        pool = AsyncMock()
+        pool.submit.side_effect = [
+            {"result": {"enriched": True}, "duration_ms": 50},
+            {"result": {"email": "Hi"}, "duration_ms": 50},
+        ]
+        result = await run_skill_chain(["enrich", "email"], {"name": "Alice"}, None, "opus", pool)
+        # Second call to build_prompt should include enriched data
+        second_call_data = mock_prompt.call_args_list[1][0][2]  # 3rd positional arg = data
+        assert second_call_data.get("enriched") is True
+        assert second_call_data.get("name") == "Alice"
+
+
+# ---------------------------------------------------------------------------
+# Deeper: run_pipeline — confidence tracking, data flow, defaults
+# ---------------------------------------------------------------------------
+
+
+class TestRunPipelineDeeper:
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    @patch("app.core.pipeline_runner.load_pipeline")
+    async def test_default_confidence_threshold(self, mock_load_pipe, mock_skill, mock_ctx, mock_prompt):
+        """When confidence_threshold not in pipeline, defaults to 0.8."""
+        mock_load_pipe.return_value = {"steps": [{"skill": "s1"}]}
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {}, "duration_ms": 50}
+        cache = MagicMock()
+        cache.get.return_value = None
+        result = await run_pipeline("test", {}, None, "opus", pool, cache)
+        assert result["confidence_threshold"] == 0.8
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    @patch("app.core.pipeline_runner.load_pipeline")
+    async def test_min_confidence_tracked_across_steps(self, mock_load_pipe, mock_skill, mock_ctx, mock_prompt):
+        """Minimum confidence across multiple steps is returned."""
+        mock_load_pipe.return_value = {
+            "steps": [
+                {"skill": "s1", "confidence_field": "cs"},
+                {"skill": "s2", "confidence_field": "cs"},
+            ],
+            "confidence_threshold": 0.8,
+        }
+        pool = AsyncMock()
+        pool.submit.side_effect = [
+            {"result": {"cs": 0.95}, "duration_ms": 50},
+            {"result": {"cs": 0.6}, "duration_ms": 50},
+        ]
+        cache = MagicMock()
+        cache.get.return_value = None
+        result = await run_pipeline("test", {}, None, "opus", pool, cache)
+        assert result["confidence"] == 0.6
+        assert result["routing"] == "review"
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    @patch("app.core.pipeline_runner.load_pipeline")
+    async def test_condition_pass_runs_step(self, mock_load_pipe, mock_skill, mock_ctx, mock_prompt):
+        """Step runs when condition is met."""
+        mock_load_pipe.return_value = {
+            "steps": [
+                {"skill": "scorer"},
+                {"skill": "emailer", "condition": "score >= 50"},
+            ],
+        }
+        pool = AsyncMock()
+        pool.submit.side_effect = [
+            {"result": {"score": 80}, "duration_ms": 50},
+            {"result": {"email": "Hi"}, "duration_ms": 50},
+        ]
+        cache = MagicMock()
+        cache.get.return_value = None
+        result = await run_pipeline("test", {}, None, "opus", pool, cache)
+        assert len(result["steps"]) == 2
+        assert result["steps"][1]["success"] is True
+        assert result["skipped_steps"] == []
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    @patch("app.core.pipeline_runner.load_pipeline")
+    async def test_data_flows_through_sequential_steps(self, mock_load_pipe, mock_skill, mock_ctx, mock_prompt):
+        """Data from earlier steps available in later steps."""
+        mock_load_pipe.return_value = {
+            "steps": [{"skill": "s1"}, {"skill": "s2"}],
+        }
+        pool = AsyncMock()
+        pool.submit.side_effect = [
+            {"result": {"from_s1": True}, "duration_ms": 50},
+            {"result": {"from_s2": True}, "duration_ms": 50},
+        ]
+        cache = MagicMock()
+        cache.get.return_value = None
+        result = await run_pipeline("test", {"original": True}, None, "opus", pool, cache)
+        assert result["final_output"]["original"] is True
+        assert result["final_output"]["from_s1"] is True
+        assert result["final_output"]["from_s2"] is True
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    @patch("app.core.pipeline_runner.load_pipeline")
+    async def test_confidence_rounded_to_3_decimals(self, mock_load_pipe, mock_skill, mock_ctx, mock_prompt):
+        """Confidence value is rounded to 3 decimal places."""
+        mock_load_pipe.return_value = {
+            "steps": [{"skill": "s1", "confidence_field": "cs"}],
+        }
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {"cs": 0.33333333}, "duration_ms": 50}
+        cache = MagicMock()
+        cache.get.return_value = None
+        result = await run_pipeline("test", {}, None, "opus", pool, cache)
+        assert result["confidence"] == 0.333
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    @patch("app.core.pipeline_runner.load_pipeline")
+    async def test_cache_hit_updates_current_data(self, mock_load_pipe, mock_skill, mock_ctx, mock_prompt):
+        """Cached results are merged into current_data for subsequent steps."""
+        mock_load_pipe.return_value = {
+            "steps": [{"skill": "s1"}, {"skill": "s2"}],
+        }
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {"from_s2": True}, "duration_ms": 50}
+        cache = MagicMock()
+        cache.get.side_effect = [{"from_cache": True}, None]  # s1 cached, s2 not
+        result = await run_pipeline("test", {}, None, "opus", pool, cache)
+        assert result["final_output"]["from_cache"] is True
+        assert result["final_output"]["from_s2"] is True
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    @patch("app.core.pipeline_runner.load_pipeline")
+    async def test_no_confidence_field_defaults_to_1(self, mock_load_pipe, mock_skill, mock_ctx, mock_prompt):
+        """Steps without confidence_field contribute 1.0 to min_confidence."""
+        mock_load_pipe.return_value = {
+            "steps": [{"skill": "s1"}],  # no confidence_field
+        }
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {}, "duration_ms": 50}
+        cache = MagicMock()
+        cache.get.return_value = None
+        result = await run_pipeline("test", {}, None, "opus", pool, cache)
+        assert result["confidence"] == 1.0
+        assert result["routing"] == "auto"
+
+
+# ---------------------------------------------------------------------------
+# Deeper: _deep_merge — additional edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestDeepMergeDeeper:
+    def test_list_not_merged_replaced(self):
+        """Lists are replaced, not merged element-wise."""
+        base = {"items": [1, 2]}
+        overlay = {"items": [3, 4, 5]}
+        result = _deep_merge(base, overlay)
+        assert result["items"] == [3, 4, 5]
+
+    def test_none_value_overlay(self):
+        """None overlay value replaces existing."""
+        result = _deep_merge({"a": 1}, {"a": None})
+        assert result["a"] is None
+
+    def test_dict_to_non_dict_overlay(self):
+        """Non-dict overlay replaces dict base."""
+        result = _deep_merge({"a": {"nested": True}}, {"a": 42})
+        assert result["a"] == 42
+
+
+# ---------------------------------------------------------------------------
+# Deeper: run_pipeline_from_plan — with parallel and conditions
+# ---------------------------------------------------------------------------
+
+
+class TestRunPipelineFromPlanDeeper:
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_plan_with_parallel_step(self, mock_load, mock_ctx, mock_prompt):
+        """Pipeline from plan supports parallel steps."""
+        pool = AsyncMock()
+        pool.submit.side_effect = [
+            {"result": {"a": 1}, "duration_ms": 50, "prompt_chars": 10, "response_chars": 5},
+            {"result": {"b": 2}, "duration_ms": 60, "prompt_chars": 20, "response_chars": 10},
+        ]
+        cache = MagicMock()
+        cache.get.return_value = None
+        result = await run_pipeline_from_plan(
+            plan_name="plan",
+            steps=[{"parallel": [{"skill": "s1"}, {"skill": "s2"}]}],
+            data={}, instructions=None, model="opus", pool=pool, cache=cache,
+        )
+        assert len(result["steps"]) == 2
+        assert result["final_output"]["a"] == 1
+        assert result["final_output"]["b"] == 2
+
+    @patch("app.core.pipeline_runner.build_prompt", return_value="prompt")
+    @patch("app.core.pipeline_runner.load_context_files", return_value=[])
+    @patch("app.core.pipeline_runner.load_skill", return_value="# Skill")
+    async def test_plan_with_condition_skip(self, mock_load, mock_ctx, mock_prompt):
+        """Pipeline from plan supports conditional step skipping."""
+        pool = AsyncMock()
+        pool.submit.return_value = {"result": {"score": 30}, "duration_ms": 50}
+        cache = MagicMock()
+        cache.get.return_value = None
+        result = await run_pipeline_from_plan(
+            plan_name="plan",
+            steps=[
+                {"skill": "scorer"},
+                {"skill": "emailer", "condition": "score >= 50"},
+            ],
+            data={}, instructions=None, model="opus", pool=pool, cache=cache,
+        )
+        assert result["skipped_steps"] == ["emailer"]
+        assert result["steps"][1]["skipped"] is True

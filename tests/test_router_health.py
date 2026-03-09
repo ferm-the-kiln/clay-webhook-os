@@ -1248,3 +1248,348 @@ class TestCleanupFields:
         body = client.post("/cleanup").json()
         assert body["usage_compacted"] == [5, 100]
         assert body["timestamp"] == 2000.0
+
+
+# ---------------------------------------------------------------------------
+# GET /health — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestHealthDeeper:
+    @patch("app.routers.health.list_skills", return_value=["s1"])
+    def test_deep_false_no_deep_check(self, mock_skills):
+        """Default deep=false → no deep_check in response."""
+        app = _make_app()
+        client = TestClient(app)
+        body = client.get("/health").json()
+        assert "deep_check" not in body
+
+    @patch("app.routers.health.list_skills", return_value=[])
+    def test_timestamp_is_iso_format(self, mock_skills):
+        """timestamp is valid ISO 8601 format."""
+        from datetime import datetime
+        app = _make_app()
+        client = TestClient(app)
+        body = client.get("/health").json()
+        ts = body["timestamp"]
+        # Should parse without error
+        parsed = datetime.fromisoformat(ts)
+        assert parsed is not None
+
+    @patch("app.routers.health.list_skills", return_value=[])
+    def test_engine_field(self, mock_skills):
+        """Engine is always 'claude --print'."""
+        app = _make_app()
+        client = TestClient(app)
+        body = client.get("/health").json()
+        assert body["engine"] == "claude --print"
+
+    @patch("app.routers.health.list_skills", return_value=[])
+    def test_queue_total_from_state(self, mock_skills):
+        """queue_total comes from job_queue.total."""
+        queue = MagicMock(pending=5, total=42, is_paused=False)
+        queue.get_jobs.return_value = []
+        queue._jobs = {}
+        app = _make_app(job_queue=queue)
+        client = TestClient(app)
+        body = client.get("/health").json()
+        assert body["queue_total"] == 42
+
+    @patch("app.routers.health.list_skills", return_value=[])
+    def test_queue_paused_true(self, mock_skills):
+        """queue_paused=True when job_queue.is_paused is True."""
+        queue = MagicMock(pending=0, total=0, is_paused=True)
+        queue.get_jobs.return_value = []
+        queue._jobs = {}
+        app = _make_app(job_queue=queue)
+        client = TestClient(app)
+        body = client.get("/health").json()
+        assert body["queue_paused"] is True
+
+
+# ---------------------------------------------------------------------------
+# GET /stats — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestStatsDeeper:
+    @patch("app.routers.health.settings")
+    def test_cache_hit_rate_in_response(self, mock_settings):
+        """cache_hit_rate appears in stats response."""
+        mock_settings.max_subscription_monthly_usd = 200.0
+        queue = MagicMock(pending=0)
+        queue._jobs = {}
+        cache = MagicMock(size=10, hits=8, misses=2, hit_rate=0.8)
+        app = _make_app(job_queue=queue, cache=cache)
+        client = TestClient(app)
+        body = client.get("/stats").json()
+        assert body["cache_hit_rate"] == 0.8
+        assert body["cache_hits"] == 8
+        assert body["cache_misses"] == 2
+        assert body["cache_entries"] == 10
+
+    @patch("app.routers.health.settings")
+    def test_total_equivalent_usd_rounded(self, mock_settings):
+        """total_equivalent_usd is rounded to 6 decimal places."""
+        mock_settings.max_subscription_monthly_usd = 200.0
+        j1 = _mock_job(id="j1", status="completed", duration_ms=100, cost_est_usd=0.001234567)
+        j2 = _mock_job(id="j2", status="completed", duration_ms=50, cost_est_usd=0.002345678)
+        queue = MagicMock(pending=0)
+        queue._jobs = {"j1": j1, "j2": j2}
+        cache = MagicMock(size=0, hits=0, misses=0, hit_rate=0.0)
+        app = _make_app(job_queue=queue, cache=cache)
+        client = TestClient(app)
+        body = client.get("/stats").json()
+        # 0.001234567 + 0.002345678 = 0.003580245 → round to 6 = 0.003580 (rounded to 6 decimals)
+        total = body["cost"]["total_equivalent_usd"]
+        # Check it's rounded to at most 6 decimal places
+        assert total == round(0.001234567 + 0.002345678, 6)
+
+    @patch("app.routers.health.settings")
+    def test_queue_depth_in_stats(self, mock_settings):
+        """queue_depth reflects job_queue.pending."""
+        mock_settings.max_subscription_monthly_usd = 200.0
+        queue = MagicMock(pending=7)
+        queue._jobs = {}
+        app = _make_app(job_queue=queue)
+        client = TestClient(app)
+        body = client.get("/stats").json()
+        assert body["queue_depth"] == 7
+
+    @patch("app.routers.health.settings")
+    def test_stats_all_failed_no_avg_duration(self, mock_settings):
+        """All failed jobs → avg_duration_ms = 0."""
+        mock_settings.max_subscription_monthly_usd = 200.0
+        j1 = _mock_job(id="j1", status="failed", duration_ms=0)
+        j2 = _mock_job(id="j2", status="failed", duration_ms=0)
+        queue = MagicMock(pending=0)
+        queue._jobs = {"j1": j1, "j2": j2}
+        app = _make_app(job_queue=queue)
+        client = TestClient(app)
+        body = client.get("/stats").json()
+        assert body["avg_duration_ms"] == 0
+        assert body["total_completed"] == 0
+        assert body["total_failed"] == 2
+
+    @patch("app.routers.health.settings")
+    def test_stats_success_rate_rounding(self, mock_settings):
+        """Success rate is rounded to 3 decimal places."""
+        mock_settings.max_subscription_monthly_usd = 200.0
+        # 1 completed out of 3 = 0.333...
+        j1 = _mock_job(id="j1", status="completed", duration_ms=100)
+        j2 = _mock_job(id="j2", status="failed", duration_ms=0)
+        j3 = _mock_job(id="j3", status="failed", duration_ms=0)
+        queue = MagicMock(pending=0)
+        queue._jobs = {"j1": j1, "j2": j2, "j3": j3}
+        app = _make_app(job_queue=queue)
+        client = TestClient(app)
+        body = client.get("/stats").json()
+        assert body["success_rate"] == 0.333
+
+
+# ---------------------------------------------------------------------------
+# GET /outcomes — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestOutcomesDeeper:
+    def test_feedback_7d_called_with_days(self):
+        """feedback_store.get_analytics called with days=7."""
+        analytics = MagicMock()
+        analytics.overall_approval_rate = 0.9
+        analytics.by_skill = []
+        analytics.model_dump.return_value = {}
+        feedback_store = MagicMock()
+        feedback_store.get_analytics.return_value = analytics
+        app = _make_app(feedback_store=feedback_store)
+        client = TestClient(app)
+        client.get("/outcomes")
+        feedback_store.get_analytics.assert_called_once_with(days=7)
+
+    def test_review_queue_stats_in_response(self):
+        """review_queue stats dict appears raw in response."""
+        review_queue = MagicMock()
+        review_queue.get_stats.return_value = {"pending": 3, "approved": 10, "total": 13}
+        app = _make_app(review_queue=review_queue)
+        client = TestClient(app)
+        body = client.get("/outcomes").json()
+        assert body["review_queue"] == {"pending": 3, "approved": 10, "total": 13}
+
+    def test_audience_remaining_with_large_cursor(self):
+        """audience_remaining is max(0, len(audience) - cursor) — never negative."""
+        progress = MagicMock(total_sent=0, total_approved=0, total_processed=0, total_rejected=0)
+        progress.model_dump.return_value = {}
+        goal = MagicMock(target_count=10)
+        goal.model_dump.return_value = {}
+        campaign = MagicMock(
+            id="c1", name="Over", status="active", pipeline="p",
+            progress=progress, goal=goal,
+            audience=[1, 2, 3],  # len=3
+            audience_cursor=10,  # cursor > audience → remaining should be 0
+        )
+        campaign_store = MagicMock()
+        campaign_store.list_all.return_value = [campaign]
+        app = _make_app(campaign_store=campaign_store)
+        client = TestClient(app)
+        body = client.get("/outcomes").json()
+        assert body["campaigns"][0]["audience_remaining"] == 0
+
+    def test_audience_total_count(self):
+        """audience_total is len(audience)."""
+        progress = MagicMock(total_sent=0, total_approved=0, total_processed=0, total_rejected=0)
+        progress.model_dump.return_value = {}
+        goal = MagicMock(target_count=50)
+        goal.model_dump.return_value = {}
+        audience_list = [{"id": i} for i in range(25)]
+        campaign = MagicMock(
+            id="c1", name="Test", status="active", pipeline="p",
+            progress=progress, goal=goal,
+            audience=audience_list, audience_cursor=5,
+        )
+        campaign_store = MagicMock()
+        campaign_store.list_all.return_value = [campaign]
+        app = _make_app(campaign_store=campaign_store)
+        client = TestClient(app)
+        body = client.get("/outcomes").json()
+        assert body["campaigns"][0]["audience_total"] == 25
+        assert body["campaigns"][0]["audience_remaining"] == 20
+
+    def test_review_pending_at_10_no_recommendation(self):
+        """Exactly 10 pending reviews does NOT trigger recommendation (> 10 needed)."""
+        review_queue = MagicMock()
+        review_queue.get_stats.return_value = {"pending": 10, "total": 10}
+        app = _make_app(review_queue=review_queue)
+        client = TestClient(app)
+        body = client.get("/outcomes").json()
+        assert not any("review" in r["message"].lower() for r in body["recommendations"])
+
+    def test_review_pending_11_triggers_recommendation(self):
+        """11 pending reviews triggers the review recommendation."""
+        review_queue = MagicMock()
+        review_queue.get_stats.return_value = {"pending": 11, "total": 15}
+        app = _make_app(review_queue=review_queue)
+        client = TestClient(app)
+        body = client.get("/outcomes").json()
+        assert any("11 items" in r["message"] for r in body["recommendations"])
+
+    def test_overall_approval_zero_no_quality_recommendation(self):
+        """overall_approval_rate=0 does NOT trigger quality recommendation (condition: > 0 AND < 0.8)."""
+        analytics = MagicMock()
+        analytics.overall_approval_rate = 0.0
+        analytics.by_skill = []
+        analytics.model_dump.return_value = {}
+        feedback_store = MagicMock()
+        feedback_store.get_analytics.return_value = analytics
+        app = _make_app(feedback_store=feedback_store)
+        client = TestClient(app)
+        body = client.get("/outcomes").json()
+        # 0 is NOT > 0, so condition fails
+        assert not any(r["type"] == "quality" for r in body["recommendations"])
+
+    def test_campaign_pipeline_in_response(self):
+        """Campaign pipeline field appears in response."""
+        progress = MagicMock(total_sent=0, total_approved=0, total_processed=0, total_rejected=0)
+        progress.model_dump.return_value = {}
+        goal = MagicMock(target_count=10)
+        goal.model_dump.return_value = {}
+        campaign = MagicMock(
+            id="c1", name="Test", status="active", pipeline="full-outbound-v2",
+            progress=progress, goal=goal, audience=[], audience_cursor=0,
+        )
+        campaign_store = MagicMock()
+        campaign_store.list_all.return_value = [campaign]
+        app = _make_app(campaign_store=campaign_store)
+        client = TestClient(app)
+        body = client.get("/outcomes").json()
+        assert body["campaigns"][0]["pipeline"] == "full-outbound-v2"
+
+
+# ---------------------------------------------------------------------------
+# GET /subscription — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestSubscriptionDeeper:
+    def test_subscription_health_merged(self):
+        """Usage store health dict is merged into subscription response."""
+        sub = MagicMock()
+        sub.get_status.return_value = {"paused": False, "limit_reached": False}
+        usage = MagicMock()
+        usage.get_health.return_value = {
+            "status": "warning", "today_requests": 100, "today_tokens": 50000, "today_errors": 3,
+        }
+        app = _make_app(subscription_monitor=sub, usage_store=usage)
+        client = TestClient(app)
+        body = client.get("/subscription").json()
+        assert body["paused"] is False
+        assert body["health"]["status"] == "warning"
+        assert body["health"]["today_errors"] == 3
+
+
+# ---------------------------------------------------------------------------
+# GET /jobs/stream — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestJobStreamDeeper:
+    @pytest.mark.asyncio
+    async def test_stream_subscribes_to_event_bus(self):
+        """job_stream subscribes to event_bus on call."""
+        from app.routers.health import job_stream
+        mock_request = MagicMock()
+        q = asyncio.Queue()
+        mock_request.app.state.event_bus.subscribe.return_value = q
+        await job_stream(mock_request)
+        mock_request.app.state.event_bus.subscribe.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_stream_connection_header(self):
+        """SSE response has Connection: keep-alive."""
+        from app.routers.health import job_stream
+        mock_request = MagicMock()
+        q = asyncio.Queue()
+        mock_request.app.state.event_bus.subscribe.return_value = q
+        resp = await job_stream(mock_request)
+        assert resp.headers["Connection"] == "keep-alive"
+
+
+# ---------------------------------------------------------------------------
+# POST /cleanup — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestCleanupDeeper:
+    def test_cleanup_all_fields_present(self):
+        """Verify every field in cleanup response."""
+        report = MagicMock()
+        report.timestamp = 3000.0
+        report.cache_evicted = 12
+        report.jobs_pruned = 8
+        report.usage_compacted = (2, 40)
+        report.feedback_archived = 5
+        report.review_archived = 3
+        report.duration_ms = 77
+        cleanup = AsyncMock()
+        cleanup.run_once.return_value = report
+        app = _make_app(cleanup_worker=cleanup)
+        client = TestClient(app)
+        body = client.post("/cleanup").json()
+        assert body == {
+            "ok": True,
+            "timestamp": 3000.0,
+            "cache_evicted": 12,
+            "jobs_pruned": 8,
+            "usage_compacted": [2, 40],
+            "feedback_archived": 5,
+            "review_archived": 3,
+            "duration_ms": 77,
+        }
+
+    def test_cleanup_not_available_error_message(self):
+        """Error message says cleanup worker not available."""
+        app = _make_app()
+        if hasattr(app.state, "cleanup_worker"):
+            delattr(app.state, "cleanup_worker")
+        client = TestClient(app)
+        body = client.post("/cleanup").json()
+        assert body["error_message"] == "Cleanup worker not available"

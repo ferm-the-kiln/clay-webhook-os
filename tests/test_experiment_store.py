@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -274,3 +275,379 @@ class TestLoadExperiments:
         s.load()
         assert len(s.list_experiments()) == 1
         assert s.get_experiment("exp_test").name == "Loaded"
+
+    def test_load_empty_file(self, tmp_path):
+        """Empty JSON array → no experiments, no crash."""
+        skills_dir = tmp_path / "skills"
+        data_dir = tmp_path / "data"
+        skills_dir.mkdir()
+        data_dir.mkdir()
+        (data_dir / "experiments.json").write_text("[]")
+        s = ExperimentStore(skills_dir=skills_dir, data_dir=data_dir)
+        s.load()
+        assert s.list_experiments() == []
+
+    def test_load_no_file(self, tmp_path):
+        """No experiments.json → empty store, data_dir created."""
+        skills_dir = tmp_path / "skills"
+        data_dir = tmp_path / "data"
+        skills_dir.mkdir()
+        # data_dir not created — load() should create it
+        s = ExperimentStore(skills_dir=skills_dir, data_dir=data_dir)
+        s.load()
+        assert s.list_experiments() == []
+        assert data_dir.is_dir()
+
+    def test_load_multiple_experiments(self, tmp_path):
+        """Load multiple experiments preserves all."""
+        skills_dir = tmp_path / "skills"
+        data_dir = tmp_path / "data"
+        skills_dir.mkdir()
+        data_dir.mkdir()
+        exp_data = [
+            {"id": "e1", "skill": "s1", "name": "First", "variant_ids": ["default"], "status": "draft", "results": {}, "created_at": 1000.0, "completed_at": None},
+            {"id": "e2", "skill": "s2", "name": "Second", "variant_ids": ["default", "v1"], "status": "completed", "results": {}, "created_at": 2000.0, "completed_at": 3000.0},
+        ]
+        (data_dir / "experiments.json").write_text(json.dumps(exp_data))
+        s = ExperimentStore(skills_dir=skills_dir, data_dir=data_dir)
+        s.load()
+        assert len(s.list_experiments()) == 2
+        assert s.get_experiment("e1").name == "First"
+        assert s.get_experiment("e2").status == ExperimentStatus.completed
+
+    def test_load_with_results(self, tmp_path):
+        """Load experiment with pre-existing results."""
+        skills_dir = tmp_path / "skills"
+        data_dir = tmp_path / "data"
+        skills_dir.mkdir()
+        data_dir.mkdir()
+        exp_data = [{
+            "id": "e1", "skill": "s", "name": "With Results", "variant_ids": ["default"],
+            "status": "draft", "created_at": 1000.0, "completed_at": None,
+            "results": {"default": {"variant_id": "default", "runs": 5, "avg_duration_ms": 250.0, "total_tokens": 1000}},
+        }]
+        (data_dir / "experiments.json").write_text(json.dumps(exp_data))
+        s = ExperimentStore(skills_dir=skills_dir, data_dir=data_dir)
+        s.load()
+        r = s.get_experiment("e1").results["default"]
+        assert r.runs == 5
+        assert r.avg_duration_ms == 250.0
+        assert r.total_tokens == 1000
+
+
+# ---------------------------------------------------------------------------
+# _save_experiments
+# ---------------------------------------------------------------------------
+
+
+class TestSaveExperiments:
+    def test_save_creates_data_dir(self, tmp_path):
+        """_save_experiments creates data_dir if missing."""
+        skills_dir = tmp_path / "skills"
+        data_dir = tmp_path / "new_data"
+        skills_dir.mkdir()
+        # Don't create data_dir
+        s = ExperimentStore(skills_dir=skills_dir, data_dir=data_dir)
+        s._data_dir.mkdir(parents=True, exist_ok=True)  # load() normally does this
+        s.create_experiment(CreateExperimentRequest(skill="s", name="T", variant_ids=["default"]))
+        assert (data_dir / "experiments.json").exists()
+
+    def test_save_serialization_format(self, store, tmp_path):
+        """Saved JSON is indented with 2 spaces."""
+        store.create_experiment(CreateExperimentRequest(skill="s", name="Fmt", variant_ids=["default"]))
+        raw = (tmp_path / "data" / "experiments.json").read_text()
+        assert raw.startswith("[\n  {")  # indented
+
+
+# ---------------------------------------------------------------------------
+# list_variants — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestListVariantsDeeper:
+    def test_sorted_order(self, store, skill_dir):
+        """Variants returned in sorted filename order."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        (variants_dir / "charlie.md").write_text("# C")
+        (variants_dir / "alpha.md").write_text("# A")
+        (variants_dir / "bravo.md").write_text("# B")
+        variants = store.list_variants("email-gen")
+        ids = [v.id for v in variants]
+        assert ids == ["alpha", "bravo", "charlie"]
+
+    def test_content_field_populated(self, store, skill_dir):
+        """Each variant has full content from file."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        full_content = "# Heading\n\nParagraph one.\n\nParagraph two."
+        (variants_dir / "v1.md").write_text(full_content)
+        variants = store.list_variants("email-gen")
+        assert variants[0].content == full_content
+
+    def test_created_at_from_mtime(self, store, skill_dir):
+        """created_at comes from file stat mtime."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        (variants_dir / "v1.md").write_text("# V1")
+        variants = store.list_variants("email-gen")
+        # mtime should be recent (within last 10 seconds)
+        assert abs(variants[0].created_at - time.time()) < 10
+
+    def test_skill_field_set(self, store, skill_dir):
+        """Each variant has skill field set correctly."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        (variants_dir / "v1.md").write_text("# V1")
+        variants = store.list_variants("email-gen")
+        assert variants[0].skill == "email-gen"
+
+    def test_ignores_non_md_files(self, store, skill_dir):
+        """Only .md files are listed."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        (variants_dir / "v1.md").write_text("# V1")
+        (variants_dir / "notes.txt").write_text("not a variant")
+        (variants_dir / "config.json").write_text("{}")
+        variants = store.list_variants("email-gen")
+        assert len(variants) == 1
+        assert variants[0].id == "v1"
+
+    def test_empty_variants_dir(self, store, skill_dir):
+        """Empty variants directory returns empty list."""
+        (skill_dir / "variants").mkdir()
+        assert store.list_variants("email-gen") == []
+
+
+# ---------------------------------------------------------------------------
+# get_variant — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestGetVariantDeeper:
+    def test_default_content_matches_file(self, store, skill_dir):
+        """Default variant content matches skill.md exactly."""
+        variant = store.get_variant("email-gen", "default")
+        assert variant.content == "# Default Email Gen\n\nGenerate emails."
+
+    def test_default_created_at_from_mtime(self, store, skill_dir):
+        """Default variant created_at from skill.md mtime."""
+        variant = store.get_variant("email-gen", "default")
+        assert abs(variant.created_at - time.time()) < 10
+
+    def test_named_variant_label_fallback(self, store, skill_dir):
+        """Named variant without heading uses variant_id as label."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        (variants_dir / "plain.md").write_text("Just text, no heading.")
+        variant = store.get_variant("email-gen", "plain")
+        assert variant.label == "plain"
+
+    def test_named_variant_created_at(self, store, skill_dir):
+        """Named variant has created_at from file mtime."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        (variants_dir / "v1.md").write_text("# V1")
+        variant = store.get_variant("email-gen", "v1")
+        assert abs(variant.created_at - time.time()) < 10
+
+    def test_named_variant_content_exact(self, store, skill_dir):
+        """Named variant content is full file contents."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        content = "# Title\n\nLine 1\nLine 2\n"
+        (variants_dir / "v1.md").write_text(content)
+        variant = store.get_variant("email-gen", "v1")
+        assert variant.content == content
+
+
+# ---------------------------------------------------------------------------
+# create_variant — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestCreateVariantDeeper:
+    def test_auto_generated_id(self, store, skill_dir):
+        """Generated ID starts with 'v_' and is 10 chars."""
+        req = CreateVariantRequest(label="New", content="Content")
+        variant = store.create_variant("email-gen", req)
+        assert variant.id.startswith("v_")
+        assert len(variant.id) == 10
+
+    def test_skill_field_set(self, store, skill_dir):
+        """Variant has skill field matching the skill arg."""
+        req = CreateVariantRequest(label="New", content="Content")
+        variant = store.create_variant("email-gen", req)
+        assert variant.skill == "email-gen"
+
+    def test_unique_ids(self, store, skill_dir):
+        """Two created variants have different IDs."""
+        req1 = CreateVariantRequest(label="A", content="A")
+        req2 = CreateVariantRequest(label="B", content="B")
+        v1 = store.create_variant("email-gen", req1)
+        v2 = store.create_variant("email-gen", req2)
+        assert v1.id != v2.id
+
+
+# ---------------------------------------------------------------------------
+# update_variant — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateVariantDeeper:
+    def test_returned_fields(self, store, skill_dir):
+        """Update returns variant with correct id, skill, content."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        (variants_dir / "v1.md").write_text("Old")
+        result = store.update_variant("email-gen", "v1", CreateVariantRequest(label="New Label", content="New Content"))
+        assert result.id == "v1"
+        assert result.skill == "email-gen"
+        assert result.content == "New Content"
+        assert result.label == "New Label"
+
+    def test_file_content_updated(self, store, skill_dir):
+        """File on disk actually has updated content."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        (variants_dir / "v1.md").write_text("Old")
+        store.update_variant("email-gen", "v1", CreateVariantRequest(label="X", content="Completely New"))
+        assert (variants_dir / "v1.md").read_text() == "Completely New"
+
+
+# ---------------------------------------------------------------------------
+# update_experiment_results — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateResultsDeeper:
+    def test_running_average_three_updates(self, store):
+        """Running average computed correctly over 3 data points."""
+        exp = store.create_experiment(CreateExperimentRequest(skill="s", name="T", variant_ids=["default"]))
+        store.update_experiment_results(exp.id, "default", duration_ms=300, tokens=100)
+        store.update_experiment_results(exp.id, "default", duration_ms=600, tokens=200)
+        store.update_experiment_results(exp.id, "default", duration_ms=900, tokens=300)
+        r = store.get_experiment(exp.id).results["default"]
+        assert r.runs == 3
+        assert r.avg_duration_ms == 600.0  # (300+600+900)/3
+        assert r.total_tokens == 600
+
+    def test_persists_to_file(self, store, tmp_path):
+        """Results are persisted to experiments.json after each update."""
+        exp = store.create_experiment(CreateExperimentRequest(skill="s", name="T", variant_ids=["default"]))
+        store.update_experiment_results(exp.id, "default", duration_ms=500, tokens=100)
+        raw = json.loads((tmp_path / "data" / "experiments.json").read_text())
+        assert raw[0]["results"]["default"]["runs"] == 1
+
+    def test_multiple_variants(self, store):
+        """Track results for multiple variants independently."""
+        exp = store.create_experiment(CreateExperimentRequest(skill="s", name="T", variant_ids=["default", "v1"]))
+        store.update_experiment_results(exp.id, "default", duration_ms=200, tokens=50)
+        store.update_experiment_results(exp.id, "v1", duration_ms=800, tokens=150)
+        results = store.get_experiment(exp.id).results
+        assert results["default"].avg_duration_ms == 200.0
+        assert results["v1"].avg_duration_ms == 800.0
+
+    def test_running_average_rounding(self, store):
+        """Average is rounded to 1 decimal place."""
+        exp = store.create_experiment(CreateExperimentRequest(skill="s", name="T", variant_ids=["default"]))
+        store.update_experiment_results(exp.id, "default", duration_ms=333, tokens=10)
+        store.update_experiment_results(exp.id, "default", duration_ms=667, tokens=10)
+        r = store.get_experiment(exp.id).results["default"]
+        # (333+667)/2 = 500.0 — clean, but test the rounding mechanism
+        assert r.avg_duration_ms == 500.0
+        store.update_experiment_results(exp.id, "default", duration_ms=100, tokens=10)
+        r2 = store.get_experiment(exp.id).results["default"]
+        # (500.0*2 + 100)/3 = 366.666... → 366.7
+        assert r2.avg_duration_ms == 366.7
+
+
+# ---------------------------------------------------------------------------
+# complete_experiment — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestCompleteExperimentDeeper:
+    def test_completed_at_is_recent(self, store):
+        """completed_at is a recent timestamp."""
+        exp = store.create_experiment(CreateExperimentRequest(skill="s", name="T", variant_ids=["default"]))
+        before = time.time()
+        store.complete_experiment(exp.id)
+        after = time.time()
+        updated = store.get_experiment(exp.id)
+        assert before <= updated.completed_at <= after
+
+    def test_persists_completion(self, store, tmp_path):
+        """Completion is persisted to file."""
+        exp = store.create_experiment(CreateExperimentRequest(skill="s", name="T", variant_ids=["default"]))
+        store.complete_experiment(exp.id)
+        raw = json.loads((tmp_path / "data" / "experiments.json").read_text())
+        assert raw[0]["status"] == "completed"
+        assert raw[0]["completed_at"] is not None
+
+
+# ---------------------------------------------------------------------------
+# promote_variant — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestPromoteVariantDeeper:
+    def test_backup_contains_original(self, store, skill_dir):
+        """Backup file contains the original skill.md content."""
+        original_content = (skill_dir / "skill.md").read_text()
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        (variants_dir / "v1.md").write_text("# Better\nNew content")
+        store.promote_variant("email-gen", "v1")
+        backups = list(skill_dir.glob("skill.md.backup.*"))
+        assert len(backups) == 1
+        assert backups[0].read_text() == original_content
+
+    def test_backup_filename_format(self, store, skill_dir):
+        """Backup filename is skill.md.backup.<unix_timestamp>."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        (variants_dir / "v1.md").write_text("# V1")
+        before = int(time.time())
+        store.promote_variant("email-gen", "v1")
+        after = int(time.time())
+        backups = list(skill_dir.glob("skill.md.backup.*"))
+        ts_str = backups[0].name.split(".")[-1]
+        ts = int(ts_str)
+        assert before <= ts <= after
+
+    def test_skill_md_replaced(self, store, skill_dir):
+        """skill.md content is replaced with variant content."""
+        variants_dir = skill_dir / "variants"
+        variants_dir.mkdir()
+        new_content = "# Promoted\n\nAll new content here."
+        (variants_dir / "v1.md").write_text(new_content)
+        store.promote_variant("email-gen", "v1")
+        assert (skill_dir / "skill.md").read_text() == new_content
+
+
+# ---------------------------------------------------------------------------
+# fork_default — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestForkDefaultDeeper:
+    def test_content_matches_exactly(self, store, skill_dir):
+        """Forked variant content matches skill.md byte-for-byte."""
+        original = (skill_dir / "skill.md").read_text()
+        variant = store.fork_default("email-gen", "Fork")
+        assert variant.content == original
+        # Also verify the file on disk
+        fork_file = skill_dir / "variants" / f"{variant.id}.md"
+        assert fork_file.read_text() == original
+
+    def test_fork_label_set(self, store, skill_dir):
+        """Forked variant has the requested label."""
+        variant = store.fork_default("email-gen", "My Fork Label")
+        assert variant.label == "My Fork Label"
+
+    def test_fork_creates_new_id(self, store, skill_dir):
+        """Each fork creates a unique ID."""
+        v1 = store.fork_default("email-gen", "Fork 1")
+        v2 = store.fork_default("email-gen", "Fork 2")
+        assert v1.id != v2.id

@@ -33,7 +33,7 @@ export function CampaignProgress({ campaigns }: CampaignProgressProps) {
         icon={Megaphone}
       >
         <Link
-          href="/campaigns"
+          href="/outbound/campaigns"
           className="inline-flex items-center gap-1.5 text-xs text-kiln-teal hover:text-kiln-teal-light transition-colors"
         >
           Go to Campaigns

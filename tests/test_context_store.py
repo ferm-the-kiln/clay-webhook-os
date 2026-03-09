@@ -865,3 +865,361 @@ class TestCreateKnowledgeEdges:
     def test_create_filename_slash_blocked(self, store):
         with pytest.raises(ValueError, match="Invalid path"):
             store.create_knowledge_file("cat", "sub/file.md", "X")
+
+
+# ---------------------------------------------------------------------------
+# Deeper: list_knowledge_base — nested, multi-category, content
+# ---------------------------------------------------------------------------
+
+
+class TestListKnowledgeBaseDeeper:
+    def test_deeply_nested_files(self, store, tmp_path):
+        """Files in subdirectories use the first directory as category."""
+        nested = tmp_path / "knowledge_base" / "frameworks" / "sub"
+        nested.mkdir(parents=True)
+        (nested / "deep.md").write_text("# Deep")
+        files = store.list_knowledge_base()
+        assert len(files) == 1
+        assert files[0].category == "frameworks"
+        assert files[0].path == "frameworks/sub/deep.md"
+
+    def test_multiple_categories_sorted(self, store, tmp_path):
+        """Files from multiple categories returned sorted by path."""
+        for cat in ("voice", "frameworks", "industries"):
+            d = tmp_path / "knowledge_base" / cat
+            d.mkdir()
+            (d / "file.md").write_text(f"# {cat}")
+        files = store.list_knowledge_base()
+        assert len(files) == 3
+        cats = [f.category for f in files]
+        assert cats == ["frameworks", "industries", "voice"]
+
+    def test_content_preserved(self, store, tmp_path):
+        """File content is fully readable from listing."""
+        d = tmp_path / "knowledge_base" / "voice"
+        d.mkdir()
+        (d / "style.md").write_text("Be concise.\nNo fluff.")
+        files = store.list_knowledge_base()
+        assert files[0].content == "Be concise.\nNo fluff."
+
+    def test_non_md_files_ignored(self, store, tmp_path):
+        """Only .md files appear in listing."""
+        d = tmp_path / "knowledge_base" / "misc"
+        d.mkdir()
+        (d / "notes.md").write_text("# Notes")
+        (d / "data.json").write_text("{}")
+        (d / "readme.txt").write_text("hi")
+        files = store.list_knowledge_base()
+        assert len(files) == 1
+        assert files[0].name == "notes"
+
+
+# ---------------------------------------------------------------------------
+# Deeper: get_knowledge_file — return fields
+# ---------------------------------------------------------------------------
+
+
+class TestGetKnowledgeFileDeeper:
+    def test_returned_fields(self, store, tmp_path):
+        """All fields of KnowledgeBaseFile are correctly set."""
+        d = tmp_path / "knowledge_base" / "frameworks"
+        d.mkdir()
+        (d / "bant.md").write_text("# BANT Framework")
+        f = store.get_knowledge_file("frameworks", "bant.md")
+        assert f.path == "frameworks/bant.md"
+        assert f.category == "frameworks"
+        assert f.name == "bant"
+        assert f.content == "# BANT Framework"
+
+    def test_dotted_filename_stem(self, store, tmp_path):
+        """Stem handles filenames with dots correctly."""
+        d = tmp_path / "knowledge_base" / "voice"
+        d.mkdir()
+        (d / "v2.0.md").write_text("Version 2")
+        f = store.get_knowledge_file("voice", "v2.0.md")
+        assert f.name == "v2.0"
+
+
+# ---------------------------------------------------------------------------
+# Deeper: update_knowledge_file — return fields
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateKnowledgeFileDeeper:
+    def test_returned_fields(self, store, tmp_path):
+        """update returns a complete KnowledgeBaseFile."""
+        d = tmp_path / "knowledge_base" / "voice"
+        d.mkdir()
+        (d / "style.md").write_text("Old")
+        result = store.update_knowledge_file("voice", "style.md", "New content here")
+        assert result.path == "voice/style.md"
+        assert result.category == "voice"
+        assert result.name == "style"
+        assert result.content == "New content here"
+
+
+# ---------------------------------------------------------------------------
+# Deeper: list_categories — only dirs, not files
+# ---------------------------------------------------------------------------
+
+
+class TestListCategoriesDeeper:
+    def test_ignores_files(self, store, tmp_path):
+        """Root files in knowledge_base are not listed as categories."""
+        (tmp_path / "knowledge_base" / "root.md").write_text("# Root")
+        (tmp_path / "knowledge_base" / "frameworks").mkdir()
+        cats = store.list_categories()
+        assert cats == ["frameworks"]
+
+    def test_multiple_sorted(self, store, tmp_path):
+        """Categories are sorted alphabetically."""
+        for name in ("voice", "frameworks", "industries"):
+            (tmp_path / "knowledge_base" / name).mkdir()
+        cats = store.list_categories()
+        assert cats == ["frameworks", "industries", "voice"]
+
+
+# ---------------------------------------------------------------------------
+# Deeper: get_client — preference and raw_markdown
+# ---------------------------------------------------------------------------
+
+
+class TestGetClientDeeper:
+    def test_structured_preferred_over_flat(self, store, tmp_path):
+        """When both structured dir and flat file exist, structured wins."""
+        d = tmp_path / "clients" / "both"
+        d.mkdir()
+        (d / "profile.md").write_text("# Structured Version\n")
+        (tmp_path / "clients" / "both.md").write_text("# Flat Version\n")
+        client = store.get_client("both")
+        assert client.name == "Structured Version"
+
+    def test_raw_markdown_set_on_get(self, store_with_client):
+        """raw_markdown field is populated from loaded content."""
+        client = store_with_client.get_client("acme")
+        assert client.raw_markdown is not None
+        assert "# Acme Corp" in client.raw_markdown
+
+    def test_company_size_parsed(self, store_with_client):
+        """Company size is extracted from bullet."""
+        client = store_with_client.get_client("acme")
+        assert client.company.size == "50-200"
+
+
+# ---------------------------------------------------------------------------
+# Deeper: create_client — directory creation, field persistence
+# ---------------------------------------------------------------------------
+
+
+class TestCreateClientDeeper:
+    def test_creates_parent_dir(self, store, tmp_path):
+        """create_client creates the client directory if not exists."""
+        req = CreateClientRequest(
+            slug="brand-new",
+            name="Brand New Co",
+            company=CompanyInfo(domain="new.co"),
+        )
+        store.create_client(req)
+        assert (tmp_path / "clients" / "brand-new" / "profile.md").exists()
+
+    def test_all_optional_fields_in_file(self, store, tmp_path):
+        """All optional sections appear in the written markdown."""
+        req = CreateClientRequest(
+            slug="full",
+            name="Full Co",
+            company=CompanyInfo(domain="full.co", industry="AI", hq="NYC", founded="2020"),
+            what_they_sell="Products",
+            icp="CTOs",
+            competitive_landscape="Crowded",
+            recent_news="IPO",
+            value_proposition="Best",
+            tone=TonePreferences(formality="Formal", approach="Direct", avoid="Jargon"),
+            campaign_angles="Angle 1",
+            notes="Note 1",
+            personas="CTO",
+            battle_cards="Card 1",
+            signal_playbook="Play 1",
+            proven_responses="Response 1",
+            active_campaigns="Campaign 1",
+        )
+        profile = store.create_client(req)
+        md = (tmp_path / "clients" / "full" / "profile.md").read_text()
+        for section in [
+            "## What They Sell", "## Target ICP", "## Competitive Landscape",
+            "## Recent News", "## Value Proposition", "## Tone Preferences",
+            "## Campaign Angles", "## Notes", "## Personas", "## Battle Cards",
+            "## Signal Playbook", "## Proven Responses", "## Active Campaigns",
+        ]:
+            assert section in md
+
+    def test_minimal_client_file(self, store, tmp_path):
+        """Minimal client only has Company and Tone sections."""
+        req = CreateClientRequest(
+            slug="minimal",
+            name="Minimal",
+            company=CompanyInfo(),
+        )
+        store.create_client(req)
+        md = (tmp_path / "clients" / "minimal" / "profile.md").read_text()
+        assert "## Company" in md
+        assert "## Tone Preferences" in md
+        assert "## What They Sell" not in md
+
+
+# ---------------------------------------------------------------------------
+# Deeper: update_client — field-level updates
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateClientDeeper:
+    def test_update_icp(self, store_with_client):
+        """Updating icp preserves other fields."""
+        updated = store_with_client.update_client(
+            "acme", UpdateClientRequest(icp="New ICP target")
+        )
+        assert "New ICP target" in updated.icp
+        assert updated.company.domain == "acme.com"
+
+    def test_update_persists_to_file(self, store_with_client, tmp_path):
+        """Updated content is written to disk."""
+        store_with_client.update_client(
+            "acme", UpdateClientRequest(notes="Important note")
+        )
+        content = (tmp_path / "clients" / "acme" / "profile.md").read_text()
+        assert "Important note" in content
+
+    def test_update_creates_structured_dir(self, store, tmp_path):
+        """Updating a flat-file client creates a structured directory."""
+        (tmp_path / "clients" / "flat.md").write_text("# Flat Co\n\n## Company\n")
+        updated = store.update_client("flat", UpdateClientRequest(notes="Upgraded"))
+        assert updated is not None
+        assert (tmp_path / "clients" / "flat" / "profile.md").exists()
+
+
+# ---------------------------------------------------------------------------
+# Deeper: _parse_client_markdown — slug formats
+# ---------------------------------------------------------------------------
+
+
+class TestParseClientSlugFormats:
+    def test_multi_hyphen_slug(self, store):
+        """Multi-hyphen slug converts to title case properly."""
+        profile = store._parse_client_markdown("my-big-company", "No h1")
+        assert profile.name == "My Big Company"
+
+    def test_single_word_slug(self, store):
+        """Single word slug gets title-cased."""
+        profile = store._parse_client_markdown("acme", "No heading")
+        assert profile.name == "Acme"
+
+    def test_h1_with_extra_spaces(self, store):
+        """H1 with extra whitespace gets stripped."""
+        profile = store._parse_client_markdown("test", "#   Spaced Name   \n")
+        assert profile.name == "Spaced Name"
+
+    def test_empty_sections_default_to_empty_string(self, store):
+        """All optional text fields default to empty string when missing."""
+        profile = store._parse_client_markdown("x", "# X\n")
+        assert profile.what_they_sell == ""
+        assert profile.icp == ""
+        assert profile.competitive_landscape == ""
+        assert profile.recent_news == ""
+        assert profile.value_proposition == ""
+        assert profile.campaign_angles == ""
+        assert profile.notes == ""
+        assert profile.personas == ""
+        assert profile.battle_cards == ""
+        assert profile.signal_playbook == ""
+        assert profile.proven_responses == ""
+        assert profile.active_campaigns == ""
+
+
+# ---------------------------------------------------------------------------
+# Deeper: get_context_usage_map — multiple refs, defaults non-md
+# ---------------------------------------------------------------------------
+
+
+class TestContextUsageMapDeeper:
+    @patch("app.core.context_store.load_skill_config", return_value={
+        "context": ["kb/a.md", "kb/b.md", "kb/c.md"]
+    })
+    @patch("app.core.context_store.list_skills", return_value=["multi-ref"])
+    def test_multiple_refs_per_skill(self, mock_ls, mock_cfg, store):
+        """A skill with multiple context refs creates entries for each."""
+        usage = store.get_context_usage_map()
+        assert len(usage) == 3
+        for key in ["kb/a.md", "kb/b.md", "kb/c.md"]:
+            assert "multi-ref" in usage[key]
+
+    @patch("app.core.context_store.load_skill_config", return_value={"context": []})
+    @patch("app.core.context_store.load_skill", return_value="# Skill")
+    @patch("app.core.context_store.parse_context_refs", return_value=[])
+    @patch("app.core.context_store.list_skills", return_value=["s1"])
+    def test_defaults_ignores_non_md(self, mock_ls, mock_refs, mock_load, mock_cfg, store, tmp_path):
+        """Non-.md files in _defaults are not included."""
+        defaults = tmp_path / "knowledge_base" / "_defaults"
+        defaults.mkdir()
+        (defaults / "system.md").write_text("System")
+        (defaults / "data.json").write_text("{}")
+        usage = store.get_context_usage_map()
+        assert "knowledge_base/_defaults/system.md" in usage
+        assert all("data.json" not in k for k in usage)
+
+    @patch("app.core.context_store.load_skill_config", return_value={"context": []})
+    @patch("app.core.context_store.load_skill", return_value="# Skill")
+    @patch("app.core.context_store.parse_context_refs", return_value=[])
+    @patch("app.core.context_store.list_skills", return_value=["s1", "s2", "s3"])
+    def test_defaults_assigned_to_all_skills(self, mock_ls, mock_refs, mock_load, mock_cfg, store, tmp_path):
+        """Default files are assigned to every skill."""
+        defaults = tmp_path / "knowledge_base" / "_defaults"
+        defaults.mkdir()
+        (defaults / "base.md").write_text("Base")
+        usage = store.get_context_usage_map()
+        assert set(usage["knowledge_base/_defaults/base.md"]) == {"s1", "s2", "s3"}
+
+
+# ---------------------------------------------------------------------------
+# Deeper: preview_prompt — args verification
+# ---------------------------------------------------------------------------
+
+
+class TestPreviewPromptDeeper:
+    @patch("app.core.context_store.build_prompt", return_value="Prompt")
+    @patch("app.core.context_store.load_context_files", return_value=[])
+    @patch("app.core.context_store.load_skill", return_value="# Email Skill")
+    def test_load_context_files_receives_skill_name(self, mock_load, mock_ctx, mock_build):
+        """load_context_files is called with skill_name kwarg."""
+        store = ContextStore(
+            clients_dir=Path("/tmp/c"),
+            knowledge_dir=Path("/tmp/kb"),
+            skills_dir=Path("/tmp/sk"),
+        )
+        store.preview_prompt("email-gen", "acme")
+        _, kwargs = mock_ctx.call_args
+        assert kwargs.get("skill_name") == "email-gen"
+
+    @patch("app.core.context_store.build_prompt", return_value="")
+    @patch("app.core.context_store.load_context_files", return_value=[])
+    @patch("app.core.context_store.load_skill", return_value="# Skill")
+    def test_empty_prompt_zero_tokens(self, mock_load, mock_ctx, mock_build):
+        """Empty prompt gives 0 estimated tokens."""
+        store = ContextStore(
+            clients_dir=Path("/tmp/c"),
+            knowledge_dir=Path("/tmp/kb"),
+            skills_dir=Path("/tmp/sk"),
+        )
+        result = store.preview_prompt("test", "client")
+        assert result.estimated_tokens == 0
+
+    @patch("app.core.context_store.build_prompt", return_value="x" * 7)
+    @patch("app.core.context_store.load_context_files", return_value=[])
+    @patch("app.core.context_store.load_skill", return_value="# Skill")
+    def test_token_estimate_integer_division(self, mock_load, mock_ctx, mock_build):
+        """Token estimate is integer division by 4 (floor)."""
+        store = ContextStore(
+            clients_dir=Path("/tmp/c"),
+            knowledge_dir=Path("/tmp/kb"),
+            skills_dir=Path("/tmp/sk"),
+        )
+        result = store.preview_prompt("test", "client")
+        assert result.estimated_tokens == 1  # 7 // 4 = 1

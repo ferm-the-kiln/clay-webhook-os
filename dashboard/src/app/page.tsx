@@ -206,7 +206,7 @@ export default function DashboardPage() {
                   <h3 className="text-sm font-medium text-clay-200 mb-1">No campaigns yet</h3>
                   <p className="text-xs text-clay-500 mb-4">Create your first campaign to see results here.</p>
                   <Button asChild size="sm" className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold">
-                    <Link href="/campaigns">Create Campaign</Link>
+                    <Link href="/outbound/campaigns">Create Campaign</Link>
                   </Button>
                 </CardContent>
               </Card>

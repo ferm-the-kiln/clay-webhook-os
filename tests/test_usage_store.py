@@ -390,3 +390,378 @@ class TestGetHealth:
         assert err["message"] == "slow response"
         assert "timestamp" in err
         assert "date_key" in err
+
+
+# ---------------------------------------------------------------------------
+# Deeper: Load — round-trip, multiple entries/errors
+# ---------------------------------------------------------------------------
+
+
+class TestLoadDeeper:
+    def test_round_trip_entries(self, tmp_path):
+        """Entries recorded by one store are loadable by a new instance."""
+        s1 = UsageStore(data_dir=tmp_path)
+        s1.load()
+        s1.record(_make_entry(skill="a", input_tokens=100, output_tokens=50))
+        s1.record(_make_entry(skill="b", input_tokens=200, output_tokens=100))
+
+        s2 = UsageStore(data_dir=tmp_path)
+        s2.load()
+        assert len(s2._entries) == 2
+        assert s2._entries[0].skill == "a"
+        assert s2._entries[1].skill == "b"
+
+    def test_round_trip_errors(self, tmp_path):
+        """Errors recorded by one store are loadable by a new instance."""
+        s1 = UsageStore(data_dir=tmp_path)
+        s1.load()
+        s1.record_error("timeout", "slow")
+        s1.record_error("subscription_limit", "quota hit")
+
+        s2 = UsageStore(data_dir=tmp_path)
+        s2.load()
+        assert len(s2._errors) == 2
+        assert s2._errors[0].error_type == "timeout"
+        assert s2._errors[1].error_type == "subscription_limit"
+
+    def test_load_no_entries_file(self, tmp_path):
+        """Load when usage dir exists but entries file doesn't."""
+        (tmp_path / "usage").mkdir(parents=True)
+        s = UsageStore(data_dir=tmp_path)
+        s.load()
+        assert len(s._entries) == 0
+        assert len(s._errors) == 0
+
+    def test_load_empty_entries_file(self, tmp_path):
+        """Empty entries file loads zero entries."""
+        usage_dir = tmp_path / "usage"
+        usage_dir.mkdir(parents=True)
+        (usage_dir / "entries.jsonl").write_text("")
+        s = UsageStore(data_dir=tmp_path)
+        s.load()
+        assert len(s._entries) == 0
+
+    def test_load_retention_keeps_recent_drops_old(self, tmp_path):
+        """Entry from 89 days ago is kept, entry from 91 days ago is dropped."""
+        usage_dir = tmp_path / "usage"
+        usage_dir.mkdir(parents=True)
+        now = time.time()
+        recent = _make_entry(timestamp=now - 89 * 86400)
+        old = _make_entry(timestamp=now - 91 * 86400)
+        content = json.dumps(old.model_dump()) + "\n" + json.dumps(recent.model_dump()) + "\n"
+        (usage_dir / "entries.jsonl").write_text(content)
+        s = UsageStore(data_dir=tmp_path)
+        s.load()
+        assert len(s._entries) == 1
+
+
+# ---------------------------------------------------------------------------
+# Deeper: Record — field preservation
+# ---------------------------------------------------------------------------
+
+
+class TestRecordDeeper:
+    def test_record_preserves_all_fields(self, store, tmp_path):
+        """All entry fields are preserved in JSONL."""
+        e = _make_entry(skill="icp-scorer", model="haiku", input_tokens=999, output_tokens=444)
+        store.record(e)
+        f = tmp_path / "usage" / "entries.jsonl"
+        parsed = json.loads(f.read_text().strip())
+        assert parsed["skill"] == "icp-scorer"
+        assert parsed["model"] == "haiku"
+        assert parsed["input_tokens"] == 999
+        assert parsed["output_tokens"] == 444
+
+    def test_record_appends_not_overwrites(self, store, tmp_path):
+        """Multiple records append lines, not overwrite."""
+        store.record(_make_entry(skill="a"))
+        store.record(_make_entry(skill="b"))
+        store.record(_make_entry(skill="c"))
+        f = tmp_path / "usage" / "entries.jsonl"
+        lines = f.read_text().strip().splitlines()
+        assert len(lines) == 3
+
+    def test_record_error_auto_timestamp(self, store):
+        """record_error creates error with current timestamp."""
+        before = time.time()
+        store.record_error("timeout", "slow")
+        after = time.time()
+        err = store._errors[0]
+        assert before <= err.timestamp <= after
+
+    def test_record_error_auto_date_key(self, store):
+        """record_error creates error with today's date_key."""
+        store.record_error("timeout", "slow")
+        today = time.strftime("%Y-%m-%d")
+        assert store._errors[0].date_key == today
+
+
+# ---------------------------------------------------------------------------
+# Deeper: Compact — boundary, both entries and errors
+# ---------------------------------------------------------------------------
+
+
+class TestCompactDeeper:
+    def test_compact_boundary_exact_cutoff(self, store):
+        """Entry at exact cutoff is kept (>= comparison)."""
+        cutoff = 5000.0
+        old = _make_entry(timestamp=cutoff - 1)
+        at = _make_entry(timestamp=cutoff)
+        store._entries = [old, at]
+        e_rem, _ = store.compact(cutoff=cutoff)
+        assert e_rem == 1
+        assert len(store._entries) == 1
+
+    def test_compact_both_entries_and_errors(self, store):
+        """Compact removes old entries AND old errors together."""
+        now = time.time()
+        store.record(_make_entry(timestamp=now - 1000))
+        store.record(_make_entry(timestamp=now))
+        store.record_error("e1", "old")
+        store._errors[0].timestamp = now - 1000
+        store.record_error("e2", "new")
+        e_rem, err_rem = store.compact(cutoff=now - 500)
+        assert e_rem == 1
+        assert err_rem == 1
+        assert len(store._entries) == 1
+        assert len(store._errors) == 1
+
+    def test_compact_empty_store(self, store):
+        """Compact on empty store returns (0, 0)."""
+        assert store.compact(cutoff=time.time()) == (0, 0)
+
+    def test_compact_removes_all(self, store):
+        """Compact with future cutoff removes everything."""
+        store.record(_make_entry(timestamp=time.time()))
+        store.record_error("err", "msg")
+        e_rem, err_rem = store.compact(cutoff=time.time() + 1000)
+        assert e_rem == 1
+        assert err_rem == 1
+        assert len(store._entries) == 0
+        assert len(store._errors) == 0
+
+    def test_compact_rewrites_errors_file(self, store, tmp_path):
+        """Compact rewrites the errors file too."""
+        store.record_error("old", "old msg")
+        store._errors[0].timestamp = time.time() - 1000
+        store.record_error("new", "new msg")
+        store.compact(cutoff=time.time() - 500)
+        f = tmp_path / "usage" / "errors.jsonl"
+        lines = [l for l in f.read_text().strip().splitlines() if l.strip()]
+        assert len(lines) == 1
+        parsed = json.loads(lines[0])
+        assert parsed["error_type"] == "new"
+
+
+# ---------------------------------------------------------------------------
+# Deeper: Aggregate — edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestAggregateDeeper:
+    def test_aggregate_single_entry(self):
+        """Single entry produces correct aggregation."""
+        entries = [_make_entry(skill="test", input_tokens=100, output_tokens=50)]
+        daily = UsageStore._aggregate("d", entries, 0)
+        assert daily.by_skill == {"test": 150}
+        assert daily.by_model == {"opus": 150}
+        assert daily.request_count == 1
+        assert daily.total_tokens == 150
+
+    def test_aggregate_multiple_same_model(self):
+        """Multiple entries with same model are summed together."""
+        entries = [
+            _make_entry(model="opus", input_tokens=100, output_tokens=50),
+            _make_entry(model="opus", input_tokens=200, output_tokens=100),
+            _make_entry(model="opus", input_tokens=50, output_tokens=25),
+        ]
+        daily = UsageStore._aggregate("d", entries, 0)
+        assert daily.by_model == {"opus": 525}
+
+    def test_aggregate_multiple_same_skill(self):
+        """Multiple entries with same skill are summed together."""
+        entries = [
+            _make_entry(skill="email-gen", input_tokens=100, output_tokens=50),
+            _make_entry(skill="email-gen", input_tokens=200, output_tokens=100),
+        ]
+        daily = UsageStore._aggregate("d", entries, 0)
+        assert daily.by_skill == {"email-gen": 450}
+
+    def test_aggregate_date_preserved(self):
+        """Date field in DailyUsage matches the passed date."""
+        daily = UsageStore._aggregate("2026-01-15", [], 5)
+        assert daily.date == "2026-01-15"
+        assert daily.errors == 5
+
+    def test_aggregate_zero_tokens(self):
+        """Entry with zero tokens is still counted."""
+        entries = [_make_entry(input_tokens=0, output_tokens=0)]
+        daily = UsageStore._aggregate("d", entries, 0)
+        assert daily.request_count == 1
+        assert daily.total_tokens == 0
+
+
+# ---------------------------------------------------------------------------
+# Deeper: Health — state transitions, edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestComputeHealthDeeper:
+    def test_exhausted_boundary_at_5_minutes(self, store):
+        """Error exactly 5 minutes ago: age == 300, not < 300, so critical."""
+        now = time.time()
+        store.record_error("subscription_limit", "quota")
+        store._errors[0].timestamp = now - 300  # exactly 5 min
+        assert store._compute_health(now) == "critical"
+
+    def test_critical_boundary_at_1_hour(self, store):
+        """Error exactly 1 hour ago: age == 3600, not < 3600, so healthy."""
+        now = time.time()
+        store.record_error("subscription_limit", "quota")
+        store._errors[0].timestamp = now - 3600  # exactly 1 hour
+        assert store._compute_health(now) == "healthy"
+
+    def test_sub_error_overrides_warning(self, store):
+        """subscription_limit error takes priority over high usage warning."""
+        now = time.time()
+        today_key = time.strftime("%Y-%m-%d")
+        # Set up high usage for warning
+        for days_ago in range(1, 7):
+            ts = now - days_ago * 86400
+            dk = time.strftime("%Y-%m-%d", time.localtime(ts))
+            store._entries.append(_make_entry(input_tokens=100, output_tokens=50, timestamp=ts, date_key=dk))
+        store._entries.append(_make_entry(input_tokens=500, output_tokens=500, timestamp=now, date_key=today_key))
+        # Add recent sub error
+        store.record_error("subscription_limit", "quota")
+        assert store._compute_health(now) == "exhausted"
+
+    def test_warning_exact_2x_not_triggered(self, store):
+        """Usage exactly 2x average does NOT trigger warning (> not >=)."""
+        now = time.time()
+        today_key = time.strftime("%Y-%m-%d")
+        for days_ago in range(1, 4):
+            ts = now - days_ago * 86400
+            dk = time.strftime("%Y-%m-%d", time.localtime(ts))
+            store._entries.append(_make_entry(input_tokens=100, output_tokens=0, timestamp=ts, date_key=dk))
+        # Today exactly 2x the average (100 per day, today = 200)
+        store._entries.append(_make_entry(input_tokens=200, output_tokens=0, timestamp=now, date_key=today_key))
+        assert store._compute_health(now) == "healthy"
+
+    def test_no_past_days_no_warning(self, store):
+        """If all entries are from today only, no warning (no past_days to average)."""
+        now = time.time()
+        today_key = time.strftime("%Y-%m-%d")
+        store._entries.append(_make_entry(input_tokens=10000, output_tokens=10000, timestamp=now, date_key=today_key))
+        assert store._compute_health(now) == "healthy"
+
+    def test_multiple_sub_errors_uses_last(self, store):
+        """Multiple sub errors — health is based on the most recent one."""
+        now = time.time()
+        store.record_error("subscription_limit", "old")
+        store._errors[0].timestamp = now - 7200  # 2 hours ago
+        store.record_error("subscription_limit", "recent")
+        store._errors[1].timestamp = now - 60  # 1 min ago
+        assert store._compute_health(now) == "exhausted"
+
+
+# ---------------------------------------------------------------------------
+# Deeper: get_summary — error counting, daily history
+# ---------------------------------------------------------------------------
+
+
+class TestGetSummaryDeeper:
+    def test_summary_today_errors_counted(self, store):
+        """Today's errors appear in summary.today.errors."""
+        store.record_error("timeout", "slow")
+        store.record_error("timeout", "slow again")
+        summary = store.get_summary()
+        assert summary.today.errors == 2
+
+    def test_summary_week_errors_counted(self, store):
+        """Errors within the week are counted."""
+        now = time.time()
+        store.record_error("timeout", "recent")
+        store.record_error("timeout", "old")
+        store._errors[1].timestamp = now - 3 * 86400
+        store._errors[1].date_key = time.strftime("%Y-%m-%d", time.localtime(now - 3 * 86400))
+        summary = store.get_summary()
+        assert summary.week.errors == 2
+
+    def test_summary_month_excludes_old_errors(self, store):
+        """Errors older than 30 days excluded from month."""
+        now = time.time()
+        store.record_error("timeout", "recent")
+        store.record_error("timeout", "old")
+        store._errors[1].timestamp = now - 35 * 86400
+        store._errors[1].date_key = time.strftime("%Y-%m-%d", time.localtime(now - 35 * 86400))
+        summary = store.get_summary()
+        assert summary.month.errors == 1
+
+    def test_daily_history_sorted_chronologically(self, store):
+        """Daily history is sorted oldest to newest."""
+        summary = store.get_summary()
+        dates = [d.date for d in summary.daily_history]
+        assert dates == sorted(dates)
+
+    def test_daily_history_empty_days_have_zero(self, store):
+        """Days with no activity have zero counts."""
+        summary = store.get_summary()
+        for day in summary.daily_history:
+            assert day.request_count >= 0
+            assert day.total_tokens >= 0
+
+    def test_summary_last_error_is_most_recent(self, store):
+        """last_error is the last error recorded."""
+        store.record_error("first", "msg1")
+        store.record_error("second", "msg2")
+        summary = store.get_summary()
+        assert summary.last_error.error_type == "second"
+
+    def test_summary_health_reflected(self, store):
+        """subscription_health in summary matches _compute_health."""
+        store.record_error("subscription_limit", "quota")
+        summary = store.get_summary()
+        assert summary.subscription_health == "exhausted"
+
+
+# ---------------------------------------------------------------------------
+# Deeper: get_health — token summing, error counting
+# ---------------------------------------------------------------------------
+
+
+class TestGetHealthDeeper:
+    def test_health_sums_multiple_entries(self, store):
+        """today_tokens sums input + output across multiple entries."""
+        store.record(_make_entry(input_tokens=100, output_tokens=50))
+        store.record(_make_entry(input_tokens=200, output_tokens=100))
+        h = store.get_health()
+        assert h["today_requests"] == 2
+        assert h["today_tokens"] == 450
+
+    def test_health_excludes_yesterday(self, store):
+        """Entries from yesterday don't count in today's health."""
+        now = time.time()
+        yesterday_ts = now - 86400
+        yesterday_dk = time.strftime("%Y-%m-%d", time.localtime(yesterday_ts))
+        store._entries.append(_make_entry(timestamp=yesterday_ts, date_key=yesterday_dk))
+        store.record(_make_entry())
+        h = store.get_health()
+        assert h["today_requests"] == 1
+
+    def test_health_last_error_is_dict(self, store):
+        """last_error in get_health is a dict (model_dump), not a model."""
+        store.record_error("timeout", "slow")
+        h = store.get_health()
+        assert isinstance(h["last_error"], dict)
+        assert h["last_error"]["error_type"] == "timeout"
+
+    def test_health_zero_errors_today(self, store):
+        """Old errors don't count in today_errors."""
+        now = time.time()
+        store.record_error("timeout", "old")
+        store._errors[0].timestamp = now - 86400
+        store._errors[0].date_key = time.strftime("%Y-%m-%d", time.localtime(now - 86400))
+        h = store.get_health()
+        assert h["today_errors"] == 0
+        # But last_error still shows the old error
+        assert h["last_error"] is not None

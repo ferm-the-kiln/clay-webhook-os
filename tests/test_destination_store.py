@@ -509,3 +509,427 @@ class TestTestEndpoint:
         dest = _make_dest()
         result = await store.test(dest)
         assert result["ok"] is False
+
+
+# ---------------------------------------------------------------------------
+# DEEPER TESTS — Load / Persist
+# ---------------------------------------------------------------------------
+
+
+class TestLoadPersistDeeper:
+    def test_load_multiple_destinations(self, tmp_path):
+        dests = [_make_dest(id="d1", name="A").model_dump(), _make_dest(id="d2", name="B").model_dump()]
+        (tmp_path / "destinations.json").write_text(json.dumps(dests))
+        s = DestinationStore(data_dir=tmp_path)
+        s.load()
+        assert len(s.list_all()) == 2
+        names = {d.name for d in s.list_all()}
+        assert names == {"A", "B"}
+
+    def test_round_trip_create_reload(self, tmp_path):
+        """Create, save, reload from file — data survives."""
+        s1 = DestinationStore(data_dir=tmp_path)
+        s1.load()
+        created = s1.create(_make_create_req(name="Persisted Hook", url="https://hook.io/1"))
+
+        s2 = DestinationStore(data_dir=tmp_path)
+        s2.load()
+        found = s2.get(created.id)
+        assert found is not None
+        assert found.name == "Persisted Hook"
+        assert found.url == "https://hook.io/1"
+
+    def test_load_nonexistent_dir_creates_it(self, tmp_path):
+        data_dir = tmp_path / "sub" / "dir"
+        assert not data_dir.exists()
+        s = DestinationStore(data_dir=data_dir)
+        s.load()
+        assert data_dir.is_dir()
+
+    def test_load_no_file_gives_empty(self, tmp_path):
+        s = DestinationStore(data_dir=tmp_path)
+        s.load()
+        assert s.list_all() == []
+        assert s.get("anything") is None
+
+
+# ---------------------------------------------------------------------------
+# DEEPER TESTS — Create
+# ---------------------------------------------------------------------------
+
+
+class TestCreateDeeper:
+    def test_create_sets_timestamps(self, store):
+        import time
+        before = time.time()
+        dest = store.create(_make_create_req())
+        after = time.time()
+        assert before <= dest.created_at <= after
+        assert before <= dest.updated_at <= after
+
+    def test_create_multiple_unique_ids(self, store):
+        ids = set()
+        for i in range(10):
+            dest = store.create(_make_create_req(name=f"Hook {i}"))
+            ids.add(dest.id)
+        assert len(ids) == 10
+
+    def test_create_preserves_type(self, store):
+        dest = store.create(_make_create_req(type=DestinationType.generic_webhook))
+        assert dest.type == DestinationType.generic_webhook
+
+    def test_create_defaults_no_auth(self, store):
+        dest = store.create(_make_create_req())
+        assert dest.auth_header_name == ""
+        assert dest.auth_header_value == ""
+
+    def test_create_defaults_no_client_slug(self, store):
+        dest = store.create(_make_create_req())
+        assert dest.client_slug is None
+
+
+# ---------------------------------------------------------------------------
+# DEEPER TESTS — Update
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateDeeper:
+    def test_update_auth_headers(self, store):
+        created = store.create(_make_create_req())
+        updated = store.update(created.id, UpdateDestinationRequest(
+            auth_header_name="X-Token", auth_header_value="abc123",
+        ))
+        assert updated.auth_header_name == "X-Token"
+        assert updated.auth_header_value == "abc123"
+
+    def test_update_client_slug(self, store):
+        created = store.create(_make_create_req())
+        updated = store.update(created.id, UpdateDestinationRequest(client_slug="acme"))
+        assert updated.client_slug == "acme"
+
+    def test_update_preserves_unchanged_fields(self, store):
+        created = store.create(_make_create_req(
+            name="Original", url="https://orig.com",
+            auth_header_name="X-Key", auth_header_value="secret",
+        ))
+        updated = store.update(created.id, UpdateDestinationRequest(name="New Name"))
+        assert updated.name == "New Name"
+        assert updated.url == "https://orig.com"
+        assert updated.auth_header_name == "X-Key"
+        assert updated.auth_header_value == "secret"
+
+    def test_update_created_at_unchanged(self, store):
+        created = store.create(_make_create_req())
+        updated = store.update(created.id, UpdateDestinationRequest(name="New"))
+        assert updated.created_at == created.created_at
+        assert updated.updated_at > created.created_at
+
+    def test_update_no_changes_returns_original(self, store):
+        created = store.create(_make_create_req())
+        result = store.update(created.id, UpdateDestinationRequest())
+        assert result.updated_at == created.updated_at  # No change triggers no updated_at bump
+
+
+# ---------------------------------------------------------------------------
+# DEEPER TESTS — Delete
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteDeeper:
+    def test_delete_from_multiple_keeps_others(self, store):
+        d1 = store.create(_make_create_req(name="A"))
+        d2 = store.create(_make_create_req(name="B"))
+        d3 = store.create(_make_create_req(name="C"))
+
+        store.delete(d2.id)
+        remaining = store.list_all()
+        assert len(remaining) == 2
+        remaining_ids = {d.id for d in remaining}
+        assert d1.id in remaining_ids
+        assert d3.id in remaining_ids
+        assert d2.id not in remaining_ids
+
+    def test_double_delete(self, store):
+        created = store.create(_make_create_req())
+        assert store.delete(created.id) is True
+        assert store.delete(created.id) is False
+
+
+# ---------------------------------------------------------------------------
+# DEEPER TESTS — Push
+# ---------------------------------------------------------------------------
+
+
+class TestPushDeeper:
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_push_mixed_completed_and_queued(self, mock_client_cls, store):
+        """Mix of completed and non-completed jobs — only completed are pushed."""
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest()
+        jobs = [
+            _make_job("j1", status=JobStatus.completed, result={"x": 1}),
+            _make_job("j2", status=JobStatus.queued),
+            _make_job("j3", status=JobStatus.completed, result={"x": 3}),
+            _make_job("j4", status=JobStatus.failed),
+        ]
+        result = await store.push(dest, jobs)
+        assert result.total == 2
+        assert result.success == 2
+        assert mock_client.post.call_count == 2
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_push_empty_job_list(self, mock_client_cls, store):
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest()
+        result = await store.push(dest, [])
+        assert result.total == 0
+        assert result.success == 0
+        assert result.failed == 0
+        mock_client.post.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_push_no_row_id_excluded_from_payload(self, mock_client_cls, store):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest()
+        jobs = [_make_job("j1", result={"x": 1}, row_id=None)]
+        await store.push(dest, jobs)
+        payload = mock_client.post.call_args[1]["json"]
+        assert "row_id" not in payload
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_push_no_auth_headers(self, mock_client_cls, store):
+        """Without auth_header_name, only Content-Type is sent."""
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest(auth_header_name="", auth_header_value="")
+        await store.push(dest, [_make_job()])
+        headers = mock_client.post.call_args[1]["headers"]
+        assert headers == {"Content-Type": "application/json"}
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_push_result_fields(self, mock_client_cls, store):
+        """PushResult includes destination_id and destination_name."""
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest(id="dest-42", name="My Dest")
+        result = await store.push(dest, [_make_job()])
+        assert result.destination_id == "dest-42"
+        assert result.destination_name == "My Dest"
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_push_error_contains_job_id(self, mock_client_cls, store):
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = Exception("network error")
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest()
+        result = await store.push(dest, [_make_job("job-99")])
+        assert result.errors[0]["job_id"] == "job-99"
+        assert "network error" in result.errors[0]["error"]
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_push_retry_worker_receives_correct_args(self, mock_client_cls, store):
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = Exception("fail")
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        retry_worker = MagicMock()
+        store._retry_worker = retry_worker
+        dest = _make_dest(url="https://hook.io/push")
+        await store.push(dest, [_make_job("j1", result={"x": 1})])
+
+        args = retry_worker.enqueue.call_args
+        assert args[0][0] == "https://hook.io/push"  # url
+        assert args[0][1]["x"] == 1  # payload includes result
+        assert args[0][1]["_meta"]["source"] == "clay-webhook-os"
+        assert args[0][2]["Content-Type"] == "application/json"  # headers
+
+
+# ---------------------------------------------------------------------------
+# DEEPER TESTS — push_data
+# ---------------------------------------------------------------------------
+
+
+class TestPushDataDeeper:
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_push_data_no_auth_headers(self, mock_client_cls, store):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = MagicMock()
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest(auth_header_name="", auth_header_value="")
+        await store.push_data(dest, {"data": 1})
+        headers = mock_client.post.call_args[1]["headers"]
+        assert headers == {"Content-Type": "application/json"}
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_push_data_retry_worker_args(self, mock_client_cls, store):
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = Exception("fail")
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        retry_worker = MagicMock()
+        store._retry_worker = retry_worker
+        dest = _make_dest(url="https://hook.io/data")
+        await store.push_data(dest, {"email": "Hi"})
+
+        args = retry_worker.enqueue.call_args
+        assert args[0][0] == "https://hook.io/data"  # url
+        assert args[0][1]["email"] == "Hi"  # payload
+        assert args[0][1]["_meta"]["pushed_from"] == "playground"
+        assert args[1]["job_id"] == "push-data"
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_push_data_posts_to_destination_url(self, mock_client_cls, store):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = MagicMock()
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest(url="https://specific-hook.io/receive")
+        await store.push_data(dest, {})
+        assert mock_client.post.call_args[0][0] == "https://specific-hook.io/receive"
+
+
+# ---------------------------------------------------------------------------
+# DEEPER TESTS — Test endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestTestEndpointDeeper:
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_test_sends_test_payload(self, mock_client_cls, store):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest()
+        await store.test(dest)
+        payload = mock_client.post.call_args[1]["json"]
+        assert payload["_test"] is True
+        assert payload["source"] == "clay-webhook-os"
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_test_3xx_is_ok(self, mock_client_cls, store):
+        """3xx status codes are < 400, so ok should be True."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 302
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest()
+        result = await store.test(dest)
+        assert result["ok"] is True
+        assert result["status_code"] == 302
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_test_500_not_ok(self, mock_client_cls, store):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest()
+        result = await store.test(dest)
+        assert result["ok"] is False
+        assert result["status_code"] == 500
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_test_no_auth(self, mock_client_cls, store):
+        """Without auth headers, only Content-Type is sent."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest(auth_header_name="", auth_header_value="")
+        await store.test(dest)
+        headers = mock_client.post.call_args[1]["headers"]
+        assert headers == {"Content-Type": "application/json"}
+
+    @pytest.mark.asyncio
+    @patch("app.core.destination_store.httpx.AsyncClient")
+    async def test_test_posts_to_destination_url(self, mock_client_cls, store):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        dest = _make_dest(url="https://mysite.com/test-hook")
+        await store.test(dest)
+        assert mock_client.post.call_args[0][0] == "https://mysite.com/test-hook"

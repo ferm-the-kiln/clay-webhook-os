@@ -1186,3 +1186,476 @@ class TestAutoModeAsync:
         body = resp.json()
         assert body["error"] is True
         assert "not found" in body["error_message"]
+
+
+# ---------------------------------------------------------------------------
+# Exa prefetch
+# ---------------------------------------------------------------------------
+
+
+class TestExaPrefetch:
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.01)
+    @patch("app.routers.webhook.estimate_tokens", return_value=500)
+    @patch("app.routers.webhook.build_agent_prompts", return_value="agent prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={
+        "executor": "agent", "prefetch": "exa",
+    })
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_prefetch_called_and_passed(self, mock_load, mock_config, mock_resolve,
+                                         mock_ctx, mock_agent_prompt,
+                                         mock_tokens, mock_cost, mock_settings):
+        """When agent + exa prefetch + company data, prefetcher.fetch is called."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"r": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        prefetcher = AsyncMock()
+        prefetcher.fetch.return_value = {"news": "Acme raised $10M"}
+        app = _make_app(pool=pool, prefetcher=prefetcher)
+        client = TestClient(app)
+
+        client.post("/webhook", json={
+            "skill": "researcher", "data": {
+                "company_name": "Acme Corp",
+                "company_domain": "acme.com",
+            },
+        })
+        prefetcher.fetch.assert_called_once_with("Acme Corp", "acme.com")
+        call_kwargs = mock_agent_prompt.call_args[1]
+        assert call_kwargs["prefetched_context"] == {"news": "Acme raised $10M"}
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.01)
+    @patch("app.routers.webhook.estimate_tokens", return_value=500)
+    @patch("app.routers.webhook.build_agent_prompts", return_value="agent prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={
+        "executor": "agent", "prefetch": "exa",
+    })
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_prefetch_failure_silently_caught(self, mock_load, mock_config, mock_resolve,
+                                               mock_ctx, mock_agent_prompt,
+                                               mock_tokens, mock_cost, mock_settings):
+        """Prefetch failure doesn't break the request."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"r": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        prefetcher = AsyncMock()
+        prefetcher.fetch.side_effect = RuntimeError("exa API down")
+        app = _make_app(pool=pool, prefetcher=prefetcher)
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={
+            "skill": "researcher", "data": {
+                "company_name": "Acme", "company_domain": "acme.com",
+            },
+        })
+        assert resp.status_code == 200
+        call_kwargs = mock_agent_prompt.call_args[1]
+        assert call_kwargs["prefetched_context"] is None
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.01)
+    @patch("app.routers.webhook.estimate_tokens", return_value=500)
+    @patch("app.routers.webhook.build_agent_prompts", return_value="agent prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={
+        "executor": "agent", "prefetch": "exa",
+    })
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_prefetch_skipped_when_missing_company_data(self, mock_load, mock_config,
+                                                         mock_resolve, mock_ctx,
+                                                         mock_agent_prompt, mock_tokens,
+                                                         mock_cost, mock_settings):
+        """No company_name/domain → prefetch not called."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"r": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        prefetcher = AsyncMock()
+        app = _make_app(pool=pool, prefetcher=prefetcher)
+        client = TestClient(app)
+
+        client.post("/webhook", json={
+            "skill": "researcher", "data": {"name": "John"},
+        })
+        prefetcher.fetch.assert_not_called()
+        call_kwargs = mock_agent_prompt.call_args[1]
+        assert call_kwargs["prefetched_context"] is None
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.01)
+    @patch("app.routers.webhook.estimate_tokens", return_value=500)
+    @patch("app.routers.webhook.build_agent_prompts", return_value="agent prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={
+        "executor": "agent", "prefetch": "exa",
+    })
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_prefetch_skipped_when_no_prefetcher(self, mock_load, mock_config,
+                                                   mock_resolve, mock_ctx,
+                                                   mock_agent_prompt, mock_tokens,
+                                                   mock_cost, mock_settings):
+        """No prefetcher on app.state → prefetched_context stays None."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"r": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        app = _make_app(pool=pool)
+        # no prefetcher on state
+        client = TestClient(app)
+
+        client.post("/webhook", json={
+            "skill": "researcher", "data": {
+                "company_name": "Acme", "company_domain": "acme.com",
+            },
+        })
+        call_kwargs = mock_agent_prompt.call_args[1]
+        assert call_kwargs["prefetched_context"] is None
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.01)
+    @patch("app.routers.webhook.estimate_tokens", return_value=500)
+    @patch("app.routers.webhook.build_prompt", return_value="cli prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={"prefetch": "exa"})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_prefetch_skipped_for_non_agent(self, mock_load, mock_config,
+                                              mock_resolve, mock_ctx, mock_prompt,
+                                              mock_tokens, mock_cost, mock_settings):
+        """Non-agent skill with prefetch config → prefetch not triggered."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"r": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        prefetcher = AsyncMock()
+        app = _make_app(pool=pool, prefetcher=prefetcher)
+        client = TestClient(app)
+
+        client.post("/webhook", json={
+            "skill": "email-gen", "data": {
+                "company_name": "Acme", "company_domain": "acme.com",
+            },
+        })
+        prefetcher.fetch.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Cache hit — meta fields completeness
+# ---------------------------------------------------------------------------
+
+
+class TestCacheHitMeta:
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_cache_hit_meta_all_fields(self, mock_load, mock_config, mock_resolve):
+        """Cache hit response includes all expected _meta fields."""
+        cache = MagicMock()
+        cache.get.return_value = {"output": "cached result"}
+        app = _make_app(cache=cache)
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        meta = resp.json()["_meta"]
+        assert meta["skill"] == "email-gen"
+        assert meta["model"] == "opus"
+        assert meta["duration_ms"] == 0
+        assert meta["cached"] is True
+        assert meta["input_tokens_est"] == 0
+        assert meta["output_tokens_est"] == 0
+        assert meta["cost_est_usd"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Async enqueue — full args verification
+# ---------------------------------------------------------------------------
+
+
+class TestAsyncEnqueueArgs:
+    @patch("app.routers.webhook.resolve_model", return_value="sonnet")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_enqueue_all_kwargs(self, mock_load, mock_config, mock_resolve):
+        """Verify every kwarg passed to queue.enqueue."""
+        job_queue = AsyncMock()
+        job_queue.enqueue.return_value = "job-full"
+        job_queue.pending = 3
+        app = _make_app(job_queue=job_queue)
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={
+            "skill": "email-gen",
+            "data": {"name": "Alice"},
+            "instructions": "Be brief",
+            "callback_url": "https://example.com/cb",
+            "row_id": "row-99",
+            "priority": "high",
+            "max_retries": 7,
+        })
+        assert resp.status_code == 202
+        kwargs = job_queue.enqueue.call_args[1]
+        assert kwargs["skill"] == "email-gen"
+        assert kwargs["data"] == {"name": "Alice"}
+        assert kwargs["instructions"] == "Be brief"
+        assert kwargs["model"] == "sonnet"
+        assert kwargs["callback_url"] == "https://example.com/cb"
+        assert kwargs["row_id"] == "row-99"
+        assert kwargs["priority"] == "high"
+        assert kwargs["max_retries"] == 7
+        assert kwargs["skills"] is None  # single skill
+
+
+# ---------------------------------------------------------------------------
+# Usage entry fields verification
+# ---------------------------------------------------------------------------
+
+
+class TestUsageEntryFields:
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.003)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="haiku")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_usage_entry_skill_and_model(self, mock_load, mock_config, mock_resolve,
+                                          mock_ctx, mock_prompt, mock_tokens,
+                                          mock_cost, mock_settings):
+        """UsageEntry has correct skill and model fields."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+            "usage": {"input_tokens": 400, "output_tokens": 100},
+        }
+        usage_store = MagicMock()
+        app = _make_app(pool=pool, usage_store=usage_store)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "scorer", "data": {}})
+        entry = usage_store.record.call_args[0][0]
+        assert entry.skill == "scorer"
+        assert entry.model == "haiku"
+
+
+# ---------------------------------------------------------------------------
+# estimate_tokens / estimate_cost call args
+# ---------------------------------------------------------------------------
+
+
+class TestEstimateCallArgs:
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.002)
+    @patch("app.routers.webhook.estimate_tokens", side_effect=lambda x: x // 4)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_estimate_tokens_called_with_chars(self, mock_load, mock_config, mock_resolve,
+                                                 mock_ctx, mock_prompt, mock_tokens,
+                                                 mock_cost, mock_settings):
+        """estimate_tokens called with prompt_chars and response_chars."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 800, "response_chars": 320,
+        }
+        app = _make_app(pool=pool)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        calls = mock_tokens.call_args_list
+        assert calls[0][0][0] == 800   # prompt_chars
+        assert calls[1][0][0] == 320   # response_chars
+
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.005)
+    @patch("app.routers.webhook.estimate_tokens", return_value=200)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="sonnet")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_estimate_cost_called_with_model_and_tokens(self, mock_load, mock_config,
+                                                          mock_resolve, mock_ctx,
+                                                          mock_prompt, mock_tokens,
+                                                          mock_cost, mock_settings):
+        """estimate_cost called with (model, input_tokens, output_tokens)."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        app = _make_app(pool=pool)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        mock_cost.assert_called_once_with("sonnet", 200, 200)
+
+
+# ---------------------------------------------------------------------------
+# Result merging — parsed fields + _meta
+# ---------------------------------------------------------------------------
+
+
+class TestResultMerging:
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_parsed_fields_merged_with_meta(self, mock_load, mock_config, mock_resolve,
+                                              mock_ctx, mock_prompt, mock_tokens,
+                                              mock_cost, mock_settings):
+        """Response includes all parsed result keys plus _meta."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"email_subject": "Hi", "email_body": "Hello there", "confidence": 0.9},
+            "duration_ms": 200,
+            "prompt_chars": 500, "response_chars": 300,
+        }
+        app = _make_app(pool=pool)
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={"skill": "email-gen", "data": {}})
+        body = resp.json()
+        assert body["email_subject"] == "Hi"
+        assert body["email_body"] == "Hello there"
+        assert body["confidence"] == 0.9
+        assert "_meta" in body
+        assert body["_meta"]["duration_ms"] == 200
+
+
+# ---------------------------------------------------------------------------
+# Subscription paused — deeper
+# ---------------------------------------------------------------------------
+
+
+class TestSubscriptionPausedDeeper:
+    def test_not_paused_proceeds(self):
+        """is_paused=False → request proceeds normally."""
+        sub = MagicMock()
+        sub.is_paused = False
+        app = _make_app(subscription_monitor=sub)
+        client = TestClient(app)
+
+        with patch("app.routers.webhook.load_skill_config", return_value={}), \
+             patch("app.routers.webhook.resolve_model", return_value="opus"), \
+             patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT), \
+             patch("app.routers.webhook.load_context_files", return_value=[]), \
+             patch("app.routers.webhook.build_prompt", return_value="prompt"), \
+             patch("app.routers.webhook.estimate_tokens", return_value=100), \
+             patch("app.routers.webhook.estimate_cost", return_value=0.001), \
+             patch("app.routers.webhook.settings") as mock_settings:
+            mock_settings.enable_smart_routing = False
+            mock_settings.request_timeout = 30
+            pool = AsyncMock()
+            pool.submit.return_value = {
+                "result": {"ok": True}, "duration_ms": 50,
+                "prompt_chars": 100, "response_chars": 50,
+            }
+            app.state.pool = pool
+            resp = client.post("/webhook", json={"skill": "email-gen", "data": {}})
+            assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Skill chain async — skills field in enqueue
+# ---------------------------------------------------------------------------
+
+
+class TestSkillChainAsyncDeeper:
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_chain_async_skills_in_enqueue_and_response(self, mock_load, mock_config, mock_resolve):
+        """Skills chain async: skills list appears in both enqueue kwargs and response."""
+        job_queue = AsyncMock()
+        job_queue.enqueue.return_value = "job-chain-2"
+        job_queue.pending = 1
+        app = _make_app(job_queue=job_queue)
+        client = TestClient(app)
+
+        resp = client.post("/webhook", json={
+            "skills": ["scorer", "emailer", "sender"],
+            "data": {},
+            "callback_url": "https://example.com/cb",
+        })
+        assert resp.status_code == 202
+        body = resp.json()
+        assert body["skills"] == ["scorer", "emailer", "sender"]
+        assert body["skill"] == "scorer"  # primary skill
+        kwargs = job_queue.enqueue.call_args[1]
+        assert kwargs["skills"] == ["scorer", "emailer", "sender"]
+        assert kwargs["skill"] == "scorer"
+
+
+# ---------------------------------------------------------------------------
+# load_context_files call verification
+# ---------------------------------------------------------------------------
+
+
+class TestContextFilesCall:
+    @patch("app.routers.webhook.settings")
+    @patch("app.routers.webhook.estimate_cost", return_value=0.001)
+    @patch("app.routers.webhook.estimate_tokens", return_value=100)
+    @patch("app.routers.webhook.build_prompt", return_value="prompt")
+    @patch("app.routers.webhook.load_context_files", return_value=[{"path": "kb/voice.md", "content": "Be warm"}])
+    @patch("app.routers.webhook.resolve_model", return_value="opus")
+    @patch("app.routers.webhook.load_skill_config", return_value={})
+    @patch("app.routers.webhook.load_skill", return_value=MOCK_SKILL_CONTENT)
+    def test_load_context_files_args(self, mock_load, mock_config, mock_resolve,
+                                       mock_ctx, mock_prompt, mock_tokens,
+                                       mock_cost, mock_settings):
+        """load_context_files called with skill_content, data, and skill_name."""
+        mock_settings.enable_smart_routing = False
+        mock_settings.request_timeout = 30
+        pool = AsyncMock()
+        pool.submit.return_value = {
+            "result": {"out": 1}, "duration_ms": 100,
+            "prompt_chars": 500, "response_chars": 200,
+        }
+        app = _make_app(pool=pool)
+        client = TestClient(app)
+
+        client.post("/webhook", json={"skill": "email-gen", "data": {"name": "Bob"}})
+        mock_ctx.assert_called_once_with(
+            MOCK_SKILL_CONTENT, {"name": "Bob"}, skill_name="email-gen"
+        )
