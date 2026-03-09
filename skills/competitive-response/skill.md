@@ -1,5 +1,7 @@
 ---
 model_tier: heavy
+research:
+  - competitor_scrape
 ---
 
 # Competitive Response — Technical Displacement Messaging

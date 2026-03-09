@@ -14,14 +14,14 @@ import yaml
 from app.config import settings
 from app.core.cache import ResultCache
 from app.core.context_assembler import build_prompt
-from app.core.prefetch import parse_prefetch_config
+from app.core.prefetch import parse_research_config
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config
 from app.core.worker_pool import WorkerPool
 
 if TYPE_CHECKING:
     from app.core.context_index import ContextIndex
     from app.core.memory_store import MemoryStore
-    from app.core.prefetch import ExaPrefetcher
+    from app.core.scrapegraph_prefetcher import ScrapegraphPrefetcher
     from app.core.sumble_prefetcher import SumblePrefetcher
 
 logger = logging.getLogger("clay-webhook-os")
@@ -113,12 +113,12 @@ async def _run_prefetch(
     skill_name: str,
     config: dict,
     data: dict,
-    prefetcher: ExaPrefetcher | None = None,
+    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
     sumble_prefetcher: SumblePrefetcher | None = None,
 ) -> str | None:
-    """Run prefetch for a skill step. Returns combined prefetched text or None."""
-    prefetch_sources = parse_prefetch_config(config)
-    if not prefetch_sources:
+    """Run research fetch for a skill step. Returns combined text or None."""
+    research_intents = parse_research_config(config)
+    if not research_intents:
         return None
 
     company_name = data.get("company_name", "")
@@ -126,12 +126,16 @@ async def _run_prefetch(
     parts: list[str] = []
     coros = []
 
-    if "exa" in prefetch_sources and prefetcher and company_name and company_domain:
-        coros.append(prefetcher.fetch(company_name, company_domain))
-
-    if "sumble" in prefetch_sources and sumble_prefetcher and company_domain:
+    # "company_profile" → Sumble
+    if "company_profile" in research_intents and sumble_prefetcher and company_domain:
         endpoints = config.get("sumble_endpoints", ["organizations/enrich"])
         coros.append(sumble_prefetcher.fetch(company_domain, company_name, endpoints, data))
+
+    # ScrapeGraph intents
+    if scrapegraph_prefetcher and company_domain:
+        for intent in ("company_intel", "competitor_scrape", "industry_search"):
+            if intent in research_intents:
+                coros.append(scrapegraph_prefetcher.fetch(company_domain, company_name, intent=intent, data=data))
 
     if not coros:
         return None
@@ -141,7 +145,7 @@ async def _run_prefetch(
         if isinstance(r, str):
             parts.append(r)
         elif isinstance(r, Exception):
-            logger.warning("[pipeline] Prefetch failed for %s: %s", skill_name, r)
+            logger.warning("[pipeline] Research fetch failed for %s: %s", skill_name, r)
 
     return "\n\n---\n\n".join(parts) if parts else None
 
@@ -153,7 +157,7 @@ async def _run_single_step(
     model: str,
     pool: WorkerPool,
     cache: ResultCache | None = None,
-    prefetcher: ExaPrefetcher | None = None,
+    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
@@ -187,7 +191,7 @@ async def _run_single_step(
 
     # Load skill config for prefetch and semantic context settings
     prefetched_context = await _run_prefetch(
-        skill_name, skill_cfg, current_data, prefetcher, sumble_prefetcher
+        skill_name, skill_cfg, current_data, scrapegraph_prefetcher, sumble_prefetcher
     )
     skip_semantic = not skill_cfg.get("semantic_context", True)
 
@@ -234,7 +238,7 @@ async def _run_parallel_step(
     pool: WorkerPool,
     cache: ResultCache | None,
     merge_strategy: str = "deep",
-    prefetcher: ExaPrefetcher | None = None,
+    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
@@ -256,7 +260,7 @@ async def _run_parallel_step(
             model=step_model,
             pool=pool,
             cache=cache,
-            prefetcher=prefetcher,
+            scrapegraph_prefetcher=scrapegraph_prefetcher,
             sumble_prefetcher=sumble_prefetcher,
             memory_store=memory_store,
             context_index=context_index,
@@ -297,7 +301,7 @@ async def run_skill_chain(
     model: str,
     pool: WorkerPool,
     cache: ResultCache | None = None,
-    prefetcher: ExaPrefetcher | None = None,
+    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
@@ -315,7 +319,7 @@ async def run_skill_chain(
             model=model,
             pool=pool,
             cache=cache,
-            prefetcher=prefetcher,
+            scrapegraph_prefetcher=scrapegraph_prefetcher,
             sumble_prefetcher=sumble_prefetcher,
             memory_store=memory_store,
             context_index=context_index,
@@ -344,7 +348,7 @@ async def run_pipeline(
     model: str,
     pool: WorkerPool,
     cache: ResultCache,
-    prefetcher: ExaPrefetcher | None = None,
+    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
@@ -366,7 +370,7 @@ async def run_pipeline(
         pool=pool,
         cache=cache,
         confidence_threshold=confidence_threshold,
-        prefetcher=prefetcher,
+        scrapegraph_prefetcher=scrapegraph_prefetcher,
         sumble_prefetcher=sumble_prefetcher,
         memory_store=memory_store,
         context_index=context_index,
@@ -382,7 +386,7 @@ async def run_pipeline_from_plan(
     pool: WorkerPool,
     cache: ResultCache,
     confidence_threshold: float = 0.8,
-    prefetcher: ExaPrefetcher | None = None,
+    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
@@ -398,7 +402,7 @@ async def run_pipeline_from_plan(
         pool=pool,
         cache=cache,
         confidence_threshold=confidence_threshold,
-        prefetcher=prefetcher,
+        scrapegraph_prefetcher=scrapegraph_prefetcher,
         sumble_prefetcher=sumble_prefetcher,
         memory_store=memory_store,
         context_index=context_index,
@@ -414,7 +418,7 @@ async def _execute_steps(
     pool: WorkerPool,
     cache: ResultCache,
     confidence_threshold: float = 0.8,
-    prefetcher: ExaPrefetcher | None = None,
+    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
     sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
@@ -444,7 +448,7 @@ async def _execute_steps(
                 pool=pool,
                 cache=cache,
                 merge_strategy=merge_strategy,
-                prefetcher=prefetcher,
+                scrapegraph_prefetcher=scrapegraph_prefetcher,
                 sumble_prefetcher=sumble_prefetcher,
                 memory_store=memory_store,
                 context_index=context_index,
@@ -518,7 +522,7 @@ async def _execute_steps(
 
         # Pre-fetch intelligence if configured
         prefetched_context = await _run_prefetch(
-            skill_name, skill_cfg, current_data, prefetcher, sumble_prefetcher
+            skill_name, skill_cfg, current_data, scrapegraph_prefetcher, sumble_prefetcher
         )
         skip_semantic = not skill_cfg.get("semantic_context", True)
 

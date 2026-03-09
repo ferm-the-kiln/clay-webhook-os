@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from app.core.prefetch import parse_prefetch_config
+from app.core.prefetch import parse_prefetch_config, parse_research_config
 from app.core.sumble_prefetcher import SumblePrefetcher
 
 
@@ -444,24 +444,49 @@ class TestFormat:
 # TestParsePrefetchConfig
 # ---------------------------------------------------------------------------
 
-class TestParsePrefetchConfig:
-    def test_none_value(self):
-        assert parse_prefetch_config({}) == set()
+class TestParseResearchConfig:
+    """Tests for parse_research_config (new format) + backward compat."""
 
-    def test_string_value(self):
-        assert parse_prefetch_config({"prefetch": "exa"}) == {"exa"}
+    # --- New 'research' field ---
+    def test_research_string(self):
+        assert parse_research_config({"research": "company_intel"}) == {"company_intel"}
 
-    def test_list_value(self):
-        assert parse_prefetch_config({"prefetch": ["exa", "sumble"]}) == {"exa", "sumble"}
+    def test_research_list(self):
+        assert parse_research_config({"research": ["company_profile", "company_intel"]}) == {"company_profile", "company_intel"}
 
-    def test_single_item_list(self):
-        assert parse_prefetch_config({"prefetch": ["sumble"]}) == {"sumble"}
+    def test_research_empty_list(self):
+        assert parse_research_config({"research": []}) == set()
 
-    def test_empty_list(self):
+    def test_research_non_string_non_list(self):
+        assert parse_research_config({"research": 42}) == set()
+
+    def test_research_none_value(self):
+        assert parse_research_config({}) == set()
+
+    # --- Legacy 'prefetch' backward compat ---
+    def test_legacy_sumble_maps_to_company_profile(self):
+        assert parse_prefetch_config({"prefetch": "sumble"}) == {"company_profile"}
+
+    def test_legacy_exa_is_ignored(self):
+        assert parse_prefetch_config({"prefetch": "exa"}) == set()
+
+    def test_legacy_list_sumble_and_exa(self):
+        result = parse_prefetch_config({"prefetch": ["exa", "sumble"]})
+        assert result == {"company_profile"}
+
+    def test_legacy_single_item_list(self):
+        assert parse_prefetch_config({"prefetch": ["sumble"]}) == {"company_profile"}
+
+    def test_legacy_empty_list(self):
         assert parse_prefetch_config({"prefetch": []}) == set()
 
-    def test_non_string_non_list(self):
+    def test_legacy_non_string_non_list(self):
         assert parse_prefetch_config({"prefetch": 42}) == set()
 
-    def test_explicit_none(self):
+    def test_legacy_explicit_none(self):
         assert parse_prefetch_config({"prefetch": None}) == set()
+
+    # --- research takes priority over prefetch ---
+    def test_research_overrides_prefetch(self):
+        config = {"research": ["company_intel"], "prefetch": "sumble"}
+        assert parse_research_config(config) == {"company_intel"}

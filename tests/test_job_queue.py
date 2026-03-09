@@ -1686,21 +1686,21 @@ class TestWorkerExperimentUpdate:
 
 
 # ---------------------------------------------------------------------------
-# _worker — exa prefetch
+# _worker — scrapegraph prefetch
 # ---------------------------------------------------------------------------
 
 
-class TestWorkerExaPrefetch:
+class TestWorkerScrapegraphPrefetch:
     @pytest.mark.asyncio
     @patch("app.core.job_queue.settings")
     @patch("app.core.job_queue.estimate_cost", return_value=0.0)
     @patch("app.core.job_queue.estimate_tokens", return_value=0)
     @patch("app.core.job_queue.build_agent_prompts", return_value="agent prompt")
-    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "agent", "prefetch": "exa"})
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "agent", "research": ["company_intel"]})
     @patch("app.core.job_queue.load_context_files", return_value=[])
     @patch("app.core.job_queue.load_skill", return_value="content")
-    async def test_prefetch_called_for_agent_with_exa(self, mock_load, mock_ctx, mock_cfg,
-                                                       mock_build, mock_tokens, mock_cost, mock_settings):
+    async def test_scrapegraph_called_for_agent_with_company_intel(self, mock_load, mock_ctx, mock_cfg,
+                                                                     mock_build, mock_tokens, mock_cost, mock_settings):
         mock_settings.enable_smart_routing = False
         mock_settings.request_timeout = 30
         mock_settings.default_model = "sonnet"
@@ -1708,31 +1708,31 @@ class TestWorkerExaPrefetch:
         pool.submit = AsyncMock(return_value={
             "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
         })
-        prefetcher = MagicMock()
-        prefetcher.fetch = AsyncMock(return_value="## News\nAcme raised $10M")
+        sg = MagicMock()
+        sg.fetch = AsyncMock(return_value="## Web Intel\nAcme raised $10M")
         queue = JobQueue(pool=pool, cache=None, event_bus=None)
-        queue._prefetcher = prefetcher
+        queue._scrapegraph_prefetcher = sg
         queue._send_callback = AsyncMock()
         await queue.enqueue(
             skill="researcher", data={"company_name": "Acme", "company_domain": "acme.com"},
             instructions=None, model="opus", callback_url="http://x.com", row_id=None,
         )
         await _run_worker_once(queue)
-        prefetcher.fetch.assert_called_once_with("Acme", "acme.com")
+        sg.fetch.assert_called_once_with("acme.com", "Acme", intent="company_intel", data={"company_name": "Acme", "company_domain": "acme.com"})
         # Verify prefetched_context passed to build_agent_prompts
         call_kwargs = mock_build.call_args[1]
-        assert call_kwargs["prefetched_context"] == "## News\nAcme raised $10M"
+        assert call_kwargs["prefetched_context"] == "## Web Intel\nAcme raised $10M"
 
     @pytest.mark.asyncio
     @patch("app.core.job_queue.settings")
     @patch("app.core.job_queue.estimate_cost", return_value=0.0)
     @patch("app.core.job_queue.estimate_tokens", return_value=0)
     @patch("app.core.job_queue.build_agent_prompts", return_value="agent prompt")
-    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "agent", "prefetch": "exa"})
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "agent", "research": ["company_intel"]})
     @patch("app.core.job_queue.load_context_files", return_value=[])
     @patch("app.core.job_queue.load_skill", return_value="content")
-    async def test_prefetch_failure_non_critical(self, mock_load, mock_ctx, mock_cfg,
-                                                  mock_build, mock_tokens, mock_cost, mock_settings):
+    async def test_scrapegraph_failure_non_critical(self, mock_load, mock_ctx, mock_cfg,
+                                                      mock_build, mock_tokens, mock_cost, mock_settings):
         mock_settings.enable_smart_routing = False
         mock_settings.request_timeout = 30
         mock_settings.default_model = "sonnet"
@@ -1740,10 +1740,10 @@ class TestWorkerExaPrefetch:
         pool.submit = AsyncMock(return_value={
             "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
         })
-        prefetcher = MagicMock()
-        prefetcher.fetch = AsyncMock(side_effect=Exception("exa down"))
+        sg = MagicMock()
+        sg.fetch = AsyncMock(side_effect=Exception("scrapegraph down"))
         queue = JobQueue(pool=pool, cache=None, event_bus=None)
-        queue._prefetcher = prefetcher
+        queue._scrapegraph_prefetcher = sg
         queue._send_callback = AsyncMock()
         job_id = await queue.enqueue(
             skill="researcher", data={"company_name": "Acme", "company_domain": "acme.com"},
@@ -1760,11 +1760,11 @@ class TestWorkerExaPrefetch:
     @patch("app.core.job_queue.estimate_cost", return_value=0.0)
     @patch("app.core.job_queue.estimate_tokens", return_value=0)
     @patch("app.core.job_queue.build_agent_prompts", return_value="agent prompt")
-    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "agent", "prefetch": "exa"})
+    @patch("app.core.job_queue.load_skill_config", return_value={"executor": "agent", "research": ["company_intel"]})
     @patch("app.core.job_queue.load_context_files", return_value=[])
     @patch("app.core.job_queue.load_skill", return_value="content")
-    async def test_prefetch_skipped_without_company_data(self, mock_load, mock_ctx, mock_cfg,
-                                                          mock_build, mock_tokens, mock_cost, mock_settings):
+    async def test_scrapegraph_skipped_without_company_data(self, mock_load, mock_ctx, mock_cfg,
+                                                              mock_build, mock_tokens, mock_cost, mock_settings):
         mock_settings.enable_smart_routing = False
         mock_settings.request_timeout = 30
         mock_settings.default_model = "sonnet"
@@ -1772,17 +1772,17 @@ class TestWorkerExaPrefetch:
         pool.submit = AsyncMock(return_value={
             "result": {"r": 1}, "duration_ms": 100, "prompt_chars": 0, "response_chars": 0,
         })
-        prefetcher = MagicMock()
-        prefetcher.fetch = AsyncMock()
+        sg = MagicMock()
+        sg.fetch = AsyncMock()
         queue = JobQueue(pool=pool, cache=None, event_bus=None)
-        queue._prefetcher = prefetcher
+        queue._scrapegraph_prefetcher = sg
         queue._send_callback = AsyncMock()
         await queue.enqueue(
             skill="researcher", data={},  # No company_name or company_domain
             instructions=None, model="opus", callback_url="http://x.com", row_id=None,
         )
         await _run_worker_once(queue)
-        prefetcher.fetch.assert_not_called()
+        sg.fetch.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

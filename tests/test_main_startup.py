@@ -334,7 +334,8 @@ class TestStartupConstructorArgs:
             mock_settings.cleanup_failed_callback_days = 7
             mock_settings.webhook_api_key = ""
             mock_settings.enable_smart_routing = False
-            mock_settings.exa_api_key = ""
+            mock_settings.sgai_api_key = ""
+            mock_settings.sgai_cache_ttl = 3600
             mock_settings.base_dir = "/tmp"
             mock_settings.sumble_api_key = ""
             for p in patches.values():
@@ -372,7 +373,8 @@ class TestStartupConstructorArgs:
             mock_settings.cleanup_failed_callback_days = 7
             mock_settings.webhook_api_key = ""
             mock_settings.enable_smart_routing = False
-            mock_settings.exa_api_key = ""
+            mock_settings.sgai_api_key = ""
+            mock_settings.sgai_cache_ttl = 3600
             mock_settings.base_dir = "/tmp"
             mock_settings.sumble_api_key = ""
             for p in patches.values():
@@ -410,7 +412,8 @@ class TestStartupConstructorArgs:
             mock_settings.cleanup_failed_callback_days = 7
             mock_settings.webhook_api_key = ""
             mock_settings.enable_smart_routing = False
-            mock_settings.exa_api_key = ""
+            mock_settings.sgai_api_key = ""
+            mock_settings.sgai_cache_ttl = 3600
             mock_settings.base_dir = "/tmp"
             mock_settings.sumble_api_key = ""
             for p in patches.values():

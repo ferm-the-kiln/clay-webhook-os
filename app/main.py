@@ -13,7 +13,6 @@ from app.core.worker_pool import WorkerPool
 from app.middleware.auth import ApiKeyMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
 from app.core.context_index import ContextIndex
-from app.core.prefetch import ExaPrefetcher
 from app.core.context_store import ContextStore
 from app.core.destination_store import DestinationStore
 from app.core.feedback_store import FeedbackStore
@@ -122,20 +121,18 @@ async def startup():
     app.state.context_index.build()
     app.state.job_queue._context_index = app.state.context_index
 
-    # Exa pre-fetch (optional — enhances agent skills)
-    if settings.exa_api_key:
-        from exa_py import Exa
-        exa_client = Exa(api_key=settings.exa_api_key)
-        app.state.prefetcher = ExaPrefetcher(
-            exa_client=exa_client,
-            num_results=settings.exa_num_results,
-            cache_ttl=settings.exa_cache_ttl,
+    # ScrapeGraph web intelligence (optional)
+    if settings.sgai_api_key:
+        from app.core.scrapegraph_prefetcher import ScrapegraphPrefetcher
+        app.state.scrapegraph_prefetcher = ScrapegraphPrefetcher(
+            api_key=settings.sgai_api_key,
+            cache_ttl=settings.sgai_cache_ttl,
         )
-        logger.info("  Exa pre-fetch: enabled")
+        logger.info("  ScrapeGraph web intel: enabled")
     else:
-        app.state.prefetcher = None
-        logger.info("  Exa pre-fetch: disabled (no EXA_API_KEY)")
-    app.state.job_queue._prefetcher = app.state.prefetcher
+        app.state.scrapegraph_prefetcher = None
+        logger.info("  ScrapeGraph web intel: disabled (no SGAI_API_KEY)")
+    app.state.job_queue._scrapegraph_prefetcher = app.state.scrapegraph_prefetcher
 
     # Sumble pre-fetch (optional — structured company intelligence)
     if settings.sumble_api_key:

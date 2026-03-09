@@ -1,7 +1,8 @@
 ---
 model_tier: heavy
 scope: company
-prefetch: sumble
+research:
+  - company_profile
 sumble_endpoints:
   - people/find
 ---
