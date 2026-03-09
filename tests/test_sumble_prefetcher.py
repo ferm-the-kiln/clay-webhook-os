@@ -394,7 +394,7 @@ class TestFormat:
         assert "Key People (2 contacts)" in text
         assert "Jane Doe" in text
         assert "VP Engineering" in text
-        assert "linkedin.com/in/janedoe" in text
+        assert "(VP)" in text
 
     def test_jobs_format(self):
         p = _make_prefetcher()
