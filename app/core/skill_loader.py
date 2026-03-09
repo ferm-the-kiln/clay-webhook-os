@@ -3,6 +3,7 @@ import re
 import yaml
 
 from app.config import settings
+from app.core.context_filter import filter_client_profile, filter_signal_sections
 
 
 _skill_cache: dict[str, tuple[float, dict, str]] = {}
@@ -113,6 +114,19 @@ def load_file(relative_path: str) -> str | None:
     return full_path.read_text()
 
 
+def _maybe_filter_content(
+    path: str, content: str, data: dict, skill_name: str | None
+) -> str:
+    """Apply smart context filtering based on file type and skill."""
+    if "signals/" in path and data.get("signal_type"):
+        return filter_signal_sections(content, data["signal_type"])
+    if path.startswith("clients/") and skill_name:
+        return filter_client_profile(
+            content, skill_name, data.get("title"), data.get("signal_type")
+        )
+    return content
+
+
 def load_context_files(
     skill_content: str, data: dict, *, skill_name: str | None = None
 ) -> list[dict[str, str]]:
@@ -154,6 +168,7 @@ def load_context_files(
             continue
         content = load_file(resolved)
         if content:
+            content = _maybe_filter_content(resolved, content, data, skill_name)
             seen.add(resolved)
             files.append({"path": resolved, "content": content})
 

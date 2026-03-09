@@ -98,6 +98,7 @@ cd dashboard && npx vercel --prod --yes
 - **No API key needed for claude**: The server uses `claude --print` with the logged-in Max subscription. No `ANTHROPIC_API_KEY` env var.
 - **File-based storage**: No database. Skills, KB, clients are markdown files. Runtime data (feedback, destinations, usage) is JSON in `data/`.
 - **Vercel needs manual deploy**: Dashboard does not auto-deploy from GitHub.
+- **Context filtering**: Every skill declares exactly which client profile sections it needs in `SKILL_CLIENT_SECTIONS` (`app/core/context_filter.py`). No shared baseline — if a section isn't listed, it doesn't load. When adding a new skill that loads a client profile, you MUST add its entry to `SKILL_CLIENT_SECTIONS`.
 
 ## Reference Docs
 

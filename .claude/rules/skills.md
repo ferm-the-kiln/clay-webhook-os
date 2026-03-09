@@ -30,3 +30,23 @@ globs: skills/**,knowledge_base/**,clients/**
 
 ## Full guide
 See `docs/skills-guide.md` for the complete reference with templates and examples.
+
+## Context Filtering Convention
+
+Every skill that loads a client profile MUST have an entry in `SKILL_CLIENT_SECTIONS`
+in `app/core/context_filter.py`. This is how we keep prompts tight and save tokens.
+
+Rules:
+- List ONLY the exact `##` sections your skill needs from the client profile
+- There is NO shared baseline — if you don't list it, it won't load
+- Persona matching is automatic: if `data.title` exists, the matching `### Persona`
+  subsection loads from `## Personas` (no need to list "Personas" in your sections)
+- Signal filtering is automatic: if `data.signal_type` exists, only the matching
+  signal section loads from signal files (signal-openers.md, signal-taxonomy.md)
+- Ask yourself: "Does the AI actually need this section to complete this specific task?"
+  If the answer is no, don't include it
+
+Example — email-gen only needs:
+  ["What They Sell", "Tone Preferences", "Campaign Angles Worth Testing",
+   "Campaign Angles", "Recent News & Signals"]
+It does NOT need Battle Cards, Discovery Questions, ROI Framework, etc.

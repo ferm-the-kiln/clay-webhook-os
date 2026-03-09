@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Eye, X, Loader2, Copy, Check } from "lucide-react";
+import { Eye, X, Loader2, Copy, Check, FileText, Zap } from "lucide-react";
 import { previewPrompt } from "@/lib/api";
 
 export function PromptPreviewButton({
@@ -18,6 +18,8 @@ export function PromptPreviewButton({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [prompt, setPrompt] = useState("");
+  const [contextFiles, setContextFiles] = useState<string[]>([]);
+  const [estimatedTokens, setEstimatedTokens] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -26,6 +28,8 @@ export function PromptPreviewButton({
     setLoading(true);
     setError(null);
     setPrompt("");
+    setContextFiles([]);
+    setEstimatedTokens(0);
 
     try {
       let parsed: Record<string, unknown> = {};
@@ -42,6 +46,8 @@ export function PromptPreviewButton({
       });
 
       setPrompt(result.assembled_prompt ?? JSON.stringify(result, null, 2));
+      setContextFiles(result.context_files_loaded ?? []);
+      setEstimatedTokens(result.estimated_tokens ?? 0);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load prompt preview");
     } finally {
@@ -127,9 +133,38 @@ export function PromptPreviewButton({
                 </div>
               )}
               {prompt && (
-                <pre className="text-xs text-clay-200 font-[family-name:var(--font-mono)] whitespace-pre-wrap leading-relaxed">
-                  {prompt}
-                </pre>
+                <>
+                  {/* Context summary */}
+                  {(contextFiles.length > 0 || estimatedTokens > 0) && (
+                    <div className="mb-4 rounded-lg border border-clay-700 bg-clay-800/40 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-clay-200">
+                          <FileText className="h-3.5 w-3.5 text-kiln-teal" />
+                          Context Files ({contextFiles.length})
+                        </div>
+                        {estimatedTokens > 0 && (
+                          <div className="flex items-center gap-1.5 text-xs text-clay-400">
+                            <Zap className="h-3 w-3" />
+                            ~{estimatedTokens.toLocaleString()} tokens
+                          </div>
+                        )}
+                      </div>
+                      <div className="font-[family-name:var(--font-mono)] text-[11px] text-clay-400 space-y-0.5">
+                        {contextFiles.map((file, i) => (
+                          <div key={file} className="flex items-start">
+                            <span className="text-clay-600 mr-1.5 select-none">
+                              {i === contextFiles.length - 1 ? "└──" : "├──"}
+                            </span>
+                            <span className="text-clay-300">{file}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <pre className="text-xs text-clay-200 font-[family-name:var(--font-mono)] whitespace-pre-wrap leading-relaxed">
+                    {prompt}
+                  </pre>
+                </>
               )}
             </div>
           </div>
