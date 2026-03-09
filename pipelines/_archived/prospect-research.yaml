@@ -12,8 +12,8 @@ steps:
   - skill: account-researcher
     confidence_field: confidence_score
 
-  # Step 3: Numeric score + tier (Tier 1/2/3/Skip)
-  - skill: icp-scorer
+  # Step 3: Qualify with NL criteria + tier (hot/warm/cold)
+  - skill: qualifier
     condition: "confidence_score >= 0.5"
     confidence_field: confidence_score
 

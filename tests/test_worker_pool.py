@@ -28,7 +28,7 @@ class TestWorkerPoolSubmit:
         pool._executor.execute = AsyncMock(return_value={"result": {"answer": 42}, "duration_ms": 100})
 
         result = await pool.submit("test prompt", model="sonnet", timeout=60)
-        pool._executor.execute.assert_awaited_once_with("test prompt", "sonnet", 60)
+        pool._executor.execute.assert_awaited_once_with("test prompt", "sonnet", 60, raw_mode=False)
         assert result["result"]["answer"] == 42
 
     @pytest.mark.asyncio
@@ -36,7 +36,7 @@ class TestWorkerPoolSubmit:
         pool = WorkerPool(max_workers=2)
         available_during = None
 
-        async def mock_execute(prompt, model, timeout):
+        async def mock_execute(prompt, model, timeout, **kwargs):
             nonlocal available_during
             available_during = pool.available
             return {"result": {}}
@@ -65,7 +65,7 @@ class TestWorkerPoolSubmit:
         max_concurrent = 0
         current = 0
 
-        async def mock_execute(prompt, model, timeout):
+        async def mock_execute(prompt, model, timeout, **kwargs):
             nonlocal current, max_concurrent
             current += 1
             max_concurrent = max(max_concurrent, current)
@@ -90,7 +90,7 @@ class TestWorkerPoolSubmit:
         max_concurrent = 0
         current = 0
 
-        async def mock_execute(prompt, model, timeout):
+        async def mock_execute(prompt, model, timeout, **kwargs):
             nonlocal current, max_concurrent
             current += 1
             max_concurrent = max(max_concurrent, current)
@@ -116,14 +116,14 @@ class TestWorkerPoolSubmit:
         pool._executor.execute = AsyncMock(return_value={"result": {}})
 
         await pool.submit("prompt")
-        pool._executor.execute.assert_awaited_once_with("prompt", "opus", 120)
+        pool._executor.execute.assert_awaited_once_with("prompt", "opus", 120, raw_mode=False)
 
     @pytest.mark.asyncio
     async def test_concurrent_exceptions_all_restore(self):
         """Multiple concurrent tasks failing all restore available count."""
         pool = WorkerPool(max_workers=3)
 
-        async def fail_execute(prompt, model, timeout):
+        async def fail_execute(prompt, model, timeout, **kwargs):
             await asyncio.sleep(0.01)
             raise ValueError(f"fail-{prompt}")
 
@@ -144,7 +144,7 @@ class TestWorkerPoolSubmit:
         max_concurrent = 0
         current = 0
 
-        async def mock_execute(prompt, model, timeout):
+        async def mock_execute(prompt, model, timeout, **kwargs):
             nonlocal current, max_concurrent
             current += 1
             max_concurrent = max(max_concurrent, current)
@@ -164,7 +164,7 @@ class TestWorkerPoolSubmit:
         pool = WorkerPool(max_workers=1)
         available_during = None
 
-        async def capture_execute(prompt, model, timeout):
+        async def capture_execute(prompt, model, timeout, **kwargs):
             nonlocal available_during
             available_during = pool.available
             return {"result": {}}
@@ -192,7 +192,7 @@ class TestWorkerPoolSubmit:
         pool = WorkerPool(max_workers=2)
         min_active = 999
 
-        async def track_execute(prompt, model, timeout):
+        async def track_execute(prompt, model, timeout, **kwargs):
             nonlocal min_active
             min_active = min(min_active, pool._active)
             if prompt == "fail":
@@ -333,7 +333,7 @@ class TestWorkerPoolAgentExecutor:
         max_concurrent = 0
         current = 0
 
-        async def mock_cli(prompt, model, timeout):
+        async def mock_cli(prompt, model, timeout, **kwargs):
             nonlocal current, max_concurrent
             current += 1
             max_concurrent = max(max_concurrent, current)

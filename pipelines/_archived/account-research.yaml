@@ -1,5 +1,5 @@
 name: account-research
-description: Research account → Score ICP fit
+description: Research account → Qualify fit
 steps:
   - skill: account-researcher
-  - skill: icp-scorer
+  - skill: qualifier

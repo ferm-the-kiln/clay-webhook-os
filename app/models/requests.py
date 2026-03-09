@@ -3,10 +3,11 @@ from pydantic import BaseModel, Field, model_validator
 
 class WebhookRequest(BaseModel):
     skill: str | None = Field(None, description="Skill name (e.g. 'email-gen')")
-    skills: list[str] | None = Field(None, description="Skill chain (e.g. ['company-enrichment', 'icp-scorer'])")
+    skills: list[str] | None = Field(None, description="Skill chain (e.g. ['account-researcher', 'qualifier'])")
     data: dict = Field(..., description="Row data from Clay")
     instructions: str | None = Field(None, description="Optional campaign instructions")
     model: str | None = Field(None, description="Model override: opus, sonnet, haiku")
+    output_format: str | None = Field(None, description="Output format: json, text, markdown, html (default: json)")
     callback_url: str | None = Field(None, description="URL to POST results to (enables async mode)")
     row_id: str | None = Field(None, description="Row identifier for matching callback results")
     max_retries: int | None = Field(None, description="Max retry attempts (default 3)")

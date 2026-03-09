@@ -6,6 +6,7 @@ from app.config import settings
 
 if TYPE_CHECKING:
     from app.core.context_index import ContextIndex
+    from app.core.learning_engine import LearningEngine
     from app.core.memory_store import MemoryStore
 
 logger = logging.getLogger("clay-webhook-os")
@@ -60,14 +61,32 @@ def build_prompt(
     context_index: "ContextIndex | None" = None,
     prefetched_context: str | None = None,
     skip_semantic: bool = False,
+    learning_engine: "LearningEngine | None" = None,
+    output_format: str = "json",
 ) -> str:
     parts: list[str] = []
 
-    # Layer 1: System
-    parts.append(
-        "You are a JSON generation engine. Return ONLY valid JSON — "
-        "no markdown fences, no explanation, no preamble. Just the raw JSON object."
-    )
+    # Layer 1: System (format-aware)
+    if output_format == "json":
+        parts.append(
+            "You are a JSON generation engine. Return ONLY valid JSON — "
+            "no markdown fences, no explanation, no preamble. Just the raw JSON object."
+        )
+    elif output_format == "markdown":
+        parts.append(
+            "You are a content generation engine. Return your output as clean Markdown. "
+            "No JSON wrapping, no code fences around the entire output."
+        )
+    elif output_format == "html":
+        parts.append(
+            "You are a content generation engine. Return your output as clean HTML. "
+            "No JSON wrapping, no markdown, no code fences."
+        )
+    else:  # text
+        parts.append(
+            "You are a content generation engine. Return your output as plain text. "
+            "No JSON wrapping, no markdown, no code fences."
+        )
 
     # Layer 2: Skill
     parts.append(f"\n\n# Skill Instructions\n\n{skill_content}")
@@ -79,6 +98,22 @@ def build_prompt(
             memory_text = memory_store.format_for_prompt(entries)
             parts.append(f"\n\n---\n\n{memory_text}")
             logger.info("[prompt] Injected %d memory entries", len(entries))
+
+    # Layer 2.7: Learnings from past feedback (persistent corrections)
+    if learning_engine is not None:
+        client_slug = data.get("client_slug")
+        # Extract skill name from the first line of skill_content if possible
+        skill_name = None
+        for line in skill_content.splitlines():
+            if line.startswith("# "):
+                skill_name = line[2:].strip().split("—")[0].strip().lower().replace(" ", "-")
+                break
+        learnings_text = learning_engine.format_for_prompt(
+            client_slug=client_slug, skill=skill_name,
+        )
+        if learnings_text:
+            parts.append(f"\n\n---\n\n{learnings_text}")
+            logger.info("[prompt] Injected learnings for client=%s skill=%s", client_slug, skill_name)
 
     # Layer 3: Context (sorted generic → specific so client context is nearest to data)
     seen_paths = {ctx["path"] for ctx in context_files}
@@ -120,8 +155,15 @@ def build_prompt(
     if instructions:
         parts.append(f"\n\n## Campaign Instructions\n{instructions}")
 
-    # Layer 6: Final reminder
-    parts.append("\n\nReturn ONLY the JSON object. No markdown, no explanation.")
+    # Layer 6: Final reminder (format-aware)
+    if output_format == "json":
+        parts.append("\n\nReturn ONLY the JSON object. No markdown, no explanation.")
+    elif output_format == "markdown":
+        parts.append("\n\nReturn your response as clean Markdown.")
+    elif output_format == "html":
+        parts.append("\n\nReturn your response as clean HTML.")
+    else:
+        parts.append("\n\nReturn your response as plain text.")
 
     prompt = "".join(parts)
 
@@ -148,6 +190,7 @@ def build_agent_prompts(
     context_index: "ContextIndex | None" = None,
     prefetched_context: str | None = None,
     skip_semantic: bool = False,
+    learning_engine: "LearningEngine | None" = None,
 ) -> str:
     """Build a prompt for agent-type skills (multi-turn with tool use).
 
@@ -181,6 +224,13 @@ def build_agent_prompts(
             memory_text = memory_store.format_for_prompt(entries)
             parts.append(f"\n\n---\n\n{memory_text}")
             logger.info("[agent-prompt] Injected %d memory entries", len(entries))
+
+    # Layer 2.7: Learnings from past feedback
+    if learning_engine is not None:
+        client_slug = data.get("client_slug")
+        learnings_text = learning_engine.format_for_prompt(client_slug=client_slug)
+        if learnings_text:
+            parts.append(f"\n\n---\n\n{learnings_text}")
 
     # Layer 3: Context files (same ordering as build_prompt)
     seen_paths = {ctx["path"] for ctx in context_files}

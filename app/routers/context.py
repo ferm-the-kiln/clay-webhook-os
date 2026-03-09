@@ -198,6 +198,13 @@ async def delete_skill_endpoint(name: str):
 # ── Knowledge Base Move ─────────────────────────────────────
 
 
+class NLUpdateRequest(BaseModel):
+    """Natural language context update — apply plain English instructions to a file."""
+    target: str = Field(..., description="Target: 'client:{slug}' or 'kb:{category}/{filename}' or 'skill:{name}'")
+    instruction: str = Field(..., description="Plain English instruction (e.g. 'add mid-market fintech to our ICP')")
+    model: str = Field("sonnet", description="Model to use for the update")
+
+
 class MoveKnowledgeFileRequest(BaseModel):
     source_category: str = Field(..., description="Current category")
     source_filename: str = Field(..., description="Current filename")
@@ -235,3 +242,111 @@ async def move_knowledge_file(body: MoveKnowledgeFileRequest, request: Request):
         body.source_filename,
     )
     return new_file.model_dump()
+
+
+# ── Natural Language Context Update ────────────────────────
+
+
+@router.post("/context/nl-update")
+async def nl_update_context(body: NLUpdateRequest, request: Request):
+    """Apply a natural language instruction to update a context file.
+
+    Target format:
+    - "client:{slug}" — update a client profile
+    - "kb:{category}/{filename}" — update a knowledge base file
+    - "skill:{name}" — update a skill definition
+
+    The instruction is plain English: "add mid-market fintech to our ICP",
+    "make the tone more casual", "add a new persona for CTOs", etc.
+    """
+    store = request.app.state.context_store
+    pool = request.app.state.pool
+
+    # Resolve target → current content
+    target = body.target
+    current_content = None
+    target_label = target
+
+    if target.startswith("client:"):
+        slug = target[7:]
+        profile = store.get_client(slug)
+        if profile is None:
+            return {"error": True, "error_message": f"Client '{slug}' not found"}
+        current_content = profile.raw_markdown
+        target_label = f"client profile: {slug}"
+
+    elif target.startswith("kb:"):
+        path = target[3:]
+        parts = path.split("/", 1)
+        if len(parts) != 2:
+            return {"error": True, "error_message": "KB target must be 'kb:{category}/{filename}'"}
+        category, filename = parts
+        f = store.get_knowledge_file(category, filename)
+        if f is None:
+            return {"error": True, "error_message": f"KB file '{path}' not found"}
+        current_content = f.content
+        target_label = f"knowledge base: {path}"
+
+    elif target.startswith("skill:"):
+        name = target[6:]
+        from app.core.skill_loader import get_skill_raw
+        current_content = get_skill_raw(name)
+        if current_content is None:
+            return {"error": True, "error_message": f"Skill '{name}' not found"}
+        target_label = f"skill: {name}"
+
+    else:
+        return {"error": True, "error_message": "Target must start with 'client:', 'kb:', or 'skill:'"}
+
+    # Build prompt for claude to apply the NL instruction
+    nl_prompt = (
+        "You are a precise content editor. You will receive a markdown file and an instruction.\n"
+        "Apply the instruction to the file and return ONLY the complete updated file content.\n"
+        "Do not add explanations, do not wrap in code fences, do not add commentary.\n"
+        "Preserve the existing structure and formatting. Only modify what the instruction requires.\n\n"
+        f"## File: {target_label}\n\n"
+        f"```\n{current_content}\n```\n\n"
+        f"## Instruction\n\n{body.instruction}\n\n"
+        "Return the complete updated file content below (no code fences, no preamble):"
+    )
+
+    try:
+        result = await pool.submit(nl_prompt, body.model, timeout=60, raw_mode=True)
+    except Exception as e:
+        logger.error("[context] NL update failed: %s", e)
+        return {"error": True, "error_message": f"AI update failed: {e}"}
+
+    updated_content = result["result"]
+    if isinstance(updated_content, dict):
+        import json
+        updated_content = json.dumps(updated_content, indent=2)
+
+    # Save the updated content
+    if target.startswith("client:"):
+        slug = target[7:]
+        # Write raw markdown directly to the client profile file
+        from app.config import settings
+        client_dir = settings.clients_dir / slug
+        client_dir.mkdir(parents=True, exist_ok=True)
+        (client_dir / "profile.md").write_text(updated_content)
+
+    elif target.startswith("kb:"):
+        parts = target[3:].split("/", 1)
+        category, filename = parts
+        from app.models.context import UpdateKnowledgeBaseRequest
+        store.update_knowledge_file(category, filename, updated_content)
+
+    elif target.startswith("skill:"):
+        name = target[6:]
+        from app.core.skill_loader import save_skill
+        save_skill(name, updated_content)
+
+    logger.info("[context] NL update applied to %s: %.80s", target_label, body.instruction)
+
+    return {
+        "ok": True,
+        "target": target,
+        "instruction": body.instruction,
+        "updated_content": updated_content,
+        "duration_ms": result["duration_ms"],
+    }

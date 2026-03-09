@@ -31,6 +31,7 @@ class WorkerPool:
         executor_type: str = "cli",
         max_turns: int = 1,
         allowed_tools: list[str] | None = None,
+        raw_mode: bool = False,
     ) -> dict:
         async with self._semaphore:
             self._active += 1
@@ -45,6 +46,6 @@ class WorkerPool:
                         max_turns=max_turns,
                         allowed_tools=allowed_tools,
                     )
-                return await self._executor.execute(prompt, model, timeout)
+                return await self._executor.execute(prompt, model, timeout, raw_mode=raw_mode)
             finally:
                 self._active -= 1

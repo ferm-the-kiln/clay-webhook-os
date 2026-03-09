@@ -125,9 +125,19 @@ async def webhook(body: WebhookRequest, request: Request):
     context_files = load_context_files(skill_content, body.data, skill_name=primary_skill)
     is_agent = config.get("executor") == "agent"
 
-    # Get memory and context index from app state
+    # Get memory, context index, and learning engine from app state
     memory_store = getattr(request.app.state, "memory_store", None)
     context_index = getattr(request.app.state, "context_index", None)
+    learning_engine = getattr(request.app.state, "learning_engine", None)
+
+    # Resolve output format (default: json)
+    output_format = body.output_format or "json"
+    allowed_formats = config.get("allowed_formats", ["json", "text", "markdown", "html"])
+    if output_format not in allowed_formats:
+        return _error(
+            f"Output format '{output_format}' not allowed for skill '{primary_skill}'. Allowed: {allowed_formats}",
+            primary_skill,
+        )
 
     # Pre-fetch intelligence if configured
     prefetch_sources = parse_prefetch_config(config)
@@ -166,12 +176,15 @@ async def webhook(body: WebhookRequest, request: Request):
             skill_content, context_files, body.data, body.instructions,
             memory_store=memory_store, context_index=context_index,
             prefetched_context=prefetched_context,
+            learning_engine=learning_engine,
         )
     else:
         prompt = build_prompt(
             skill_content, context_files, body.data, body.instructions,
             memory_store=memory_store, context_index=context_index,
             prefetched_context=prefetched_context,
+            learning_engine=learning_engine,
+            output_format=output_format,
         )
 
     # Refine model with prompt heuristic (layer 4) if smart routing enabled
@@ -197,13 +210,15 @@ async def webhook(body: WebhookRequest, request: Request):
         len(prompt),
     )
 
-    # Execute via worker pool
+    # Execute via worker pool (raw_mode for non-JSON output formats)
+    use_raw_mode = output_format != "json" and executor_type != "agent"
     try:
         result = await pool.submit(
             prompt, model, agent_timeout,
             executor_type=executor_type,
             max_turns=agent_max_turns,
             allowed_tools=agent_tools,
+            raw_mode=use_raw_mode,
         )
     except TimeoutError:
         return _error(f"Request timed out after {agent_timeout}s", primary_skill)
@@ -219,6 +234,39 @@ async def webhook(body: WebhookRequest, request: Request):
     except Exception as e:
         logger.error("[%s] Execution error: %s", primary_skill, e)
         return _error(f"Execution error: {e}", primary_skill)
+
+    # For non-JSON formats, the raw text is the result
+    if output_format != "json":
+        raw_output = result.get("raw_output") or result.get("result", "")
+        # If result is a dict (executor parsed it), extract text
+        if isinstance(raw_output, dict):
+            raw_output = str(raw_output)
+        input_tokens = estimate_tokens(result.get("prompt_chars", 0))
+        output_tokens = estimate_tokens(result.get("response_chars", 0))
+        cost_usd = estimate_cost(model, input_tokens, output_tokens)
+
+        # Record usage
+        usage_store = getattr(request.app.state, "usage_store", None)
+        if usage_store:
+            usage_store.record(UsageEntry(
+                skill=primary_skill, model=model,
+                input_tokens=input_tokens, output_tokens=output_tokens,
+                is_actual=False,
+            ))
+
+        return {
+            "output": raw_output,
+            "output_format": output_format,
+            "_meta": {
+                "skill": primary_skill,
+                "model": model,
+                "duration_ms": result["duration_ms"],
+                "cached": False,
+                "input_tokens_est": input_tokens,
+                "output_tokens_est": output_tokens,
+                "cost_est_usd": cost_usd,
+            },
+        }
 
     parsed = result["result"]
     input_tokens = estimate_tokens(result.get("prompt_chars", 0))

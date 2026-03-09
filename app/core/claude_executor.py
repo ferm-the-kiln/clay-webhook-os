@@ -21,7 +21,8 @@ class ClaudeExecutor:
     }
 
     async def execute(
-        self, prompt: str, model: str = "opus", timeout: int = 120
+        self, prompt: str, model: str = "opus", timeout: int = 120,
+        raw_mode: bool = False,
     ) -> dict:
         start = time.monotonic()
 
@@ -89,6 +90,17 @@ class ClaudeExecutor:
             raise RuntimeError("Empty response from claude")
 
         duration_ms = int((time.monotonic() - start) * 1000)
+
+        if raw_mode:
+            return {
+                "result": raw,
+                "raw_output": raw,
+                "duration_ms": duration_ms,
+                "raw_length": len(raw),
+                "prompt_chars": len(prompt),
+                "response_chars": len(raw),
+                "usage": None,
+            }
 
         parsed = self._parse_json(raw)
 

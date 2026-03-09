@@ -1,8 +1,11 @@
+import logging
+
 from fastapi import APIRouter, Request, HTTPException
 
 from app.models.feedback import FeedbackEntry, SubmitFeedbackRequest
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
+logger = logging.getLogger("clay-webhook-os")
 
 
 @router.post("")
@@ -30,7 +33,25 @@ async def submit_feedback(body: SubmitFeedbackRequest, request: Request):
         note=body.note,
     )
     result = store.submit(entry)
-    return result.model_dump()
+
+    # Auto-extract learning from thumbs-down feedback
+    learning = None
+    learning_engine = getattr(request.app.state, "learning_engine", None)
+    if learning_engine and body.rating == "thumbs_down" and body.note:
+        try:
+            learning = learning_engine.extract_learning(
+                skill=skill,
+                client_slug=body.client_slug,
+                note=body.note,
+                rating=body.rating,
+            )
+        except Exception as e:
+            logger.warning("[feedback] Learning extraction failed: %s", e)
+
+    response = result.model_dump()
+    if learning:
+        response["learning_extracted"] = True
+    return response
 
 
 @router.get("/analytics/summary")
@@ -138,3 +159,39 @@ async def delete_feedback(feedback_id: str, request: Request):
     if not deleted:
         raise HTTPException(status_code=404, detail="Feedback not found")
     return {"ok": True}
+
+
+# ── Learnings (Feedback-to-Knowledge Pipeline) ───────────────
+
+
+@router.get("/learnings")
+async def list_learnings_clients(request: Request):
+    """List all clients that have accumulated learnings."""
+    engine = getattr(request.app.state, "learning_engine", None)
+    if not engine:
+        return {"clients": []}
+    return {"clients": engine.list_clients_with_learnings()}
+
+
+@router.get("/learnings/{client_slug}")
+async def get_learnings(
+    client_slug: str,
+    request: Request,
+    skill: str | None = None,
+    limit: int = 20,
+):
+    """Get learnings for a client, optionally filtered by skill."""
+    engine = getattr(request.app.state, "learning_engine", None)
+    if not engine:
+        return {"client_slug": client_slug, "learnings": []}
+    entries = engine.get_learnings(client_slug=client_slug, skill=skill, limit=limit)
+    return {"client_slug": client_slug, "learnings": entries}
+
+
+@router.get("/learnings/{client_slug}/digest")
+async def get_learnings_digest(client_slug: str, request: Request):
+    """Get a digest of feedback patterns for a client."""
+    engine = getattr(request.app.state, "learning_engine", None)
+    if not engine:
+        return {"client_slug": client_slug, "total_learnings": 0, "by_skill": {}, "patterns": []}
+    return engine.get_digest(client_slug=client_slug)

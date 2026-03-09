@@ -26,6 +26,10 @@ Core value props for outbound messaging (2-3 bullets).
 - **Approach:** direct / consultative / educational
 - **Things to avoid:** —
 
+## Qualification Criteria
+Write your ideal lead criteria in plain English. The qualifier skill will score leads against these.
+Example: "Series B+ SaaS companies with 100-2000 employees, using modern data stack, with VP+ engineering contacts"
+
 ## Campaign Angles
 Active campaign angles worth testing.
 
