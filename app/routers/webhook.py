@@ -84,6 +84,7 @@ async def webhook(body: WebhookRequest, request: Request):
         )
 
     # --- Sync mode: process and return result ---
+    company_cache = getattr(request.app.state, "company_cache", None)
 
     # Auto mode: coordinator generates pipeline dynamically
     if primary_skill == "auto":
@@ -114,6 +115,7 @@ async def webhook(body: WebhookRequest, request: Request):
                 sumble_prefetcher=getattr(request.app.state, "sumble_prefetcher", None),
                 memory_store=getattr(request.app.state, "memory_store", None),
                 context_index=getattr(request.app.state, "context_index", None),
+                company_cache=company_cache,
             )
             return result
         except Exception as e:
@@ -125,7 +127,29 @@ async def webhook(body: WebhookRequest, request: Request):
     if skill_content is None:
         return _error(f"Skill '{primary_skill}' not found", primary_skill)
 
-    # Check cache
+    # Company-level dedup: check before row-level cache
+    is_company_scoped = config.get("scope") == "company"
+    company_key = ""
+    if is_company_scoped and company_cache is not None:
+        company_key = (body.data.get("company_domain") or "").lower().strip()
+        if company_key:
+            cc_hit = company_cache.get(company_key, primary_skill)
+            if cc_hit is not None:
+                return {
+                    **cc_hit,
+                    "_meta": {
+                        "skill": primary_skill,
+                        "model": model,
+                        "duration_ms": 0,
+                        "cached": True,
+                        "company_cache_hit": True,
+                        "input_tokens_est": 0,
+                        "output_tokens_est": 0,
+                        "cost_est_usd": 0.0,
+                    },
+                }
+
+    # Check row-level cache
     cached = cache.get(primary_skill, body.data, body.instructions, model)
     if cached is not None:
         logger.info("[%s] Cache hit", primary_skill)
@@ -268,6 +292,8 @@ async def webhook(body: WebhookRequest, request: Request):
 
     # Cache result
     cache.put(primary_skill, body.data, body.instructions, parsed, model)
+    if is_company_scoped and company_cache is not None and company_key:
+        company_cache.put(company_key, primary_skill, parsed)
 
     # Store memory for this entity
     if memory_store is not None:

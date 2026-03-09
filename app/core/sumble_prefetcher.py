@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from typing import Any
 
 import httpx
 
@@ -35,6 +36,7 @@ class SumblePrefetcher:
             timeout=timeout,
         )
         self._cache: dict[str, tuple[float, str]] = {}
+        self._inflight: dict[str, asyncio.Event] = {}
 
     async def fetch(
         self,
@@ -65,6 +67,33 @@ class SumblePrefetcher:
                 logger.info("[prefetch] Sumble cache hit for %s", cache_key)
                 return cached_text
 
+        # Inflight dedup: if another coroutine is already fetching this domain, wait
+        if cache_key in self._inflight:
+            logger.info("[prefetch] Sumble waiting on inflight fetch for %s", cache_key)
+            try:
+                await asyncio.wait_for(self._inflight[cache_key].wait(), timeout=60)
+            except asyncio.TimeoutError:
+                logger.warning("[prefetch] Sumble inflight wait timed out for %s", cache_key)
+                return None
+            return self._cache.get(cache_key, (0, None))[1]
+
+        # Mark as inflight
+        self._inflight[cache_key] = asyncio.Event()
+        try:
+            return await self._do_fetch(cache_key, company_domain, company_name, endpoints, data)
+        finally:
+            self._inflight[cache_key].set()
+            self._inflight.pop(cache_key, None)
+
+    async def _do_fetch(
+        self,
+        cache_key: str,
+        company_domain: str,
+        company_name: str | None,
+        endpoints: list[str],
+        data: dict,
+    ) -> str | None:
+        """Execute the actual Sumble fetch (called once per inflight key)."""
         # Call requested endpoints in parallel
         tasks = [
             self._call_endpoint(ep, self._build_payload(ep, company_domain, data))

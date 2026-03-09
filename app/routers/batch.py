@@ -1,3 +1,4 @@
+import logging
 import time
 import uuid
 from datetime import datetime, timezone
@@ -5,27 +6,91 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request
 
 from app.config import settings
+from app.core.batch_optimizer import group_by_company
 from app.core.model_router import resolve_model
+from app.core.pipeline_runner import load_pipeline
 from app.core.scheduler import ScheduledBatch
 from app.core.skill_loader import load_skill, load_skill_config
-from app.core.token_estimator import estimate_cost
 from app.models.requests import BatchRequest
 
 router = APIRouter()
+logger = logging.getLogger("clay-webhook-os")
 
 
 @router.post("/batch")
 async def batch(body: BatchRequest, request: Request):
     queue = request.app.state.job_queue
+    priority = body.priority or "normal"
+    batch_id = uuid.uuid4().hex[:12]
+
+    # --- Pipeline batch mode ---
+    if body.pipeline:
+        pipeline_def = load_pipeline(body.pipeline)
+        if pipeline_def is None:
+            return {"error": True, "error_message": f"Pipeline '{body.pipeline}' not found"}
+
+        # Extract skill names from pipeline steps for the job queue
+        steps = pipeline_def.get("steps", [])
+        skill_chain = []
+        for step in steps:
+            if isinstance(step, dict) and "parallel" in step:
+                # Parallel steps: flatten sub-step skills
+                for sub in step["parallel"]:
+                    s = sub["skill"] if isinstance(sub, dict) else sub
+                    skill_chain.append(s)
+            else:
+                s = step["skill"] if isinstance(step, dict) else step
+                skill_chain.append(s)
+
+        if not skill_chain:
+            return {"error": True, "error_message": f"Pipeline '{body.pipeline}' has no steps"}
+
+        primary_skill = skill_chain[0]
+        skill_config = load_skill_config(primary_skill)
+        model = resolve_model(request_model=body.model, skill_config=skill_config)
+
+        # Log dedup stats
+        if body.deduplicate:
+            groups = group_by_company(body.rows)
+            company_count = sum(1 for k in groups if k)
+            logger.info(
+                "[batch:%s] Pipeline '%s' — %d rows, %d companies (dedup=%s)",
+                batch_id, body.pipeline, len(body.rows), company_count, body.deduplicate,
+            )
+
+        # Enqueue each row as a skill chain
+        job_ids = []
+        for i, row in enumerate(body.rows):
+            job_id = await queue.enqueue(
+                skill=primary_skill,
+                data=row,
+                instructions=body.instructions,
+                model=model,
+                callback_url="",
+                row_id=row.get("row_id", str(i)),
+                priority=priority,
+                batch_id=batch_id,
+                skills=skill_chain if len(skill_chain) > 1 else None,
+            )
+            job_ids.append(job_id)
+
+        queue.register_batch(batch_id, job_ids)
+
+        return {
+            "batch_id": batch_id,
+            "pipeline": body.pipeline,
+            "total_rows": len(body.rows),
+            "job_ids": job_ids,
+            "deduplicate": body.deduplicate,
+        }
+
+    # --- Skill batch mode (original) ---
     skill_config = load_skill_config(body.skill)
     model = resolve_model(request_model=body.model, skill_config=skill_config)
-    priority = body.priority or "normal"
 
     skill_content = load_skill(body.skill)
     if skill_content is None:
         return {"error": True, "error_message": f"Skill '{body.skill}' not found"}
-
-    batch_id = uuid.uuid4().hex[:12]
 
     # Scheduled batch: defer to scheduler
     if body.scheduled_at:
@@ -55,6 +120,15 @@ async def batch(body: BatchRequest, request: Request):
             "status": "scheduled",
         }
 
+    # Log dedup stats when enabled
+    if body.deduplicate:
+        groups = group_by_company(body.rows)
+        company_count = sum(1 for k in groups if k)
+        logger.info(
+            "[batch:%s] Skill '%s' — %d rows, %d companies (dedup=%s)",
+            batch_id, body.skill, len(body.rows), company_count, body.deduplicate,
+        )
+
     # Immediate batch: enqueue now
     job_ids = []
     for i, row in enumerate(body.rows):
@@ -76,6 +150,7 @@ async def batch(body: BatchRequest, request: Request):
         "batch_id": batch_id,
         "total_rows": len(body.rows),
         "job_ids": job_ids,
+        "deduplicate": body.deduplicate,
     }
 
 

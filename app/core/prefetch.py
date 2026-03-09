@@ -33,6 +33,7 @@ class ExaPrefetcher:
         self._num_results = num_results
         self._cache_ttl = cache_ttl
         self._cache: dict[str, tuple[float, str]] = {}
+        self._inflight: dict[str, asyncio.Event] = {}
 
     async def fetch(self, company_name: str, company_domain: str) -> str | None:
         """Pre-fetch news intelligence for a company via Exa neural search."""
@@ -45,6 +46,26 @@ class ExaPrefetcher:
                 logger.info("[prefetch] Cache hit for %s", cache_key)
                 return cached_text
 
+        # Inflight dedup: if another coroutine is already fetching this domain, wait
+        if cache_key in self._inflight:
+            logger.info("[prefetch] Waiting on inflight fetch for %s", cache_key)
+            try:
+                await asyncio.wait_for(self._inflight[cache_key].wait(), timeout=60)
+            except asyncio.TimeoutError:
+                logger.warning("[prefetch] Inflight wait timed out for %s", cache_key)
+                return None
+            return self._cache.get(cache_key, (0, None))[1]
+
+        # Mark as inflight
+        self._inflight[cache_key] = asyncio.Event()
+        try:
+            return await self._do_fetch(company_name, company_domain, cache_key)
+        finally:
+            self._inflight[cache_key].set()
+            self._inflight.pop(cache_key, None)
+
+    async def _do_fetch(self, company_name: str, company_domain: str, cache_key: str) -> str | None:
+        """Execute the actual Exa fetch (called once per inflight key)."""
         # Single news search (Sumble covers company profile + hiring)
         loop = asyncio.get_running_loop()
         try:

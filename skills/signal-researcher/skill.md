@@ -1,5 +1,6 @@
 ---
 model_tier: standard
+scope: company
 executor: cli
 timeout: 90
 prefetch:

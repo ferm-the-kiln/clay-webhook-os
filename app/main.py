@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.core.cache import ResultCache
+from app.core.company_cache import CompanyCache
 from app.core.event_bus import EventBus
 from app.core.job_queue import JobQueue
 from app.core.scheduler import BatchScheduler
@@ -101,8 +102,12 @@ async def startup():
     app.state.experiment_store.load()
     app.state.usage_store = UsageStore(data_dir=settings.data_dir)
     app.state.usage_store.load()
+    # Company-level dedup cache (research skills run once per company)
+    app.state.company_cache = CompanyCache(ttl=settings.company_cache_ttl)
+
     app.state.job_queue._experiment_store = app.state.experiment_store
     app.state.job_queue._usage_store = app.state.usage_store
+    app.state.job_queue._company_cache = app.state.company_cache
 
     # Phase 2: Agent memory store
     app.state.memory_store = MemoryStore(data_dir=settings.data_dir)
@@ -215,4 +220,5 @@ async def startup():
     logger.info("  Cache TTL: %ds", settings.cache_ttl)
     logger.info("  Smart routing: %s", "enabled" if settings.enable_smart_routing else "disabled")
     logger.info("  Context index: %d documents", app.state.context_index.doc_count)
-    logger.info("  Features: campaigns, review-queue, smart-pipelines, feedback-loops, retry, SSE, model-router, sub-monitor, cleanup, memory, semantic-context, parallel-pipelines, auto-coordinator")
+    logger.info("  Company cache TTL: %ds", settings.company_cache_ttl)
+    logger.info("  Features: campaigns, review-queue, smart-pipelines, feedback-loops, retry, SSE, model-router, sub-monitor, cleanup, memory, semantic-context, parallel-pipelines, auto-coordinator, company-dedup")

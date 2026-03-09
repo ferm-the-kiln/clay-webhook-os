@@ -24,12 +24,22 @@ class WebhookRequest(BaseModel):
 
 
 class BatchRequest(BaseModel):
-    skill: str = Field(..., description="Skill name to run on all rows")
+    skill: str | None = Field(None, description="Skill name to run on all rows")
+    pipeline: str | None = Field(None, description="Pipeline name to run per row (alternative to skill)")
     rows: list[dict] = Field(..., description="Array of row data objects")
     model: str | None = Field(None, description="Model override: opus, sonnet, haiku")
     instructions: str | None = Field(None, description="Optional instructions for all rows")
     priority: str | None = Field(None, description="Job priority: high, normal, low")
     scheduled_at: str | None = Field(None, description="ISO timestamp to schedule batch (future time)")
+    deduplicate: bool = Field(True, description="Group rows by company_domain for dedup")
+
+    @model_validator(mode="after")
+    def validate_skill_or_pipeline(self) -> "BatchRequest":
+        if not self.skill and not self.pipeline:
+            raise ValueError("Either 'skill' or 'pipeline' must be provided")
+        if self.skill and self.pipeline:
+            raise ValueError("Provide 'skill' or 'pipeline', not both")
+        return self
 
 
 class PipelineStep(BaseModel):

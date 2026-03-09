@@ -1,5 +1,6 @@
 ---
 model_tier: standard
+scope: company
 prefetch: sumble
 sumble_endpoints:
   - organizations/enrich
