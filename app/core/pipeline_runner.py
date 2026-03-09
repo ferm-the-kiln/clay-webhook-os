@@ -14,15 +14,12 @@ import yaml
 from app.config import settings
 from app.core.cache import ResultCache
 from app.core.context_assembler import build_prompt
-from app.core.prefetch import parse_research_config
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config
 from app.core.worker_pool import WorkerPool
 
 if TYPE_CHECKING:
     from app.core.context_index import ContextIndex
     from app.core.memory_store import MemoryStore
-    from app.core.scrapegraph_prefetcher import ScrapegraphPrefetcher
-    from app.core.sumble_prefetcher import SumblePrefetcher
 
 logger = logging.getLogger("clay-webhook-os")
 
@@ -109,47 +106,6 @@ def load_pipeline(name: str) -> dict | None:
     return yaml.safe_load(path.read_text())
 
 
-async def _run_prefetch(
-    skill_name: str,
-    config: dict,
-    data: dict,
-    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
-    sumble_prefetcher: SumblePrefetcher | None = None,
-) -> str | None:
-    """Run research fetch for a skill step. Returns combined text or None."""
-    research_intents = parse_research_config(config)
-    if not research_intents:
-        return None
-
-    company_name = data.get("company_name", "")
-    company_domain = data.get("company_domain", "")
-    parts: list[str] = []
-    coros = []
-
-    # "company_profile" → Sumble
-    if "company_profile" in research_intents and sumble_prefetcher and company_domain:
-        endpoints = config.get("sumble_endpoints", ["organizations/enrich"])
-        coros.append(sumble_prefetcher.fetch(company_domain, company_name, endpoints, data))
-
-    # ScrapeGraph intents
-    if scrapegraph_prefetcher and company_domain:
-        for intent in ("company_intel", "competitor_scrape", "industry_search"):
-            if intent in research_intents:
-                coros.append(scrapegraph_prefetcher.fetch(company_domain, company_name, intent=intent, data=data))
-
-    if not coros:
-        return None
-
-    results = await asyncio.gather(*coros, return_exceptions=True)
-    for r in results:
-        if isinstance(r, str):
-            parts.append(r)
-        elif isinstance(r, Exception):
-            logger.warning("[pipeline] Research fetch failed for %s: %s", skill_name, r)
-
-    return "\n\n---\n\n".join(parts) if parts else None
-
-
 async def _run_single_step(
     skill_name: str,
     current_data: dict,
@@ -157,8 +113,6 @@ async def _run_single_step(
     model: str,
     pool: WorkerPool,
     cache: ResultCache | None = None,
-    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
-    sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
 ) -> dict:
@@ -189,17 +143,17 @@ async def _run_single_step(
                 "response_chars": 0,
             }
 
-    # Load skill config for prefetch and semantic context settings
-    prefetched_context = await _run_prefetch(
-        skill_name, skill_cfg, current_data, scrapegraph_prefetcher, sumble_prefetcher
-    )
+    # Research skill pre-fetch: fetch external data and merge into current_data
+    from app.routers.webhook import _maybe_fetch_research
+    await _maybe_fetch_research(skill_name, current_data)
+
     skip_semantic = not skill_cfg.get("semantic_context", True)
 
     context_files = load_context_files(skill_content, current_data, skill_name=skill_name)
     prompt = build_prompt(
         skill_content, context_files, current_data, instructions,
         memory_store=memory_store, context_index=context_index,
-        prefetched_context=prefetched_context, skip_semantic=skip_semantic,
+        skip_semantic=skip_semantic,
     )
 
     try:
@@ -238,11 +192,8 @@ async def _run_parallel_step(
     pool: WorkerPool,
     cache: ResultCache | None,
     merge_strategy: str = "deep",
-    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
-    sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-
 ) -> tuple[list[dict], dict]:
     """Run multiple skill steps concurrently. Returns (results_list, merged_data)."""
     parallel_start = time.monotonic()
@@ -260,8 +211,6 @@ async def _run_parallel_step(
             model=step_model,
             pool=pool,
             cache=cache,
-            scrapegraph_prefetcher=scrapegraph_prefetcher,
-            sumble_prefetcher=sumble_prefetcher,
             memory_store=memory_store,
             context_index=context_index,
         ))
@@ -301,11 +250,8 @@ async def run_skill_chain(
     model: str,
     pool: WorkerPool,
     cache: ResultCache | None = None,
-    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
-    sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-
 ) -> dict:
     results = []
     current_data = dict(data)
@@ -319,8 +265,6 @@ async def run_skill_chain(
             model=model,
             pool=pool,
             cache=cache,
-            scrapegraph_prefetcher=scrapegraph_prefetcher,
-            sumble_prefetcher=sumble_prefetcher,
             memory_store=memory_store,
             context_index=context_index,
         )
@@ -348,11 +292,8 @@ async def run_pipeline(
     model: str,
     pool: WorkerPool,
     cache: ResultCache,
-    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
-    sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-
 ) -> dict:
     pipeline = load_pipeline(name)
     if pipeline is None:
@@ -370,8 +311,6 @@ async def run_pipeline(
         pool=pool,
         cache=cache,
         confidence_threshold=confidence_threshold,
-        scrapegraph_prefetcher=scrapegraph_prefetcher,
-        sumble_prefetcher=sumble_prefetcher,
         memory_store=memory_store,
         context_index=context_index,
     )
@@ -386,11 +325,8 @@ async def run_pipeline_from_plan(
     pool: WorkerPool,
     cache: ResultCache,
     confidence_threshold: float = 0.8,
-    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
-    sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-
 ) -> dict:
     """Execute a dynamically generated pipeline plan (from coordinator)."""
     return await _execute_steps(
@@ -402,8 +338,6 @@ async def run_pipeline_from_plan(
         pool=pool,
         cache=cache,
         confidence_threshold=confidence_threshold,
-        scrapegraph_prefetcher=scrapegraph_prefetcher,
-        sumble_prefetcher=sumble_prefetcher,
         memory_store=memory_store,
         context_index=context_index,
     )
@@ -418,11 +352,8 @@ async def _execute_steps(
     pool: WorkerPool,
     cache: ResultCache,
     confidence_threshold: float = 0.8,
-    scrapegraph_prefetcher: ScrapegraphPrefetcher | None = None,
-    sumble_prefetcher: SumblePrefetcher | None = None,
     memory_store: MemoryStore | None = None,
     context_index: ContextIndex | None = None,
-
 ) -> dict:
     """Core step execution engine — handles sequential, parallel, and conditional steps."""
     results = []
@@ -448,11 +379,9 @@ async def _execute_steps(
                 pool=pool,
                 cache=cache,
                 merge_strategy=merge_strategy,
-                scrapegraph_prefetcher=scrapegraph_prefetcher,
-                sumble_prefetcher=sumble_prefetcher,
                 memory_store=memory_store,
                 context_index=context_index,
-                )
+            )
             # Track confidence from parallel results
             for pr in parallel_results:
                 if pr.get("output"):
@@ -520,10 +449,10 @@ async def _execute_steps(
             current_data.update(cached)
             continue
 
-        # Pre-fetch intelligence if configured
-        prefetched_context = await _run_prefetch(
-            skill_name, skill_cfg, current_data, scrapegraph_prefetcher, sumble_prefetcher
-        )
+        # Research skill pre-fetch: fetch external data and merge into current_data
+        from app.routers.webhook import _maybe_fetch_research
+        await _maybe_fetch_research(skill_name, current_data)
+
         skip_semantic = not skill_cfg.get("semantic_context", True)
 
         # Build prompt and execute
@@ -531,7 +460,7 @@ async def _execute_steps(
         prompt = build_prompt(
             skill_content, context_files, current_data, effective_instructions,
             memory_store=memory_store, context_index=context_index,
-            prefetched_context=prefetched_context, skip_semantic=skip_semantic,
+            skip_semantic=skip_semantic,
         )
 
         try:

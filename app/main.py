@@ -116,33 +116,15 @@ async def startup():
     app.state.context_index.build()
     app.state.job_queue._context_index = app.state.context_index
 
-    # ScrapeGraph web intelligence (optional)
+    # Log research API availability
     if settings.sgai_api_key:
-        from app.core.scrapegraph_prefetcher import ScrapegraphPrefetcher
-        app.state.scrapegraph_prefetcher = ScrapegraphPrefetcher(
-            api_key=settings.sgai_api_key,
-            cache_ttl=settings.sgai_cache_ttl,
-        )
-        logger.info("  ScrapeGraph web intel: enabled")
+        logger.info("  ScrapeGraph research: enabled")
     else:
-        app.state.scrapegraph_prefetcher = None
-        logger.info("  ScrapeGraph web intel: disabled (no SGAI_API_KEY)")
-    app.state.job_queue._scrapegraph_prefetcher = app.state.scrapegraph_prefetcher
-
-    # Sumble pre-fetch (optional — structured company intelligence)
+        logger.info("  ScrapeGraph research: disabled (no SGAI_API_KEY)")
     if settings.sumble_api_key:
-        from app.core.sumble_prefetcher import SumblePrefetcher
-        app.state.sumble_prefetcher = SumblePrefetcher(
-            api_key=settings.sumble_api_key,
-            base_url=settings.sumble_base_url,
-            cache_ttl=settings.sumble_cache_ttl,
-            timeout=settings.sumble_timeout,
-        )
-        logger.info("  Sumble pre-fetch: enabled")
+        logger.info("  Sumble research: enabled")
     else:
-        app.state.sumble_prefetcher = None
-        logger.info("  Sumble pre-fetch: disabled (no SUMBLE_API_KEY)")
-    app.state.job_queue._sumble_prefetcher = app.state.sumble_prefetcher
+        logger.info("  Sumble research: disabled (no SUMBLE_API_KEY)")
 
     # Retry worker
     app.state.retry_worker = RetryWorker(

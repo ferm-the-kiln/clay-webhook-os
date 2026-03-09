@@ -1,12 +1,6 @@
 ---
 model_tier: heavy
 scope: company
-research:
-  - company_profile
-  - company_intel
-sumble_endpoints:
-  - organizations/enrich
-  - people/find
 ---
 
 # Meeting Prep — Pre-Call Intelligence Brief

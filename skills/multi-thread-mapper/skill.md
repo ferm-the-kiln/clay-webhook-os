@@ -1,10 +1,6 @@
 ---
 model_tier: heavy
 scope: company
-research:
-  - company_profile
-sumble_endpoints:
-  - people/find
 ---
 
 # Multi-Thread Mapper — Buying Committee Mapping & Outreach

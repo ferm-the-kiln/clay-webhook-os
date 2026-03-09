@@ -20,13 +20,10 @@ class Settings(BaseSettings):
 
     # ScrapeGraph web intelligence
     sgai_api_key: str = ""
-    sgai_cache_ttl: int = 3600
 
-    # Sumble pre-fetch
+    # Sumble company intelligence
     sumble_api_key: str = ""
-    sumble_enabled: bool = True
     sumble_base_url: str = "https://api.sumble.com/v3"
-    sumble_cache_ttl: int = 3600
     sumble_timeout: int = 30
 
     # Retry worker

@@ -1,12 +1,6 @@
 ---
 model_tier: standard
 scope: company
-research:
-  - company_profile
-  - company_intel
-sumble_endpoints:
-  - organizations/enrich
-  - people/find
 context:
   - clients/{{client_slug}}.md
 context_max_chars: 4000

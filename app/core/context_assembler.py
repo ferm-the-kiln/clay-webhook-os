@@ -59,7 +59,6 @@ def build_prompt(
     instructions: str | None = None,
     memory_store: "MemoryStore | None" = None,
     context_index: "ContextIndex | None" = None,
-    prefetched_context: str | None = None,
     skip_semantic: bool = False,
     learning_engine: "LearningEngine | None" = None,
     output_format: str = "json",
@@ -144,10 +143,6 @@ def build_prompt(
         for ctx in sorted_ctx:
             parts.append(f"\n## {ctx['path']}\n\n{ctx['content']}")
 
-    # Layer 3.7: Pre-fetched intelligence
-    if prefetched_context:
-        parts.append(f"\n\n---\n\n{prefetched_context}")
-
     # Layer 4: Data
     parts.append(f"\n\n---\n\n# Data to Process\n\n{json.dumps(data)}")
 
@@ -188,7 +183,6 @@ def build_agent_prompts(
     instructions: str | None = None,
     memory_store: "MemoryStore | None" = None,
     context_index: "ContextIndex | None" = None,
-    prefetched_context: str | None = None,
     skip_semantic: bool = False,
     learning_engine: "LearningEngine | None" = None,
 ) -> str:
@@ -200,19 +194,12 @@ def build_agent_prompts(
     """
     parts: list[str] = []
 
-    # Layer 1: Agent role (analyst mode if pre-fetched data provided)
-    if prefetched_context:
-        parts.append(
-            "You are a signal analyst. Pre-fetched intelligence data has been provided below. "
-            "Analyze it for buying signals relevant to the client. Use WebSearch ONLY to fill "
-            "gaps or verify critical details — most of the research is already done for you."
-        )
-    else:
-        parts.append(
-            "You are an autonomous research agent. You have access to web search "
-            "and web fetch tools. Use them to find real, verifiable information. "
-            "After completing your research, return your findings as a single JSON object."
-        )
+    # Layer 1: Agent role
+    parts.append(
+        "You are an autonomous research agent. You have access to web search "
+        "and web fetch tools. Use them to find real, verifiable information. "
+        "After completing your research, return your findings as a single JSON object."
+    )
 
     # Layer 2: Skill instructions
     parts.append(f"\n\n# Skill Instructions\n\n{skill_content}")
@@ -258,10 +245,6 @@ def build_agent_prompts(
         for ctx in sorted_ctx:
             parts.append(f"\n## {ctx['path']}\n\n{ctx['content']}")
 
-    # Layer 3.7: Pre-fetched intelligence (injected before data)
-    if prefetched_context:
-        parts.append(f"\n\n---\n\n{prefetched_context}")
-
     # Layer 4: Data to research
     parts.append(f"\n\n---\n\n# Data to Research\n\n{json.dumps(data)}")
 
@@ -269,20 +252,12 @@ def build_agent_prompts(
     if instructions:
         parts.append(f"\n\n## Campaign Instructions\n{instructions}")
 
-    # Layer 6: Final instruction (analyst vs researcher mode)
-    if prefetched_context:
-        parts.append(
-            "\n\nAnalyze the pre-fetched intelligence above for buying signals. "
-            "Extract and score signals according to the Scoring Rules. Use WebSearch "
-            "only if critical gaps remain. Return your findings as a single JSON object "
-            "matching the Output Format above. No markdown fences — just the raw JSON."
-        )
-    else:
-        parts.append(
-            "\n\nResearch the target using your web search tools, then return "
-            "your findings as a single JSON object matching the Output Format above. "
-            "No markdown fences — just the raw JSON."
-        )
+    # Layer 6: Final instruction
+    parts.append(
+        "\n\nResearch the target using your web search tools, then return "
+        "your findings as a single JSON object matching the Output Format above. "
+        "No markdown fences — just the raw JSON."
+    )
 
     prompt = "".join(parts)
 

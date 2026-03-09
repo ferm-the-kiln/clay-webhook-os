@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 from fastapi import APIRouter, Request
@@ -9,7 +8,7 @@ from app.core.claude_executor import SubscriptionLimitError
 from app.core.context_assembler import build_agent_prompts, build_prompt
 from app.core.model_router import resolve_model
 from app.core.pipeline_runner import run_skill_chain
-from app.core.prefetch import parse_research_config
+from app.core.research_fetcher import fetch_company_intel, fetch_company_profile, fetch_competitor_intel
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config
 from app.core.token_estimator import estimate_cost, estimate_tokens
 from app.models.requests import WebhookRequest
@@ -21,6 +20,41 @@ logger = logging.getLogger("clay-webhook-os")
 
 def _error(message: str, skill: str = "unknown") -> dict:
     return {"error": True, "error_message": message, "skill": skill}
+
+
+async def _maybe_fetch_research(skill: str, data: dict) -> None:
+    """If skill is a research skill, fetch external data and merge into data['research_context']."""
+    if skill == "company-research":
+        ctx: dict = {}
+        domain = data.get("company_domain", "")
+        name = data.get("company_name", "")
+        if domain and settings.sgai_api_key:
+            ctx.update(await fetch_company_intel(domain, name, settings.sgai_api_key))
+        if domain and settings.sumble_api_key:
+            profile = await fetch_company_profile(
+                domain, data, settings.sumble_api_key,
+                settings.sumble_base_url, settings.sumble_timeout,
+            )
+            ctx.update(profile)
+        if ctx:
+            data["research_context"] = ctx
+
+    elif skill == "people-research":
+        domain = data.get("company_domain", "")
+        if domain and settings.sumble_api_key:
+            profile = await fetch_company_profile(
+                domain, data, settings.sumble_api_key,
+                settings.sumble_base_url, settings.sumble_timeout,
+            )
+            if profile:
+                data["research_context"] = profile
+
+    elif skill == "competitor-research":
+        competitor_domain = data.get("competitor_domain", "")
+        if competitor_domain and settings.sgai_api_key:
+            intel = await fetch_competitor_intel(competitor_domain, settings.sgai_api_key)
+            if intel:
+                data["research_context"] = intel
 
 
 @router.post("/webhook")
@@ -89,8 +123,6 @@ async def webhook(body: WebhookRequest, request: Request):
                 model=model,
                 pool=pool,
                 cache=cache,
-                scrapegraph_prefetcher=getattr(request.app.state, "scrapegraph_prefetcher", None),
-                sumble_prefetcher=getattr(request.app.state, "sumble_prefetcher", None),
                 memory_store=getattr(request.app.state, "memory_store", None),
                 context_index=getattr(request.app.state, "context_index", None),
             )
@@ -139,51 +171,19 @@ async def webhook(body: WebhookRequest, request: Request):
             primary_skill,
         )
 
-    # Pre-fetch intelligence if configured
-    research_intents = parse_research_config(config)
-    prefetched_parts: list[str] = []
-
-    if research_intents:
-        company_name = body.data.get("company_name", "")
-        company_domain = body.data.get("company_domain", "")
-        coros: list = []
-
-        # "company_profile" → Sumble
-        if "company_profile" in research_intents:
-            sumble = getattr(request.app.state, "sumble_prefetcher", None)
-            if sumble and company_domain:
-                sumble_endpoints = config.get("sumble_endpoints", ["organizations/enrich"])
-                coros.append(sumble.fetch(company_domain, company_name, sumble_endpoints, body.data))
-
-        # ScrapeGraph intents: company_intel, competitor_scrape, industry_search
-        sg = getattr(request.app.state, "scrapegraph_prefetcher", None)
-        if sg and company_domain:
-            for intent in ("company_intel", "competitor_scrape", "industry_search"):
-                if intent in research_intents:
-                    coros.append(sg.fetch(company_domain, company_name, intent=intent, data=body.data))
-
-        if coros:
-            results = await asyncio.gather(*coros, return_exceptions=True)
-            for r in results:
-                if isinstance(r, str):
-                    prefetched_parts.append(r)
-                elif isinstance(r, Exception):
-                    logger.warning("[%s] Research fetch failed: %s", primary_skill, r)
-
-    prefetched_context = "\n\n---\n\n".join(prefetched_parts) if prefetched_parts else None
+    # Research skill pre-fetch: fetch external data and merge into body.data
+    await _maybe_fetch_research(primary_skill, body.data)
 
     if is_agent:
         prompt = build_agent_prompts(
             skill_content, context_files, body.data, body.instructions,
             memory_store=memory_store, context_index=context_index,
-            prefetched_context=prefetched_context,
             learning_engine=learning_engine,
         )
     else:
         prompt = build_prompt(
             skill_content, context_files, body.data, body.instructions,
             memory_store=memory_store, context_index=context_index,
-            prefetched_context=prefetched_context,
             learning_engine=learning_engine,
             output_format=output_format,
         )
