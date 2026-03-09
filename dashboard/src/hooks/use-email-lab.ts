@@ -7,6 +7,7 @@ import {
   updateSkillContent,
   fetchVariants,
   forkVariant,
+  previewPrompt,
 } from "@/lib/api";
 import type { VariantDef, WebhookResponse } from "@/lib/types";
 import type { Model } from "@/lib/constants";
@@ -22,6 +23,13 @@ import {
 } from "@/lib/email-lab-constants";
 
 export type EditorTab = "data" | "instructions" | "skill";
+export type EditorMode = "form" | "json";
+export type InstructionMode = "builder" | "freeform";
+
+export interface QualityCheckResult {
+  passed: boolean;
+  issues: { severity: "error" | "warning" | "info"; message: string }[];
+}
 
 export interface UseEmailLabReturn {
   // Template state
@@ -35,6 +43,14 @@ export interface UseEmailLabReturn {
   setInstructions: (v: string) => void;
   activeTab: EditorTab;
   setActiveTab: (t: EditorTab) => void;
+
+  // Editor mode (form vs json)
+  editorMode: EditorMode;
+  setEditorMode: (m: EditorMode) => void;
+
+  // Instruction mode (builder vs freeform)
+  instructionMode: InstructionMode;
+  setInstructionMode: (m: InstructionMode) => void;
 
   // Skill state
   selectedSkill: EmailLabSkill;
@@ -56,10 +72,24 @@ export interface UseEmailLabReturn {
 
   // Run state
   result: WebhookResponse | null;
+  setResult: (r: WebhookResponse | null) => void;
   loading: boolean;
   error: string | null;
   runEmail: () => Promise<void>;
   currentRunId: string | null;
+
+  // Inline editing
+  isEditing: boolean;
+  setIsEditing: (v: boolean) => void;
+  editedBody: string;
+  setEditedBody: (v: string) => void;
+  saveEdits: () => void;
+
+  // Quality gate
+  autoQualityCheck: boolean;
+  setAutoQualityCheck: (v: boolean) => void;
+  qualityResult: QualityCheckResult | null;
+  qualityLoading: boolean;
 
   // History
   history: EmailLabRun[];
@@ -153,6 +183,21 @@ export function useEmailLab(): UseEmailLabReturn {
   // Custom templates (Feature 4)
   const [customTemplates, setCustomTemplates] = useState<CustomEmailLabTemplate[]>(loadCustomTemplates);
 
+  // Editor mode (form vs json)
+  const [editorMode, setEditorMode] = useState<EditorMode>("form");
+
+  // Instruction mode (builder vs freeform)
+  const [instructionMode, setInstructionMode] = useState<InstructionMode>("builder");
+
+  // Inline editing
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedBody, setEditedBody] = useState("");
+
+  // Quality gate
+  const [autoQualityCheck, setAutoQualityCheck] = useState(true);
+  const [qualityResult, setQualityResult] = useState<QualityCheckResult | null>(null);
+  const [qualityLoading, setQualityLoading] = useState(false);
+
   // Subject regen (Feature 6)
   const [subjectAlts, setSubjectAlts] = useState<string[]>([]);
   const [regenLoading, setRegenLoading] = useState(false);
@@ -231,6 +276,13 @@ export function useEmailLab(): UseEmailLabReturn {
       const res = await runWebhook(body);
       setResult(res);
       setSubjectAlts([]);
+      setIsEditing(false);
+      setQualityResult(null);
+
+      // Auto quality gate check
+      if (autoQualityCheck) {
+        runQualityCheck(res);
+      }
 
       // Save to history
       const runId = crypto.randomUUID();
@@ -258,6 +310,72 @@ export function useEmailLab(): UseEmailLabReturn {
       setLoading(false);
     }
   }, [dataJson, selectedSkill, selectedModel, instructions, selectedTemplate, selectedVariant]);
+
+  // Quality gate check
+  const runQualityCheck = useCallback(async (res: WebhookResponse) => {
+    const emailBody = (res.body as string) || (res.email_body as string) || (res.email as string) || "";
+    const emailSubject = (res.subject as string) || (res.subject_line as string) || "";
+    if (!emailBody) return;
+
+    setQualityLoading(true);
+    try {
+      const qgRes = await runWebhook({
+        skill: "quality-gate",
+        data: {
+          email_subject: emailSubject,
+          email_body: emailBody,
+          first_name: "Prospect",
+          company_name: "Company",
+        },
+        model: "haiku",
+      });
+
+      const issues: QualityCheckResult["issues"] = [];
+
+      // Parse quality gate response
+      const suggestions = (qgRes.suggestions ?? qgRes.issues ?? []) as Array<Record<string, string>>;
+      if (Array.isArray(suggestions)) {
+        for (const s of suggestions) {
+          issues.push({
+            severity: s.severity === "error" ? "error" : s.severity === "info" ? "info" : "warning",
+            message: s.message ?? s.suggestion ?? String(s),
+          });
+        }
+      }
+
+      // Check word count
+      const words = emailBody.trim().split(/\s+/).length;
+      if (words > 125) {
+        issues.push({ severity: "warning", message: `Too long — ${words} words, target 80-125` });
+      } else if (words < 50) {
+        issues.push({ severity: "warning", message: `Too short — ${words} words, target 50-125` });
+      }
+
+      // Check for common AI phrases
+      const aiPhrases = ["I hope this finds you well", "I wanted to reach out", "I'd love to connect", "leverage", "synergy"];
+      for (const phrase of aiPhrases) {
+        if (emailBody.toLowerCase().includes(phrase.toLowerCase())) {
+          issues.push({ severity: "warning", message: `Detected AI phrase: "${phrase}"` });
+        }
+      }
+
+      const passed = qgRes.passed !== false && issues.filter((i) => i.severity === "error").length === 0;
+      setQualityResult({ passed, issues });
+    } catch {
+      // Quality gate failed silently — don't block the user
+      setQualityResult(null);
+    } finally {
+      setQualityLoading(false);
+    }
+  }, []);
+
+  // Save inline edits
+  const saveEdits = useCallback(() => {
+    if (!result || !editedBody) return;
+    const updated = { ...result, body: editedBody, email_body: editedBody, _edited: true };
+    setResult(updated as WebhookResponse);
+    setIsEditing(false);
+  }, [result, editedBody]);
 
   // Save skill content
   const saveSkillContent = useCallback(async () => {
@@ -394,6 +512,10 @@ export function useEmailLab(): UseEmailLabReturn {
     setInstructions,
     activeTab,
     setActiveTab,
+    editorMode,
+    setEditorMode,
+    instructionMode,
+    setInstructionMode,
     selectedSkill,
     setSelectedSkill,
     skillContent,
@@ -407,10 +529,20 @@ export function useEmailLab(): UseEmailLabReturn {
     selectedModel,
     setSelectedModel,
     result,
+    setResult,
     loading,
     error,
     runEmail,
     currentRunId,
+    isEditing,
+    setIsEditing,
+    editedBody,
+    setEditedBody,
+    saveEdits,
+    autoQualityCheck,
+    setAutoQualityCheck,
+    qualityResult,
+    qualityLoading,
     history,
     restoreRun,
     clearHistory,

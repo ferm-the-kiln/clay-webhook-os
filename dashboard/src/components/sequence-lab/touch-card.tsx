@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Mail, Linkedin, Phone, Copy, Check, ChevronDown } from "lucide-react";
+import { Mail, Linkedin, Phone, Copy, Check, ChevronDown, Pencil, Save, X } from "lucide-react";
 
 const CHANNEL_CONFIG: Record<string, { icon: typeof Mail; color: string; badgeColor: string }> = {
   email: {
@@ -44,16 +44,18 @@ export function TouchCard({
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(touch.body);
 
   const channel = CHANNEL_CONFIG[touch.channel] ?? CHANNEL_CONFIG.email;
   const ChannelIcon = channel.icon;
-  const wordCount = touch.body?.split(/\s+/).filter(Boolean).length ?? 0;
+  const wordCount = (editing ? editText : touch.body)?.split(/\s+/).filter(Boolean).length ?? 0;
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
     const text = touch.subject
-      ? `Subject: ${touch.subject}\n\n${touch.body}`
-      : touch.body;
+      ? `Subject: ${touch.subject}\n\n${editing ? editText : touch.body}`
+      : editing ? editText : touch.body;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -137,14 +139,49 @@ export function TouchCard({
               </div>
             )}
 
-            {/* Body text */}
+            {/* Body text — with inline editing (Rec #7) */}
             <div className="px-3 py-3">
-              <p className="text-sm text-clay-200 whitespace-pre-wrap leading-relaxed">
-                {touch.body}
-              </p>
+              {editing ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    className="w-full min-h-[80px] resize-y bg-clay-950 border border-kiln-teal/30 rounded p-2 text-sm text-clay-200 leading-relaxed outline-none focus:border-kiln-teal"
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        touch.body = editText;
+                        setEditing(false);
+                      }}
+                      className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light text-[10px] h-6"
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      Save
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditText(touch.body);
+                        setEditing(false);
+                      }}
+                      className="text-[10px] text-clay-300 h-6"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-clay-200 whitespace-pre-wrap leading-relaxed">
+                  {touch.body}
+                </p>
+              )}
             </div>
 
-            {/* Footer: tone, purpose, copy */}
+            {/* Footer: tone, purpose, edit, copy */}
             <div className="px-3 py-2 border-t border-clay-700 flex items-center gap-2 flex-wrap">
               {touch.tone_note && (
                 <span className="text-[10px] text-clay-300 italic">
@@ -156,18 +193,42 @@ export function TouchCard({
                   {touch.purpose}
                 </span>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCopy}
-                className="ml-auto h-6 text-[10px] text-clay-300 hover:text-clay-100 px-1.5"
-              >
-                {copied ? (
-                  <Check className="h-3 w-3 text-emerald-400" />
-                ) : (
-                  <Copy className="h-3 w-3" />
+              <div className="ml-auto flex items-center gap-1">
+                {!editing && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditText(touch.body);
+                      setEditing(true);
+                    }}
+                    className="h-6 text-[10px] text-clay-300 hover:text-clay-100 px-1.5"
+                    title="Edit this touch"
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
                 )}
-              </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopy}
+                  className="h-6 text-[10px] text-clay-300 hover:text-clay-100 px-1.5"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-3 w-3 mr-1 text-emerald-400" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3 mr-1" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         )}

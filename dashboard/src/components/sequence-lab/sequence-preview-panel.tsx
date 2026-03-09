@@ -12,13 +12,19 @@ import {
   Mail,
   Linkedin,
   Phone,
+  Download,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PushToDestination } from "@/components/shared/push-to-destination";
 import type { WebhookResponse } from "@/lib/types";
 import type { SequenceLabRun } from "@/lib/sequence-lab-constants";
 import { SEQUENCE_TYPE_COLORS, type SequenceType } from "@/lib/sequence-lab-constants";
 import { TouchCard } from "./touch-card";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const QUICKSTART_DISMISSED_KEY = "sequence-lab-quickstart-dismissed";
 
 function formatDuration(ms: number): string {
   return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
@@ -48,6 +54,7 @@ export function SequencePreviewPanel({
   history,
   onRestore,
   onClearHistory,
+  onTryItNow,
 }: {
   result: WebhookResponse | null;
   loading: boolean;
@@ -55,9 +62,27 @@ export function SequencePreviewPanel({
   history: SequenceLabRun[];
   onRestore: (run: SequenceLabRun) => void;
   onClearHistory: () => void;
+  onTryItNow?: () => void;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedJson, setCopiedJson] = useState(false);
+  const [copiedAll, setCopiedAll] = useState(false);
+  const [quickstartDismissed, setQuickstartDismissed] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setQuickstartDismissed(
+        localStorage.getItem(QUICKSTART_DISMISSED_KEY) === "true"
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (result && !quickstartDismissed) {
+      localStorage.setItem(QUICKSTART_DISMISSED_KEY, "true");
+      setQuickstartDismissed(true);
+    }
+  }, [result, quickstartDismissed]);
 
   // Extract sequence fields
   const sequenceName = result?.sequence_name as string | undefined;
@@ -85,10 +110,51 @@ export function SequencePreviewPanel({
   }, {});
   const totalTouches = touches.length;
 
-  const handleCopyAll = () => {
+  const handleCopyJson = () => {
     navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedJson(true);
+    setTimeout(() => setCopiedJson(false), 2000);
+  };
+
+  // Copy all touches as formatted text (Rec #2)
+  const handleCopyAllTouches = () => {
+    const lines = touches.map((t) => {
+      const dayLabel = `Day ${dayMarkers[t.touch_number - 1] ?? 0}`;
+      const parts = [`Touch ${t.touch_number} — ${dayLabel} — ${t.channel.toUpperCase()}`];
+      if (t.subject) parts.push(`Subject: ${t.subject}`);
+      parts.push("", t.body);
+      if (t.tone_note) parts.push(`[Tone: ${t.tone_note}]`);
+      return parts.join("\n");
+    });
+    navigator.clipboard.writeText(lines.join("\n\n---\n\n"));
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 2000);
+  };
+
+  // Export as CSV (Rec #2)
+  const handleExportCsv = () => {
+    const headers = ["Touch", "Day", "Channel", "Subject", "Body", "Tone", "Purpose"];
+    const rows = touches.map((t) => [
+      t.touch_number,
+      dayMarkers[t.touch_number - 1] ?? 0,
+      t.channel,
+      t.subject ?? "",
+      t.body.replace(/"/g, '""'),
+      t.tone_note ?? "",
+      t.purpose ?? "",
+    ]);
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => r.map((c) => `"${c}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${sequenceName ?? "sequence"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -108,12 +174,62 @@ export function SequencePreviewPanel({
           </div>
         )}
 
+        {/* Guided empty state (Rec #3) */}
         {!result && !loading && !error && (
-          <div className="flex flex-col items-center justify-center h-full gap-2 text-clay-300">
-            <ListOrdered className="h-8 w-8 text-clay-500" />
-            <p className="text-sm text-clay-300">
-              Select a template and run to preview
-            </p>
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-clay-300 px-4">
+            {!quickstartDismissed ? (
+              <>
+                <Sparkles className="h-10 w-10 text-kiln-teal/60" />
+                <div className="text-center space-y-3 max-w-xs">
+                  <h3 className="text-sm font-semibold text-clay-100">
+                    Welcome to Sequence Lab
+                  </h3>
+                  <div className="space-y-2 text-xs text-clay-300">
+                    <div className="flex items-start gap-2">
+                      <span className="shrink-0 h-5 w-5 rounded-full bg-kiln-teal/15 text-kiln-teal flex items-center justify-center text-[10px] font-bold">
+                        1
+                      </span>
+                      <span>
+                        Pick a template
+                        <ArrowRight className="inline h-3 w-3 mx-1 text-clay-500" />
+                        or enter prospect details
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="shrink-0 h-5 w-5 rounded-full bg-kiln-teal/15 text-kiln-teal flex items-center justify-center text-[10px] font-bold">
+                        2
+                      </span>
+                      <span>Choose sequence type: Cold, LinkedIn-First, or Warm Intro</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="shrink-0 h-5 w-5 rounded-full bg-kiln-teal/15 text-kiln-teal flex items-center justify-center text-[10px] font-bold">
+                        3
+                      </span>
+                      <span>
+                        Hit <kbd className="text-[9px] bg-clay-700 px-1 py-0.5 rounded mx-0.5">{"\u2318\u21A9"}</kbd> to generate your multi-touch sequence
+                      </span>
+                    </div>
+                  </div>
+                  {onTryItNow && (
+                    <Button
+                      onClick={onTryItNow}
+                      className="mt-2 bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light text-xs font-semibold"
+                      size="sm"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                      Try it now
+                    </Button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <ListOrdered className="h-8 w-8 text-clay-500" />
+                <p className="text-sm text-clay-300">
+                  Select a template and run to preview
+                </p>
+              </>
+            )}
           </div>
         )}
 
@@ -153,19 +269,45 @@ export function SequencePreviewPanel({
                     </span>
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCopyAll}
-                  className="h-7 text-xs text-clay-300 hover:text-clay-100 shrink-0"
-                >
-                  {copied ? (
-                    <Check className="h-3.5 w-3.5 mr-1 text-emerald-400" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5 mr-1" />
-                  )}
-                  {copied ? "Copied" : "Copy JSON"}
-                </Button>
+                {/* Copy/Export buttons (Rec #2) */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCopyAllTouches}
+                    className="h-7 text-xs text-clay-300 hover:text-clay-100"
+                    title="Copy all touches as formatted text"
+                  >
+                    {copiedAll ? (
+                      <Check className="h-3.5 w-3.5 mr-1 text-emerald-400" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    {copiedAll ? "Copied" : "Copy All"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleExportCsv}
+                    className="h-7 text-[10px] text-clay-400 hover:text-clay-200 px-1.5"
+                    title="Export as CSV"
+                  >
+                    <Download className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCopyJson}
+                    className="h-7 text-[10px] text-clay-400 hover:text-clay-200 px-1.5"
+                    title="Copy raw JSON"
+                  >
+                    {copiedJson ? (
+                      <Check className="h-3 w-3 text-emerald-400" />
+                    ) : (
+                      <span>JSON</span>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               {/* Cadence strip */}
@@ -279,6 +421,11 @@ export function SequencePreviewPanel({
               )}
             </div>
 
+            {/* Push to Clay (Rec #9) */}
+            <div className="flex justify-end">
+              <PushToDestination data={result as Record<string, unknown>} />
+            </div>
+
             {/* Collapsible details */}
             {(angleReasoning || meta) && (
               <button
@@ -331,15 +478,15 @@ export function SequencePreviewPanel({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleCopyAll}
+                onClick={handleCopyJson}
                 className="h-7 text-xs text-clay-300 hover:text-clay-100"
               >
-                {copied ? (
+                {copiedJson ? (
                   <Check className="h-3.5 w-3.5 mr-1 text-emerald-400" />
                 ) : (
                   <Copy className="h-3.5 w-3.5 mr-1" />
                 )}
-                {copied ? "Copied" : "Copy"}
+                {copiedJson ? "Copied" : "Copy"}
               </Button>
             </div>
             <pre className="px-4 py-4 text-xs text-clay-200 font-[family-name:var(--font-mono)] overflow-x-auto">

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { GitFork, Cpu, X } from "lucide-react";
+import { GitFork, Cpu, X, Sparkles } from "lucide-react";
 import {
   EMAIL_LAB_TEMPLATES,
   EMAIL_LAB_SKILLS,
@@ -21,6 +21,15 @@ const SIGNAL_COLORS: Record<string, string> = {
   competitive: "bg-red-500/15 text-red-400",
 };
 
+// Signal type → best template mapping (Rec #10)
+const SIGNAL_TO_TEMPLATE: Record<string, string> = {
+  expansion: "company-expansion",
+  funding: "funding-round",
+  technology: "tech-stack-change",
+  leadership: "leadership-change",
+  competitive: "competitor-displacement",
+};
+
 export function TemplatePanel({
   selectedTemplateId,
   onSelectTemplate,
@@ -34,6 +43,7 @@ export function TemplatePanel({
   onFork,
   customTemplates,
   onDeleteCustomTemplate,
+  dataJson,
 }: {
   selectedTemplateId: string | null;
   onSelectTemplate: (id: string) => void;
@@ -47,7 +57,21 @@ export function TemplatePanel({
   onFork: () => void;
   customTemplates: CustomEmailLabTemplate[];
   onDeleteCustomTemplate: (id: string) => void;
+  dataJson?: string;
 }) {
+  // Detect signal type from data for smart suggestions (Rec #10)
+  let suggestedTemplateId: string | null = null;
+  if (dataJson) {
+    try {
+      const parsed = JSON.parse(dataJson);
+      const signalType = parsed.signal_type as string;
+      if (signalType && SIGNAL_TO_TEMPLATE[signalType]) {
+        suggestedTemplateId = SIGNAL_TO_TEMPLATE[signalType];
+      }
+    } catch {
+      // ignore
+    }
+  }
   return (
     <div className="flex flex-col h-full overflow-y-auto p-3 space-y-5">
       {/* ── Templates ── */}
@@ -58,6 +82,7 @@ export function TemplatePanel({
         <div className="space-y-1.5">
           {EMAIL_LAB_TEMPLATES.map((tpl) => {
             const active = tpl.id === selectedTemplateId;
+            const isSuggested = suggestedTemplateId === tpl.id && !active;
             const color = SIGNAL_COLORS[tpl.signalType] ?? "bg-clay-500/15 text-clay-300";
             return (
               <button
@@ -67,7 +92,9 @@ export function TemplatePanel({
                   "w-full text-left rounded-lg px-3 py-2.5 transition-all duration-150 border",
                   active
                     ? "border-kiln-teal/40 bg-kiln-teal/5"
-                    : "border-transparent hover:bg-clay-700/50"
+                    : isSuggested
+                      ? "border-kiln-teal/20 bg-kiln-teal/5 ring-1 ring-kiln-teal/10"
+                      : "border-transparent hover:bg-clay-700/50"
                 )}
               >
                 <div className="flex items-center gap-2 mb-0.5">
@@ -82,10 +109,18 @@ export function TemplatePanel({
                   >
                     {tpl.signalType}
                   </span>
+                  {isSuggested && (
+                    <Sparkles className="h-3 w-3 text-kiln-teal shrink-0" />
+                  )}
                 </div>
                 <p className="text-xs text-clay-300 line-clamp-1">
                   {tpl.data.company_name as string} &middot; {tpl.data.title as string}
                 </p>
+                {isSuggested && (
+                  <p className="text-[9px] text-kiln-teal/70 mt-0.5">
+                    Best match for your signal type
+                  </p>
+                )}
               </button>
             );
           })}

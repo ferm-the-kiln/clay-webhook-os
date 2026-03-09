@@ -19,6 +19,8 @@ import {
 } from "@/lib/sequence-lab-constants";
 
 export type EditorTab = "data" | "instructions" | "skill";
+export type EditorMode = "form" | "json";
+export type InstructionMode = "builder" | "freeform";
 
 const SKILL = "sequence-writer" as const;
 
@@ -34,6 +36,14 @@ export interface UseSequenceLabReturn {
   setInstructions: (v: string) => void;
   activeTab: EditorTab;
   setActiveTab: (t: EditorTab) => void;
+
+  // Editor mode (form vs json)
+  editorMode: EditorMode;
+  setEditorMode: (m: EditorMode) => void;
+
+  // Instruction mode (builder vs freeform)
+  instructionMode: InstructionMode;
+  setInstructionMode: (m: InstructionMode) => void;
 
   // Skill state (fixed to sequence-writer)
   skillContent: string;
@@ -93,6 +103,12 @@ export function useSequenceLab(): UseSequenceLabReturn {
   );
   const [instructions, setInstructions] = useState("");
   const [activeTab, setActiveTab] = useState<EditorTab>("data");
+
+  // Editor mode (form vs json)
+  const [editorMode, setEditorMode] = useState<EditorMode>("form");
+
+  // Instruction mode (builder vs freeform)
+  const [instructionMode, setInstructionMode] = useState<InstructionMode>("builder");
 
   // Skill (fixed to sequence-writer)
   const [skillContent, setSkillContent] = useState("");
@@ -249,6 +265,10 @@ export function useSequenceLab(): UseSequenceLabReturn {
     setInstructions,
     activeTab,
     setActiveTab,
+    editorMode,
+    setEditorMode,
+    instructionMode,
+    setInstructionMode,
     skillContent,
     setSkillContent,
     skillLoading,

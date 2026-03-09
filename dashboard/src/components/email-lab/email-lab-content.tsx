@@ -35,6 +35,13 @@ export function EmailLabContent() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  // "Try it now" — select first template and run immediately
+  const handleTryItNow = useCallback(() => {
+    lab.selectTemplate("company-expansion");
+    // Small delay to let state update, then run
+    setTimeout(() => lab.runEmail(), 100);
+  }, [lab]);
+
   return (
     <div className="flex h-full min-h-0">
       {/* Left panel — Templates & Skills */}
@@ -52,6 +59,7 @@ export function EmailLabContent() {
           onFork={lab.forkCurrentSkill}
           customTemplates={lab.customTemplates}
           onDeleteCustomTemplate={lab.deleteCustomTemplate}
+          dataJson={lab.dataJson}
         />
       </div>
 
@@ -71,6 +79,11 @@ export function EmailLabContent() {
           onRun={lab.runEmail}
           loading={lab.loading}
           selectedModel={lab.selectedModel}
+          editorMode={lab.editorMode}
+          onEditorModeChange={lab.setEditorMode}
+          instructionMode={lab.instructionMode}
+          onInstructionModeChange={lab.setInstructionMode}
+          skill={lab.selectedSkill}
         />
       </div>
 
@@ -90,10 +103,20 @@ export function EmailLabContent() {
           regenLoading={lab.regenLoading}
           onRegenSubjectLines={lab.regenSubjectLines}
           onSelectSubjectAlt={lab.selectSubjectAlt}
+          isEditing={lab.isEditing}
+          onSetEditing={lab.setIsEditing}
+          editedBody={lab.editedBody}
+          onSetEditedBody={lab.setEditedBody}
+          onSaveEdits={lab.saveEdits}
+          qualityResult={lab.qualityResult}
+          qualityLoading={lab.qualityLoading}
+          autoQualityCheck={lab.autoQualityCheck}
+          onSetAutoQualityCheck={lab.setAutoQualityCheck}
+          onTryItNow={handleTryItNow}
         />
       </div>
 
-      {/* Feature 5: Compare dialog */}
+      {/* Compare dialog */}
       <CompareDialog
         open={compareOpen}
         onOpenChange={setCompareOpen}

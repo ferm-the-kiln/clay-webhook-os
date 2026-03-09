@@ -33,6 +33,12 @@ export function SequenceLabContent() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  // "Try it now" — select first template and run immediately
+  const handleTryItNow = useCallback(() => {
+    lab.selectTemplate("cold-outbound-saas");
+    setTimeout(() => lab.runSequence(), 100);
+  }, [lab]);
+
   return (
     <div className="flex h-full min-h-0">
       {/* Left panel — Templates & Sequence Type */}
@@ -67,6 +73,12 @@ export function SequenceLabContent() {
           onRun={lab.runSequence}
           loading={lab.loading}
           selectedModel={lab.selectedModel}
+          editorMode={lab.editorMode}
+          onEditorModeChange={lab.setEditorMode}
+          instructionMode={lab.instructionMode}
+          onInstructionModeChange={lab.setInstructionMode}
+          skill="sequence-writer"
+          isSequenceLab
         />
       </div>
 
@@ -79,6 +91,7 @@ export function SequenceLabContent() {
           history={lab.history}
           onRestore={lab.restoreRun}
           onClearHistory={lab.clearHistory}
+          onTryItNow={handleTryItNow}
         />
       </div>
     </div>
