@@ -12,7 +12,7 @@ const FORMATTERS: Record<
 > = {
   "email-gen": EmailResult,
   "follow-up": EmailResult,
-  "icp-scorer": ScoreResult,
+  "qualifier": ScoreResult,
   "linkedin-note": LinkedInResult,
   "meeting-prep": BriefResult,
 };

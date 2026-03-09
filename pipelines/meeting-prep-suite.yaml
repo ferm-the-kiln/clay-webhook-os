@@ -1,5 +1,5 @@
 name: meeting-prep-suite
-description: Score prospect → Meeting prep brief
+description: Qualify prospect → Meeting prep brief
 steps:
-  - skill: icp-scorer
+  - skill: qualifier
   - skill: meeting-prep

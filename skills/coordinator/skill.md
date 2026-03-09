@@ -37,12 +37,12 @@ Return a JSON object with this structure:
 
 1. **Analyze the data first**: Look at what fields are available. If there's company info, consider enrichment/research skills. If there's contact info, consider personalization skills.
 2. **Use parallel steps** when two skills don't depend on each other's output (e.g., signal-researcher and account-researcher can run in parallel).
-3. **Order matters**: Put enrichment/research skills before generation skills. Put scoring before generation so generators can use scores.
+3. **Order matters**: Put enrichment/research skills before generation skills. Put qualification before generation so generators can use scores.
 4. **Be selective**: Don't run every skill — only the ones relevant to the data and goal. 3-5 skills is typical.
 5. **Use conditions** to skip expensive steps when earlier steps show low confidence/relevance.
 6. **Typical patterns**:
-   - Research → Score → Generate: `account-researcher → icp-scorer → email-gen`
-   - Parallel research → Score → Generate: `[signal-researcher, account-researcher] → icp-scorer → email-gen`
+   - Research → Qualify → Generate: `account-researcher → qualifier → email-gen`
+   - Parallel research → Qualify → Generate: `[signal-researcher, account-researcher] → qualifier → email-gen`
    - Meeting prep: `account-researcher → meeting-prep → discovery-questions`
 7. **Never include yourself** (coordinator) in the plan.
 8. **Only use skills from the catalog** — don't invent skill names.
@@ -56,7 +56,7 @@ Input data has: company_domain, contact name, email, title
 ```json
 {
   "name": "auto-signal-outbound",
-  "reasoning": "Company domain available — parallel research for signals and account info, then score and generate personalized email",
+  "reasoning": "Company domain available — parallel research for signals and account info, then qualify and generate personalized email",
   "steps": [
     {
       "parallel": [
@@ -65,7 +65,7 @@ Input data has: company_domain, contact name, email, title
       ],
       "merge": "deep"
     },
-    {"skill": "icp-scorer"},
+    {"skill": "qualifier"},
     {"skill": "angle-selector"},
     {"skill": "email-gen"}
   ]
@@ -95,10 +95,10 @@ Input data has: company_name only (no domain, no contact)
 ```json
 {
   "name": "auto-basic-enrichment",
-  "reasoning": "Only company name available — research and score, not enough data for personalized outreach",
+  "reasoning": "Only company name available — research and qualify, not enough data for personalized outreach",
   "steps": [
     {"skill": "account-researcher"},
-    {"skill": "icp-scorer"}
+    {"skill": "qualifier"}
   ]
 }
 ```

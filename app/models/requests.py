@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class WebhookRequest(BaseModel):
     skill: str | None = Field(None, description="Skill name (e.g. 'email-gen')")
-    skills: list[str] | None = Field(None, description="Skill chain (e.g. ['company-enrichment', 'icp-scorer'])")
+    skills: list[str] | None = Field(None, description="Skill chain (e.g. ['account-researcher', 'qualifier'])")
     data: dict = Field(..., description="Row data from Clay")
     instructions: str | None = Field(None, description="Optional campaign instructions")
     model: str | None = Field(None, description="Model override: opus, sonnet, haiku")

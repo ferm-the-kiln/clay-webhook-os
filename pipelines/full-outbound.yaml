@@ -1,7 +1,7 @@
 name: full-outbound
-description: Score → Select Angle → Generate Email → Quality Check
+description: Qualify → Select Angle → Generate Email → Quality Check
 steps:
-  - skill: icp-scorer
+  - skill: qualifier
   - skill: angle-selector
   - skill: email-gen
   - skill: quality-gate

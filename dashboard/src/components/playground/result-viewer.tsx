@@ -28,7 +28,7 @@ const STEPS = [
 
 const FEATURED_SKILLS = [
   { name: "email-gen", label: "Email Gen", description: "Generate personalized outbound emails from prospect signals", icon: Mail },
-  { name: "icp-scorer", label: "ICP Scorer", description: "Score prospects against your ideal customer profile", icon: Target },
+  { name: "qualifier", label: "Qualifier", description: "Score leads against natural language qualification criteria", icon: Target },
   { name: "linkedin-note", label: "LinkedIn Note", description: "Draft concise LinkedIn connection messages", icon: Linkedin },
 ];
 
