@@ -143,7 +143,7 @@ export default function AnalyzePage() {
             {funnelStats.map((stat) => (
               <Card
                 key={stat.label}
-                className="border-clay-800 bg-white shadow-sm rounded-xl"
+                className="rounded-xl"
               >
                 <CardContent className="pt-5">
                   <div className="flex items-center gap-2 mb-2">
@@ -186,7 +186,7 @@ export default function AnalyzePage() {
             <h3 className="text-lg font-semibold text-clay-100 mb-4">
               Recent Research
             </h3>
-            <Card className="border-clay-800 bg-white shadow-sm rounded-xl">
+            <Card className="rounded-xl">
               <CardContent className="pt-4 divide-y divide-clay-800">
                 {recentResearch.map((item) => (
                   <div
@@ -222,7 +222,7 @@ export default function AnalyzePage() {
               {activePlays.map((play) => (
                 <Card
                   key={play.id}
-                  className="border-clay-800 bg-white shadow-sm rounded-xl"
+                  className="rounded-xl"
                 >
                   <CardContent className="pt-5">
                     <p className="text-sm font-medium text-clay-100 mb-2">
