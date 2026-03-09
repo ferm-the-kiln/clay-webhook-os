@@ -1,7 +1,9 @@
 ---
 model_tier: standard
 scope: company
-prefetch: sumble
+research:
+  - company_profile
+  - company_intel
 sumble_endpoints:
   - organizations/enrich
   - people/find

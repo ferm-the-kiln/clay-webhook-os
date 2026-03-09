@@ -18,11 +18,9 @@ class Settings(BaseSettings):
     auto_route_thresholds: dict[str, int] = {"light_max_tokens": 2000, "standard_max_tokens": 10000}
     enable_smart_routing: bool = False
 
-    # Exa pre-fetch
-    exa_api_key: str = ""
-    exa_enabled: bool = True
-    exa_num_results: int = 10
-    exa_cache_ttl: int = 3600
+    # ScrapeGraph web intelligence
+    sgai_api_key: str = ""
+    sgai_cache_ttl: int = 3600
 
     # Sumble pre-fetch
     sumble_api_key: str = ""

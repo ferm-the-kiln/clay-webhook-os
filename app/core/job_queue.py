@@ -11,7 +11,7 @@ import httpx
 from app.config import settings
 from app.core.context_assembler import build_agent_prompts, build_prompt
 from app.core.model_router import resolve_model
-from app.core.prefetch import parse_prefetch_config
+from app.core.prefetch import parse_research_config
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config, load_skill_variant
 from app.core.token_estimator import estimate_cost, estimate_tokens
 from app.core.claude_executor import SubscriptionLimitError
@@ -280,34 +280,35 @@ class JobQueue:
                     ctx_idx = getattr(self, '_context_index', None)
 
                     # Pre-fetch intelligence if configured
-                    prefetch_sources = parse_prefetch_config(skill_cfg)
+                    research_intents = parse_research_config(skill_cfg)
                     prefetched_parts: list[str] = []
 
-                    if prefetch_sources:
+                    if research_intents:
                         company_name = job.data.get("company_name", "")
                         company_domain = job.data.get("company_domain", "")
-                        exa_coro = None
-                        sumble_coro = None
+                        coros: list = []
 
-                        if "exa" in prefetch_sources:
-                            prefetcher = getattr(self, '_prefetcher', None)
-                            if prefetcher and company_name and company_domain:
-                                exa_coro = prefetcher.fetch(company_name, company_domain)
-
-                        if "sumble" in prefetch_sources:
+                        # "company_profile" → Sumble
+                        if "company_profile" in research_intents:
                             sumble = getattr(self, '_sumble_prefetcher', None)
                             if sumble and company_domain:
                                 sumble_endpoints = skill_cfg.get("sumble_endpoints", ["organizations/enrich"])
-                                sumble_coro = sumble.fetch(company_domain, company_name, sumble_endpoints, job.data)
+                                coros.append(sumble.fetch(company_domain, company_name, sumble_endpoints, job.data))
 
-                        coros = [c for c in [exa_coro, sumble_coro] if c]
+                        # ScrapeGraph intents
+                        sg = getattr(self, '_scrapegraph_prefetcher', None)
+                        if sg and company_domain:
+                            for intent in ("company_intel", "competitor_scrape", "industry_search"):
+                                if intent in research_intents:
+                                    coros.append(sg.fetch(company_domain, company_name, intent=intent, data=job.data))
+
                         if coros:
                             results = await asyncio.gather(*coros, return_exceptions=True)
                             for r in results:
                                 if isinstance(r, str):
                                     prefetched_parts.append(r)
                                 elif isinstance(r, Exception):
-                                    logger.warning("[queue] Prefetch failed for %s: %s", job.id, r)
+                                    logger.warning("[queue] Research fetch failed for %s: %s", job.id, r)
 
                     prefetched_context = "\n\n---\n\n".join(prefetched_parts) if prefetched_parts else None
 
