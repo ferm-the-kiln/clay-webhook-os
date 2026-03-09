@@ -6,17 +6,14 @@ import { Header } from "@/components/layout/header";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { JobList } from "@/components/dashboard/job-list";
 import { ActivityChart } from "@/components/dashboard/activity-chart";
-import { OutcomeCards } from "@/components/dashboard/outcome-cards";
-import { CampaignProgress } from "@/components/dashboard/campaign-progress";
-import { AlertsPanel } from "@/components/dashboard/alerts-panel";
 import { ApprovalChart } from "@/components/dashboard/approval-chart";
 import { SubscriptionHealth } from "@/components/dashboard/subscription-health";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { fetchOutcomes, fetchStats } from "@/lib/api";
-import type { OutcomeDashboard, Stats } from "@/lib/types";
+import { fetchStats, fetchFeedbackAnalytics } from "@/lib/api";
+import type { Stats, FeedbackSummary } from "@/lib/types";
 import { formatNumber, formatPercent, formatCost } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -29,8 +26,8 @@ import {
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const [outcomes, setOutcomes] = useState<OutcomeDashboard | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackSummary | null>(null);
   const [hasActivity, setHasActivity] = useState<boolean | null>(null);
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -43,17 +40,17 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [outcomeData, statsData] = await Promise.allSettled([
-        fetchOutcomes(),
+      const [statsData, feedbackData] = await Promise.allSettled([
         fetchStats(),
+        fetchFeedbackAnalytics({ days: 7 }),
       ]);
-      if (outcomeData.status === "fulfilled") setOutcomes(outcomeData.value);
       if (statsData.status === "fulfilled") {
         setStats(statsData.value);
         setHasActivity(statsData.value.total_processed > 0);
       } else {
         setHasActivity(false);
       }
+      if (feedbackData.status === "fulfilled") setFeedback(feedbackData.value);
       setLastUpdated(new Date());
     } catch {
       setHasActivity(false);
@@ -165,53 +162,14 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* ─── Campaigns ─── */}
-        {outcomes ? (
+        {/* ─── Feedback Quality ─── */}
+        {feedback && feedback.by_skill.length > 0 && (
           <section className="pt-8">
-            <h2 className="text-lg font-semibold text-clay-100 mb-4">Campaigns</h2>
-            <div className="space-y-6">
-              <ErrorBoundary>
-                <OutcomeCards data={outcomes} />
-              </ErrorBoundary>
-
-              {/* Active campaigns progress + Alerts */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2">
-                  <ErrorBoundary>
-                    <CampaignProgress campaigns={outcomes.campaigns} />
-                  </ErrorBoundary>
-                </div>
-                <ErrorBoundary>
-                  <AlertsPanel
-                    alerts={outcomes.alerts}
-                    recommendations={outcomes.recommendations}
-                  />
-                </ErrorBoundary>
-              </div>
-
-              {/* Approval chart */}
-              {outcomes.feedback_7d.by_skill.length > 0 && (
-                <ErrorBoundary>
-                  <ApprovalChart feedback={outcomes.feedback_7d} />
-                </ErrorBoundary>
-              )}
-            </div>
+            <h2 className="text-lg font-semibold text-clay-100 mb-4">Feedback (7d)</h2>
+            <ErrorBoundary>
+              <ApprovalChart feedback={feedback} />
+            </ErrorBoundary>
           </section>
-        ) : (
-          stats && stats.total_processed > 0 && (
-            <section className="pt-8">
-              <Card className="border-clay-500 ">
-                <CardContent className="p-6 text-center">
-                  <Rocket className="h-8 w-8 text-clay-300 mx-auto mb-3" />
-                  <h3 className="text-sm font-medium text-clay-200 mb-1">No campaigns yet</h3>
-                  <p className="text-xs text-clay-200 mb-4">Create your first campaign to see results here.</p>
-                  <Button asChild size="sm" className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold">
-                    <Link href="/outbound/campaigns">Create Campaign</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            </section>
-          )
         )}
 
         {/* ─── Recent Activity ─── */}

@@ -43,9 +43,6 @@ def _build_startup_patches():
         "ContextIndex": {"has_build": True},
         "RetryWorker": {"has_load": True, "has_start": True},
         "SubscriptionMonitor": {"has_start": True},
-        "CampaignStore": {"has_load": True},
-        "ReviewQueue": {"has_load": True},
-        "CampaignRunner": {"has_start": True},
         "DataCleanupWorker": {"has_start": True},
     }
     patches = {}
@@ -95,10 +92,8 @@ class TestAppSetup:
         assert "/clients" in routes
         assert "/pipelines" in routes
         assert "/plays" in routes
-        assert "/campaigns" in routes
         assert "/experiments" in routes
         assert "/feedback" in routes
-        assert "/review" in routes
 
     def test_middleware_stack(self):
         from app.main import app
@@ -201,9 +196,6 @@ class TestStartup:
                 assert hasattr(app.state, "play_store")
                 assert hasattr(app.state, "experiment_store")
                 assert hasattr(app.state, "usage_store")
-                assert hasattr(app.state, "campaign_store")
-                assert hasattr(app.state, "review_queue")
-                assert hasattr(app.state, "campaign_runner")
                 assert hasattr(app.state, "retry_worker")
                 assert hasattr(app.state, "subscription_monitor")
                 assert hasattr(app.state, "cleanup_worker")
@@ -211,7 +203,6 @@ class TestStartup:
                 # Verify async starts were called
                 app.state.job_queue.start_workers.assert_called_once()
                 app.state.scheduler.start.assert_called_once()
-                app.state.campaign_runner.start.assert_called_once()
                 app.state.retry_worker.start.assert_called_once()
                 app.state.subscription_monitor.start.assert_called_once()
                 app.state.cleanup_worker.start.assert_called_once()
@@ -223,8 +214,6 @@ class TestStartup:
                 app.state.play_store.load.assert_called_once()
                 app.state.experiment_store.load.assert_called_once()
                 app.state.usage_store.load.assert_called_once()
-                app.state.campaign_store.load.assert_called_once()
-                app.state.review_queue.load.assert_called_once()
                 app.state.retry_worker.load.assert_called_once()
             finally:
                 for p in patches.values():
@@ -329,7 +318,7 @@ class TestStartupConstructorArgs:
             mock_settings.cleanup_interval_seconds = 3600
             mock_settings.cleanup_job_retention_hours = 48
             mock_settings.cleanup_feedback_retention_days = 90
-            mock_settings.cleanup_review_retention_days = 30
+
             mock_settings.cleanup_usage_retention_days = 90
             mock_settings.cleanup_failed_callback_days = 7
             mock_settings.webhook_api_key = ""
@@ -367,7 +356,7 @@ class TestStartupConstructorArgs:
             mock_settings.cleanup_interval_seconds = 3600
             mock_settings.cleanup_job_retention_hours = 48
             mock_settings.cleanup_feedback_retention_days = 90
-            mock_settings.cleanup_review_retention_days = 30
+
             mock_settings.cleanup_usage_retention_days = 90
             mock_settings.cleanup_failed_callback_days = 7
             mock_settings.webhook_api_key = ""
@@ -405,7 +394,7 @@ class TestStartupConstructorArgs:
             mock_settings.cleanup_interval_seconds = 3600
             mock_settings.cleanup_job_retention_hours = 48
             mock_settings.cleanup_feedback_retention_days = 90
-            mock_settings.cleanup_review_retention_days = 30
+
             mock_settings.cleanup_usage_retention_days = 90
             mock_settings.cleanup_failed_callback_days = 7
             mock_settings.webhook_api_key = ""

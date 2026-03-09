@@ -8,7 +8,6 @@ if TYPE_CHECKING:
     from app.core.cache import ResultCache
     from app.core.feedback_store import FeedbackStore
     from app.core.job_queue import JobQueue
-    from app.core.review_queue import ReviewQueue
     from app.core.scheduler import BatchScheduler
     from app.core.usage_store import UsageStore
 
@@ -22,7 +21,6 @@ class CleanupReport:
     jobs_pruned: int = 0
     usage_compacted: tuple[int, int] = (0, 0)
     feedback_archived: int = 0
-    review_archived: int = 0
     duration_ms: int = 0
 
 
@@ -36,11 +34,9 @@ class DataCleanupWorker:
         scheduler: "BatchScheduler",
         usage_store: "UsageStore",
         feedback_store: "FeedbackStore",
-        review_queue: "ReviewQueue",
         interval_seconds: int = 3600,
         job_retention_hours: int = 24,
         feedback_retention_days: int = 90,
-        review_retention_days: int = 30,
         usage_retention_days: int = 90,
         failed_callback_days: int = 7,
     ):
@@ -49,11 +45,9 @@ class DataCleanupWorker:
         self._scheduler = scheduler
         self._usage_store = usage_store
         self._feedback_store = feedback_store
-        self._review_queue = review_queue
         self._interval = interval_seconds
         self._job_retention_hours = job_retention_hours
         self._feedback_retention_days = feedback_retention_days
-        self._review_retention_days = review_retention_days
         self._usage_retention_days = usage_retention_days
         self._failed_callback_days = failed_callback_days
         self._task: asyncio.Task | None = None
@@ -95,20 +89,18 @@ class DataCleanupWorker:
         report.jobs_pruned = self._cleanup_jobs()
         report.usage_compacted = self._compact_usage()
         report.feedback_archived = self._cleanup_feedback()
-        report.review_archived = self._cleanup_review()
         self._cleanup_failed_callbacks()
 
         report.duration_ms = int((time.monotonic() - start) * 1000)
         self._last_report = report
 
         logger.info(
-            "[cleanup] Cycle complete in %dms — cache=%d, jobs=%d, usage=%s, feedback=%d, review=%d",
+            "[cleanup] Cycle complete in %dms — cache=%d, jobs=%d, usage=%s, feedback=%d",
             report.duration_ms,
             report.cache_evicted,
             report.jobs_pruned,
             report.usage_compacted,
             report.feedback_archived,
-            report.review_archived,
         )
         return report
 
@@ -126,10 +118,6 @@ class DataCleanupWorker:
     def _cleanup_feedback(self) -> int:
         cutoff = time.time() - (self._feedback_retention_days * 86400)
         return self._feedback_store.compact(cutoff)
-
-    def _cleanup_review(self) -> int:
-        cutoff = time.time() - (self._review_retention_days * 86400)
-        return self._review_queue.compact(cutoff)
 
     def _cleanup_failed_callbacks(self) -> None:
         import json as _json

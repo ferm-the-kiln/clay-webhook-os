@@ -10,11 +10,23 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { OutcomeAlert, OutcomeRecommendation } from "@/lib/types";
+interface AlertItem {
+  type: string;
+  skill?: string;
+  campaign_id?: string;
+  campaign_name?: string;
+  approval_rate?: number;
+  message: string;
+}
+
+interface RecommendationItem {
+  type: string;
+  message: string;
+}
 
 interface AlertsPanelProps {
-  alerts: OutcomeAlert[];
-  recommendations: OutcomeRecommendation[];
+  alerts: AlertItem[];
+  recommendations: RecommendationItem[];
 }
 
 function getAlertIcon(type: string) {

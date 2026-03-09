@@ -44,7 +44,6 @@ class Settings(BaseSettings):
     cleanup_interval_seconds: int = 3600
     cleanup_job_retention_hours: int = 24
     cleanup_feedback_retention_days: int = 90
-    cleanup_review_retention_days: int = 30
     cleanup_usage_retention_days: int = 90
     cleanup_failed_callback_days: int = 7
 

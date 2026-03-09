@@ -41,7 +41,6 @@ class TestSettingsDefaults:
         assert s.cleanup_interval_seconds == 3600
         assert s.cleanup_job_retention_hours == 24
         assert s.cleanup_feedback_retention_days == 90
-        assert s.cleanup_review_retention_days == 30
         assert s.cleanup_usage_retention_days == 90
         assert s.cleanup_failed_callback_days == 7
 

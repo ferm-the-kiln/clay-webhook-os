@@ -44,20 +44,12 @@ def _make_app(**state_overrides) -> FastAPI:
     feedback_store.get_analytics.return_value = analytics
     scheduler = MagicMock()
     scheduler.get_scheduled.return_value = []
-    campaign_store = MagicMock()
-    campaign_store.list_all.return_value = []
-    review_queue = MagicMock()
-    review_queue.get_stats.return_value = {"pending": 0, "total": 0}
-
     app.state.pool = pool
     app.state.cache = cache
     app.state.job_queue = job_queue
     app.state.event_bus = event_bus
     app.state.feedback_store = feedback_store
     app.state.scheduler = scheduler
-    app.state.campaign_store = campaign_store
-    app.state.review_queue = review_queue
-
     for key, value in state_overrides.items():
         setattr(app.state, key, value)
 
@@ -447,7 +439,6 @@ class TestCleanup:
         report.jobs_pruned = 10
         report.usage_compacted = (3, 50)
         report.feedback_archived = 2
-        report.review_archived = 1
         report.duration_ms = 42
         cleanup = AsyncMock()
         cleanup.run_once.return_value = report
@@ -466,205 +457,6 @@ class TestCleanup:
         client = TestClient(app)
         body = client.post("/cleanup").json()
         assert body["error"] is True
-
-
-# ---------------------------------------------------------------------------
-# GET /outcomes
-# ---------------------------------------------------------------------------
-
-
-class TestOutcomes:
-    def test_outcomes_empty(self):
-        app = _make_app()
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert body["overview"]["total_campaigns"] == 0
-        assert body["overview"]["total_sent"] == 0
-        assert body["alerts"] == []
-        assert body["recommendations"] == []
-
-    def test_outcomes_with_review_queue_alert(self):
-        review_queue = MagicMock()
-        review_queue.get_stats.return_value = {"pending": 15, "total": 20}
-        app = _make_app(review_queue=review_queue)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert any("review" in r["message"].lower() for r in body["recommendations"])
-
-    def test_outcomes_with_active_campaigns(self):
-        """Active campaigns appear in the campaigns list with progress."""
-        progress = MagicMock()
-        progress.total_sent = 80
-        progress.total_approved = 70
-        progress.total_processed = 100
-        progress.total_rejected = 10
-        progress.model_dump.return_value = {
-            "total_sent": 80, "total_approved": 70,
-            "total_processed": 100, "total_rejected": 10,
-        }
-        goal = MagicMock()
-        goal.target_count = 100
-        goal.model_dump.return_value = {"target_count": 100, "metric": "emails_sent"}
-        campaign = MagicMock()
-        campaign.id = "c1"
-        campaign.name = "Outbound Q1"
-        campaign.status = "active"
-        campaign.pipeline = "full-outbound"
-        campaign.progress = progress
-        campaign.goal = goal
-        campaign.audience = [{"n": i} for i in range(100)]
-        campaign.audience_cursor = 80
-
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [campaign]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert body["overview"]["total_campaigns"] == 1
-        assert body["overview"]["active_campaigns"] == 1
-        assert body["overview"]["total_sent"] == 80
-        assert body["overview"]["overall_approval_rate"] == 0.875  # 70 / (70+10)
-        assert len(body["campaigns"]) == 1
-        assert body["campaigns"][0]["name"] == "Outbound Q1"
-        assert body["campaigns"][0]["audience_remaining"] == 20
-
-    def test_outcomes_campaign_progress_alert(self):
-        """Alert fires when campaign is >=90% to goal but not complete."""
-        progress = MagicMock(total_sent=92, total_approved=90, total_processed=95, total_rejected=2)
-        progress.model_dump.return_value = {}
-        goal = MagicMock(target_count=100)
-        goal.model_dump.return_value = {}
-        campaign = MagicMock(id="c1", name="Almost Done", status="active",
-                             pipeline="p", progress=progress, goal=goal,
-                             audience=[], audience_cursor=0)
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [campaign]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert any(a["type"] == "campaign" for a in body["alerts"])
-        assert any("Almost Done" in a["message"] for a in body["alerts"])
-
-    def test_outcomes_quality_alert_low_approval(self):
-        """Quality alert for a skill with approval rate < 70%."""
-        skill_stat = MagicMock(skill="email-gen", total=10, approval_rate=0.5)
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 0.5
-        analytics.by_skill = [skill_stat]
-        analytics.model_dump.return_value = {"overall_approval_rate": 0.5, "by_skill": []}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert any(a["type"] == "quality" and a["skill"] == "email-gen" for a in body["alerts"])
-
-    def test_outcomes_promote_recommendation(self):
-        """Promote recommendation for high-performing skill."""
-        skill_stat = MagicMock(skill="icp-scorer", total=15, approval_rate=0.97)
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 0.97
-        analytics.by_skill = [skill_stat]
-        analytics.model_dump.return_value = {"overall_approval_rate": 0.97, "by_skill": []}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert any(r["type"] == "promote" and "icp-scorer" in r["message"] for r in body["recommendations"])
-
-    def test_outcomes_low_overall_approval_recommendation(self):
-        """Recommendation when overall approval rate < 80%."""
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 0.65
-        analytics.by_skill = []
-        analytics.model_dump.return_value = {"overall_approval_rate": 0.65, "by_skill": []}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert any(r["type"] == "quality" for r in body["recommendations"])
-
-    def test_outcomes_no_approvals_or_rejections(self):
-        """When no approvals and no rejections, approval rate is 0.0."""
-        progress = MagicMock(total_sent=0, total_approved=0, total_processed=0, total_rejected=0)
-        progress.model_dump.return_value = {}
-        goal = MagicMock(target_count=50)
-        goal.model_dump.return_value = {}
-        campaign = MagicMock(id="c1", name="Empty", status="active",
-                             pipeline="p", progress=progress, goal=goal,
-                             audience=[], audience_cursor=0)
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [campaign]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert body["overview"]["overall_approval_rate"] == 0.0
-
-    def test_outcomes_completed_campaigns_counted(self):
-        """Completed campaigns are counted but not listed in the campaigns array."""
-        progress = MagicMock(total_sent=50, total_approved=45, total_processed=50, total_rejected=5)
-        progress.model_dump.return_value = {}
-        goal = MagicMock(target_count=50)
-        goal.model_dump.return_value = {}
-        completed = MagicMock(id="c1", name="Done", status="completed",
-                              pipeline="p", progress=progress, goal=goal,
-                              audience=list(range(50)), audience_cursor=50)
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [completed]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert body["overview"]["total_campaigns"] == 1
-        assert body["overview"]["completed_campaigns"] == 1
-        assert body["overview"]["active_campaigns"] == 0
-        assert body["campaigns"] == []  # only active campaigns in the list
-
-    def test_outcomes_skill_under_threshold_no_alert(self):
-        """Skill with < 5 total doesn't trigger quality alert even with low approval."""
-        skill_stat = MagicMock(skill="tiny-skill", total=3, approval_rate=0.3)
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 0.3
-        analytics.by_skill = [skill_stat]
-        analytics.model_dump.return_value = {}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert not any(a["type"] == "quality" for a in body["alerts"])
-
-    def test_outcomes_campaign_at_100_pct_no_alert(self):
-        """Campaign at exactly 100% (total_sent == target_count) doesn't trigger alert."""
-        progress = MagicMock(total_sent=100, total_approved=95, total_processed=100, total_rejected=5)
-        progress.model_dump.return_value = {}
-        goal = MagicMock(target_count=100)
-        goal.model_dump.return_value = {}
-        campaign = MagicMock(id="c1", name="Full", status="active",
-                             pipeline="p", progress=progress, goal=goal,
-                             audience=list(range(100)), audience_cursor=100)
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [campaign]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        # Condition requires total_sent < target_count, so at 100% no alert
-        assert not any(a["type"] == "campaign" for a in body["alerts"])
-
-    def test_outcomes_skill_under_promote_threshold(self):
-        """Skill with < 10 total doesn't trigger promote recommendation even with 100% approval."""
-        skill_stat = MagicMock(skill="small-skill", total=8, approval_rate=1.0)
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 1.0
-        analytics.by_skill = [skill_stat]
-        analytics.model_dump.return_value = {}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert not any(r["type"] == "promote" for r in body["recommendations"])
 
 
 # ---------------------------------------------------------------------------
@@ -953,143 +745,6 @@ class TestDeadLetterMultiple:
 
 
 # ---------------------------------------------------------------------------
-# GET /outcomes — target_count=0 and boundary cases
-# ---------------------------------------------------------------------------
-
-
-class TestOutcomesEdgeCases:
-    def test_target_count_zero_no_alert(self):
-        """Campaign with target_count=0 should not trigger progress alert (no division)."""
-        progress = MagicMock(total_sent=5, total_approved=3, total_processed=5, total_rejected=2)
-        progress.model_dump.return_value = {}
-        goal = MagicMock(target_count=0)
-        goal.model_dump.return_value = {}
-        campaign = MagicMock(id="c1", name="No Goal", status="active",
-                             pipeline="p", progress=progress, goal=goal,
-                             audience=[], audience_cursor=0)
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [campaign]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        # target_count=0 means the `if campaign.goal.target_count > 0` check is False
-        assert not any(a["type"] == "campaign" for a in body["alerts"])
-
-    def test_campaign_at_89_pct_no_alert(self):
-        """Campaign at 89% (< 90% threshold) doesn't trigger progress alert."""
-        progress = MagicMock(total_sent=89, total_approved=80, total_processed=89, total_rejected=9)
-        progress.model_dump.return_value = {}
-        goal = MagicMock(target_count=100)
-        goal.model_dump.return_value = {}
-        campaign = MagicMock(id="c1", name="Under90", status="active",
-                             pipeline="p", progress=progress, goal=goal,
-                             audience=[], audience_cursor=0)
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [campaign]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert not any(a["type"] == "campaign" for a in body["alerts"])
-
-    def test_campaign_at_exactly_90_pct_triggers_alert(self):
-        """Campaign at exactly 90% triggers progress alert."""
-        progress = MagicMock(total_sent=90, total_approved=85, total_processed=90, total_rejected=5)
-        progress.model_dump.return_value = {}
-        goal = MagicMock(target_count=100)
-        goal.model_dump.return_value = {}
-        campaign = MagicMock(id="c1", name="At90", status="active",
-                             pipeline="p", progress=progress, goal=goal,
-                             audience=[], audience_cursor=0)
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [campaign]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert any(a["type"] == "campaign" and "At90" in a["message"] for a in body["alerts"])
-
-    def test_quality_alert_at_exact_threshold(self):
-        """Skill with exactly total=5, approval_rate=0.7 — approval_rate NOT < 0.7 so no alert."""
-        skill_stat = MagicMock(skill="edge-skill", total=5, approval_rate=0.7)
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 0.7
-        analytics.by_skill = [skill_stat]
-        analytics.model_dump.return_value = {}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        # 0.7 is NOT < 0.7, so no alert
-        assert not any(a["type"] == "quality" for a in body["alerts"])
-
-    def test_quality_alert_just_below_threshold(self):
-        """Skill with approval_rate=0.69 triggers quality alert."""
-        skill_stat = MagicMock(skill="bad-skill", total=5, approval_rate=0.69)
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 0.69
-        analytics.by_skill = [skill_stat]
-        analytics.model_dump.return_value = {}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert any(a["type"] == "quality" and a["skill"] == "bad-skill" for a in body["alerts"])
-
-    def test_mixed_active_and_completed_campaigns(self):
-        """Mix of active + completed campaigns: overview counts both, list shows only active."""
-        def _campaign(cid, name, status, sent, approved, rejected):
-            p = MagicMock(total_sent=sent, total_approved=approved,
-                          total_processed=sent, total_rejected=rejected)
-            p.model_dump.return_value = {}
-            g = MagicMock(target_count=100)
-            g.model_dump.return_value = {}
-            return MagicMock(id=cid, name=name, status=status, pipeline="p",
-                             progress=p, goal=g, audience=[], audience_cursor=0)
-
-        c1 = _campaign("c1", "Active1", "active", 50, 45, 5)
-        c2 = _campaign("c2", "Done1", "completed", 100, 90, 10)
-        c3 = _campaign("c3", "Active2", "active", 30, 25, 5)
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [c1, c2, c3]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert body["overview"]["total_campaigns"] == 3
-        assert body["overview"]["active_campaigns"] == 2
-        assert body["overview"]["completed_campaigns"] == 1
-        assert len(body["campaigns"]) == 2  # only active
-        assert body["overview"]["total_sent"] == 180  # 50 + 100 + 30
-
-    def test_promote_at_exact_threshold(self):
-        """Skill with total=10 and approval_rate=0.95 triggers promote (>= thresholds)."""
-        skill_stat = MagicMock(skill="border-skill", total=10, approval_rate=0.95)
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 0.95
-        analytics.by_skill = [skill_stat]
-        analytics.model_dump.return_value = {}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert any(r["type"] == "promote" and "border-skill" in r["message"] for r in body["recommendations"])
-
-    def test_overall_approval_at_80_pct_no_recommendation(self):
-        """Overall approval rate exactly 0.8 — NOT < 0.8 so no quality recommendation."""
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 0.8
-        analytics.by_skill = []
-        analytics.model_dump.return_value = {}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert not any(r["type"] == "quality" for r in body["recommendations"])
-
-
-# ---------------------------------------------------------------------------
 # GET /health — all optional workers present simultaneously
 # ---------------------------------------------------------------------------
 
@@ -1239,7 +894,6 @@ class TestCleanupFields:
         report.jobs_pruned = 0
         report.usage_compacted = (5, 100)
         report.feedback_archived = 0
-        report.review_archived = 0
         report.duration_ms = 10
         cleanup = AsyncMock()
         cleanup.run_once.return_value = report
@@ -1388,123 +1042,6 @@ class TestStatsDeeper:
 
 
 # ---------------------------------------------------------------------------
-# GET /outcomes — deeper
-# ---------------------------------------------------------------------------
-
-
-class TestOutcomesDeeper:
-    def test_feedback_7d_called_with_days(self):
-        """feedback_store.get_analytics called with days=7."""
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 0.9
-        analytics.by_skill = []
-        analytics.model_dump.return_value = {}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        client.get("/outcomes")
-        feedback_store.get_analytics.assert_called_once_with(days=7)
-
-    def test_review_queue_stats_in_response(self):
-        """review_queue stats dict appears raw in response."""
-        review_queue = MagicMock()
-        review_queue.get_stats.return_value = {"pending": 3, "approved": 10, "total": 13}
-        app = _make_app(review_queue=review_queue)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert body["review_queue"] == {"pending": 3, "approved": 10, "total": 13}
-
-    def test_audience_remaining_with_large_cursor(self):
-        """audience_remaining is max(0, len(audience) - cursor) — never negative."""
-        progress = MagicMock(total_sent=0, total_approved=0, total_processed=0, total_rejected=0)
-        progress.model_dump.return_value = {}
-        goal = MagicMock(target_count=10)
-        goal.model_dump.return_value = {}
-        campaign = MagicMock(
-            id="c1", name="Over", status="active", pipeline="p",
-            progress=progress, goal=goal,
-            audience=[1, 2, 3],  # len=3
-            audience_cursor=10,  # cursor > audience → remaining should be 0
-        )
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [campaign]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert body["campaigns"][0]["audience_remaining"] == 0
-
-    def test_audience_total_count(self):
-        """audience_total is len(audience)."""
-        progress = MagicMock(total_sent=0, total_approved=0, total_processed=0, total_rejected=0)
-        progress.model_dump.return_value = {}
-        goal = MagicMock(target_count=50)
-        goal.model_dump.return_value = {}
-        audience_list = [{"id": i} for i in range(25)]
-        campaign = MagicMock(
-            id="c1", name="Test", status="active", pipeline="p",
-            progress=progress, goal=goal,
-            audience=audience_list, audience_cursor=5,
-        )
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [campaign]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert body["campaigns"][0]["audience_total"] == 25
-        assert body["campaigns"][0]["audience_remaining"] == 20
-
-    def test_review_pending_at_10_no_recommendation(self):
-        """Exactly 10 pending reviews does NOT trigger recommendation (> 10 needed)."""
-        review_queue = MagicMock()
-        review_queue.get_stats.return_value = {"pending": 10, "total": 10}
-        app = _make_app(review_queue=review_queue)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert not any("review" in r["message"].lower() for r in body["recommendations"])
-
-    def test_review_pending_11_triggers_recommendation(self):
-        """11 pending reviews triggers the review recommendation."""
-        review_queue = MagicMock()
-        review_queue.get_stats.return_value = {"pending": 11, "total": 15}
-        app = _make_app(review_queue=review_queue)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert any("11 items" in r["message"] for r in body["recommendations"])
-
-    def test_overall_approval_zero_no_quality_recommendation(self):
-        """overall_approval_rate=0 does NOT trigger quality recommendation (condition: > 0 AND < 0.8)."""
-        analytics = MagicMock()
-        analytics.overall_approval_rate = 0.0
-        analytics.by_skill = []
-        analytics.model_dump.return_value = {}
-        feedback_store = MagicMock()
-        feedback_store.get_analytics.return_value = analytics
-        app = _make_app(feedback_store=feedback_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        # 0 is NOT > 0, so condition fails
-        assert not any(r["type"] == "quality" for r in body["recommendations"])
-
-    def test_campaign_pipeline_in_response(self):
-        """Campaign pipeline field appears in response."""
-        progress = MagicMock(total_sent=0, total_approved=0, total_processed=0, total_rejected=0)
-        progress.model_dump.return_value = {}
-        goal = MagicMock(target_count=10)
-        goal.model_dump.return_value = {}
-        campaign = MagicMock(
-            id="c1", name="Test", status="active", pipeline="full-outbound-v2",
-            progress=progress, goal=goal, audience=[], audience_cursor=0,
-        )
-        campaign_store = MagicMock()
-        campaign_store.list_all.return_value = [campaign]
-        app = _make_app(campaign_store=campaign_store)
-        client = TestClient(app)
-        body = client.get("/outcomes").json()
-        assert body["campaigns"][0]["pipeline"] == "full-outbound-v2"
-
-
-# ---------------------------------------------------------------------------
 # GET /subscription — deeper
 # ---------------------------------------------------------------------------
 
@@ -1567,7 +1104,6 @@ class TestCleanupDeeper:
         report.jobs_pruned = 8
         report.usage_compacted = (2, 40)
         report.feedback_archived = 5
-        report.review_archived = 3
         report.duration_ms = 77
         cleanup = AsyncMock()
         cleanup.run_once.return_value = report
@@ -1581,7 +1117,6 @@ class TestCleanupDeeper:
             "jobs_pruned": 8,
             "usage_compacted": [2, 40],
             "feedback_archived": 5,
-            "review_archived": 3,
             "duration_ms": 77,
         }
 

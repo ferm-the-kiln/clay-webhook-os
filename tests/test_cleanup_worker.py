@@ -19,25 +19,21 @@ def deps():
     usage_store.compact.return_value = (0, 0)
     feedback_store = MagicMock()
     feedback_store.compact.return_value = 0
-    review_queue = MagicMock()
-    review_queue.compact.return_value = 0
-    return cache, job_queue, scheduler, usage_store, feedback_store, review_queue
+    return cache, job_queue, scheduler, usage_store, feedback_store
 
 
 @pytest.fixture
 def worker(deps):
-    cache, jq, sched, us, fs, rq = deps
+    cache, jq, sched, us, fs = deps
     return DataCleanupWorker(
         cache=cache,
         job_queue=jq,
         scheduler=sched,
         usage_store=us,
         feedback_store=fs,
-        review_queue=rq,
         interval_seconds=3600,
         job_retention_hours=24,
         feedback_retention_days=90,
-        review_retention_days=30,
         usage_retention_days=90,
         failed_callback_days=7,
     )
@@ -55,7 +51,6 @@ class TestCleanupReport:
         assert r.jobs_pruned == 0
         assert r.usage_compacted == (0, 0)
         assert r.feedback_archived == 0
-        assert r.review_archived == 0
         assert r.duration_ms == 0
         assert r.timestamp > 0
 
@@ -70,14 +65,13 @@ class TestInit:
         assert worker.last_report is None
 
     def test_custom_intervals(self, deps):
-        cache, jq, sched, us, fs, rq = deps
+        cache, jq, sched, us, fs = deps
         w = DataCleanupWorker(
             cache=cache, job_queue=jq, scheduler=sched,
-            usage_store=us, feedback_store=fs, review_queue=rq,
+            usage_store=us, feedback_store=fs,
             interval_seconds=60,
             job_retention_hours=1,
             feedback_retention_days=7,
-            review_retention_days=3,
             usage_retention_days=14,
             failed_callback_days=1,
         )
@@ -93,12 +87,11 @@ class TestInit:
 
 class TestRunOnce:
     async def test_run_once_calls_all_cleanup_methods(self, worker, deps):
-        cache, jq, _, us, fs, rq = deps
+        cache, jq, _, us, fs = deps
         cache.evict_expired.return_value = 5
         jq.prune_completed.return_value = 10
         us.compact.return_value = (3, 50)
         fs.compact.return_value = 2
-        rq.compact.return_value = 1
 
         with patch.object(worker, "_cleanup_failed_callbacks"):
             report = await worker.run_once()
@@ -107,7 +100,6 @@ class TestRunOnce:
         assert report.jobs_pruned == 10
         assert report.usage_compacted == (3, 50)
         assert report.feedback_archived == 2
-        assert report.review_archived == 1
         assert report.duration_ms >= 0
 
     async def test_run_once_stores_last_report(self, worker):
@@ -148,7 +140,7 @@ class TestCleanupJobs:
 
 class TestCompactUsage:
     def test_calls_compact_with_cutoff(self, worker, deps):
-        _, _, _, us, *_ = deps
+        _, _, _, us, _ = deps
         us.compact.return_value = (5, 100)
         result = worker._compact_usage()
         assert result == (5, 100)
@@ -159,23 +151,12 @@ class TestCompactUsage:
 
 class TestCleanupFeedback:
     def test_calls_compact_with_cutoff(self, worker, deps):
-        *_, fs, _ = deps
+        *_, fs = deps
         fs.compact.return_value = 4
         result = worker._cleanup_feedback()
         assert result == 4
         call_cutoff = fs.compact.call_args[0][0]
         expected = time.time() - (90 * 86400)
-        assert abs(call_cutoff - expected) < 2
-
-
-class TestCleanupReview:
-    def test_calls_compact_with_cutoff(self, worker, deps):
-        *_, rq = deps
-        rq.compact.return_value = 2
-        result = worker._cleanup_review()
-        assert result == 2
-        call_cutoff = rq.compact.call_args[0][0]
-        expected = time.time() - (30 * 86400)
         assert abs(call_cutoff - expected) < 2
 
 
@@ -293,7 +274,6 @@ class TestLoop:
                 raise ValueError("transient")
             return CleanupReport()
 
-        # Sleeps: initial wait, after 1st run (error), after 2nd run (success), cancel
         with patch.object(worker, "run_once", side_effect=flaky_run):
             with patch(
                 "app.core.cleanup_worker.asyncio.sleep",
@@ -302,10 +282,6 @@ class TestLoop:
                 with pytest.raises(asyncio.CancelledError):
                     await worker._loop()
 
-        # 3 calls: initial wait consumed 1 sleep, then run+sleep twice, cancel on 4th sleep
-        # But actually: sleep(initial), run(err), sleep, run(ok), sleep → cancel
-        # That's runs = 2, but with 4 sleeps the loop does: sleep, run, sleep, run, sleep, run, sleep(cancel)
-        # Let's just verify it ran more than once (survived the error)
         assert len(calls) >= 2
 
 
@@ -318,7 +294,7 @@ class TestCleanupReportEdges:
     def test_custom_values(self):
         r = CleanupReport(
             timestamp=1234.0, cache_evicted=10, jobs_pruned=20,
-            usage_compacted=(5, 100), feedback_archived=3, review_archived=2,
+            usage_compacted=(5, 100), feedback_archived=3,
             duration_ms=42,
         )
         assert r.timestamp == 1234.0
@@ -326,7 +302,6 @@ class TestCleanupReportEdges:
         assert r.jobs_pruned == 20
         assert r.usage_compacted == (5, 100)
         assert r.feedback_archived == 3
-        assert r.review_archived == 2
         assert r.duration_ms == 42
 
     def test_timestamp_auto_generated(self):
@@ -338,7 +313,6 @@ class TestCleanupReportEdges:
     def test_two_reports_different_timestamps(self):
         r1 = CleanupReport()
         r2 = CleanupReport()
-        # Could be equal if created in same tick, but both should be > 0
         assert r1.timestamp > 0
         assert r2.timestamp > 0
 
@@ -350,15 +324,14 @@ class TestCleanupReportEdges:
 
 class TestInitDefaults:
     def test_default_interval(self, deps):
-        cache, jq, sched, us, fs, rq = deps
+        cache, jq, sched, us, fs = deps
         w = DataCleanupWorker(
             cache=cache, job_queue=jq, scheduler=sched,
-            usage_store=us, feedback_store=fs, review_queue=rq,
+            usage_store=us, feedback_store=fs,
         )
         assert w._interval == 3600
         assert w._job_retention_hours == 24
         assert w._feedback_retention_days == 90
-        assert w._review_retention_days == 30
         assert w._usage_retention_days == 90
         assert w._failed_callback_days == 7
 
@@ -393,10 +366,10 @@ class TestRunOnceEdges:
 
 class TestCutoffCustomRetention:
     def test_jobs_cutoff_1_hour(self, deps):
-        cache, jq, sched, us, fs, rq = deps
+        cache, jq, sched, us, fs = deps
         w = DataCleanupWorker(
             cache=cache, job_queue=jq, scheduler=sched,
-            usage_store=us, feedback_store=fs, review_queue=rq,
+            usage_store=us, feedback_store=fs,
             job_retention_hours=1,
         )
         jq.prune_completed.return_value = 0
@@ -406,10 +379,10 @@ class TestCutoffCustomRetention:
         assert abs(cutoff - expected) < 2
 
     def test_feedback_cutoff_7_days(self, deps):
-        cache, jq, sched, us, fs, rq = deps
+        cache, jq, sched, us, fs = deps
         w = DataCleanupWorker(
             cache=cache, job_queue=jq, scheduler=sched,
-            usage_store=us, feedback_store=fs, review_queue=rq,
+            usage_store=us, feedback_store=fs,
             feedback_retention_days=7,
         )
         fs.compact.return_value = 0
@@ -418,24 +391,11 @@ class TestCutoffCustomRetention:
         expected = time.time() - (7 * 86400)
         assert abs(cutoff - expected) < 2
 
-    def test_review_cutoff_3_days(self, deps):
-        cache, jq, sched, us, fs, rq = deps
-        w = DataCleanupWorker(
-            cache=cache, job_queue=jq, scheduler=sched,
-            usage_store=us, feedback_store=fs, review_queue=rq,
-            review_retention_days=3,
-        )
-        rq.compact.return_value = 0
-        w._cleanup_review()
-        cutoff = rq.compact.call_args[0][0]
-        expected = time.time() - (3 * 86400)
-        assert abs(cutoff - expected) < 2
-
     def test_usage_cutoff_14_days(self, deps):
-        cache, jq, sched, us, fs, rq = deps
+        cache, jq, sched, us, fs = deps
         w = DataCleanupWorker(
             cache=cache, job_queue=jq, scheduler=sched,
-            usage_store=us, feedback_store=fs, review_queue=rq,
+            usage_store=us, feedback_store=fs,
             usage_retention_days=14,
         )
         us.compact.return_value = (0, 0)
@@ -475,10 +435,10 @@ class TestCleanupFailedCallbacksEdges:
 
     def test_custom_failed_callback_days(self, deps, tmp_path):
         """1-day retention prunes entries older than 1 day."""
-        cache, jq, sched, us, fs, rq = deps
+        cache, jq, sched, us, fs = deps
         w = DataCleanupWorker(
             cache=cache, job_queue=jq, scheduler=sched,
-            usage_store=us, feedback_store=fs, review_queue=rq,
+            usage_store=us, feedback_store=fs,
             failed_callback_days=1,
         )
         failed_path = tmp_path / "failed_callbacks.json"

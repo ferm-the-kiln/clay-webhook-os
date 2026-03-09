@@ -23,13 +23,10 @@ from app.core.pipeline_store import PipelineStore
 from app.core.play_store import PlayStore
 from app.core.usage_store import UsageStore
 from app.core.experiment_store import ExperimentStore
-from app.core.campaign_store import CampaignStore
-from app.core.review_queue import ReviewQueue
-from app.core.campaign_runner import CampaignRunner
 from app.core.cleanup_worker import DataCleanupWorker
 from app.core.retry_worker import RetryWorker
 from app.core.subscription_monitor import SubscriptionMonitor
-from app.routers import batch, campaigns, context, destinations, experiments, feedback, health, pipeline, pipelines, plays, review_queue, usage, webhook
+from app.routers import batch, context, destinations, experiments, feedback, health, pipeline, pipelines, plays, usage, webhook
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,9 +62,7 @@ app.include_router(context.router)
 app.include_router(feedback.router)
 app.include_router(pipelines.router)
 app.include_router(experiments.router)
-app.include_router(campaigns.router)
 app.include_router(plays.router)
-app.include_router(review_queue.router)
 app.include_router(usage.router)
 
 
@@ -173,20 +168,6 @@ async def startup():
         paused_interval=settings.subscription_probe_interval_paused,
     )
 
-    # Phase 3: Campaign system
-    app.state.campaign_store = CampaignStore(data_dir=settings.data_dir)
-    app.state.campaign_store.load()
-    app.state.review_queue = ReviewQueue(data_dir=settings.data_dir)
-    app.state.review_queue.load()
-    app.state.campaign_runner = CampaignRunner(
-        campaign_store=app.state.campaign_store,
-        review_queue=app.state.review_queue,
-        pool=app.state.pool,
-        cache=app.state.cache,
-        destination_store=app.state.destination_store,
-        job_queue=app.state.job_queue,
-    )
-
     # Cleanup worker
     app.state.cleanup_worker = DataCleanupWorker(
         cache=app.state.cache,
@@ -194,18 +175,15 @@ async def startup():
         scheduler=app.state.scheduler,
         usage_store=app.state.usage_store,
         feedback_store=app.state.feedback_store,
-        review_queue=app.state.review_queue,
         interval_seconds=settings.cleanup_interval_seconds,
         job_retention_hours=settings.cleanup_job_retention_hours,
         feedback_retention_days=settings.cleanup_feedback_retention_days,
-        review_retention_days=settings.cleanup_review_retention_days,
         usage_retention_days=settings.cleanup_usage_retention_days,
         failed_callback_days=settings.cleanup_failed_callback_days,
     )
 
     await app.state.job_queue.start_workers(num_workers=settings.max_workers)
     await app.state.scheduler.start(app.state.job_queue)
-    await app.state.campaign_runner.start()
     await app.state.retry_worker.start()
     await app.state.subscription_monitor.start()
     await app.state.cleanup_worker.start()
@@ -220,4 +198,4 @@ async def startup():
     logger.info("  Cache TTL: %ds", settings.cache_ttl)
     logger.info("  Smart routing: %s", "enabled" if settings.enable_smart_routing else "disabled")
     logger.info("  Context index: %d documents", app.state.context_index.doc_count)
-    logger.info("  Features: campaigns, review-queue, smart-pipelines, feedback-loops, retry, SSE, model-router, sub-monitor, cleanup, memory, semantic-context, parallel-pipelines, learning-engine")
+    logger.info("  Features: smart-pipelines, feedback-loops, retry, SSE, model-router, sub-monitor, cleanup, memory, semantic-context, parallel-pipelines, learning-engine")
