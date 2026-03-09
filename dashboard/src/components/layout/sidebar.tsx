@@ -27,6 +27,7 @@ import {
   Target,
   MoreHorizontal,
   Mail,
+  ListOrdered,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -68,6 +69,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/outbound", label: "Outbound", icon: PenLine, shortcut: "3" },
       { href: "/email-lab", label: "Email Lab", icon: Mail, shortcut: "8" },
+      { href: "/sequence-lab", label: "Sequence Lab", icon: ListOrdered },
     ],
   },
   {

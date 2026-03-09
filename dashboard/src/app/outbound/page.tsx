@@ -8,6 +8,7 @@ import {
   Mail,
   PenLine,
   FlaskConical,
+  ListOrdered,
 } from "lucide-react";
 
 /* ── Placeholder data ── */
@@ -61,6 +62,12 @@ export default function OutboundPage() {
             <Link href="/email-lab">
               <FlaskConical className="h-4 w-4 mr-1.5" />
               Email Lab
+            </Link>
+          </Button>
+          <Button asChild className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold">
+            <Link href="/sequence-lab">
+              <ListOrdered className="h-4 w-4 mr-1.5" />
+              Sequence Lab
             </Link>
           </Button>
           <Button asChild className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold">
