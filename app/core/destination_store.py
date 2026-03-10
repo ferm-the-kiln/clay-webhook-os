@@ -1,9 +1,11 @@
 import asyncio
+import ipaddress
 import json
 import logging
 import time
 import uuid
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
@@ -17,6 +19,37 @@ from app.models.destinations import (
 )
 
 logger = logging.getLogger("clay-webhook-os")
+
+
+def validate_callback_url(url: str) -> str | None:
+    """Validate a callback URL. Returns an error message or None if valid."""
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return "Invalid URL format"
+
+    if parsed.scheme not in ("https", "http"):
+        return f"URL scheme must be https (got {parsed.scheme!r})"
+
+    if not parsed.hostname:
+        return "URL must have a hostname"
+
+    # Allow HTTP only for localhost (dev)
+    if parsed.scheme == "http" and parsed.hostname not in ("localhost", "127.0.0.1"):
+        return "HTTP is only allowed for localhost — use HTTPS"
+
+    # Block private/reserved IPs (SSRF prevention)
+    try:
+        addr = ipaddress.ip_address(parsed.hostname)
+        if addr.is_private or addr.is_reserved or addr.is_loopback or addr.is_link_local:
+            # Allow explicit localhost for dev
+            if parsed.hostname not in ("127.0.0.1", "::1"):
+                return f"URL must not target private/reserved IP ({parsed.hostname})"
+    except ValueError:
+        # Not a raw IP — it's a hostname, which is fine
+        pass
+
+    return None
 
 
 class DestinationStore:
@@ -47,6 +80,10 @@ class DestinationStore:
         return self._destinations.get(dest_id)
 
     def create(self, data: CreateDestinationRequest) -> Destination:
+        error = validate_callback_url(data.url)
+        if error:
+            raise ValueError(error)
+
         now = time.time()
         dest = Destination(
             id=uuid.uuid4().hex[:12],
@@ -67,6 +104,10 @@ class DestinationStore:
         dest = self._destinations.get(dest_id)
         if dest is None:
             return None
+        if data.url is not None:
+            error = validate_callback_url(data.url)
+            if error:
+                raise ValueError(error)
         updates = data.model_dump(exclude_none=True)
         if updates:
             updated = dest.model_copy(update={**updates, "updated_at": time.time()})

@@ -23,6 +23,10 @@ def _make_app(api_key: str = "test-secret") -> FastAPI:
     async def list_skills():
         return {"skills": []}
 
+    @app.get("/skills/email-gen")
+    async def get_skill():
+        return {"skill": "email-gen"}
+
     @app.post("/webhook")
     async def webhook():
         return {"result": "processed"}
@@ -31,10 +35,38 @@ def _make_app(api_key: str = "test-secret") -> FastAPI:
     async def campaigns():
         return {"created": True}
 
+    @app.get("/clients")
+    async def list_clients():
+        return {"clients": []}
+
+    @app.get("/clients/acme")
+    async def get_client():
+        return {"client": "acme"}
+
+    @app.get("/jobs")
+    async def list_jobs():
+        return {"jobs": []}
+
+    @app.get("/stats")
+    async def stats():
+        return {"stats": {}}
+
+    @app.get("/destinations")
+    async def list_destinations():
+        return {"destinations": []}
+
+    @app.get("/feedback/summary")
+    async def feedback_summary():
+        return {"summary": {}}
+
+    @app.get("/usage")
+    async def usage():
+        return {"usage": {}}
+
     return app
 
 
-class TestExemptPaths:
+class TestPublicPaths:
     @patch("app.middleware.auth.settings")
     def test_health_no_auth_required(self, mock_settings):
         mock_settings.webhook_api_key = "secret"
@@ -51,15 +83,140 @@ class TestExemptPaths:
         resp = client.get("/")
         assert resp.status_code == 200
 
-
-class TestGetRequestsExempt:
     @patch("app.middleware.auth.settings")
-    def test_get_requests_skip_auth(self, mock_settings):
+    def test_docs_exempt(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+
+        @app.get("/docs")
+        async def docs():
+            return {"docs": True}
+
+        client = TestClient(app)
+        resp = client.get("/docs")
+        assert resp.status_code == 200
+
+    @patch("app.middleware.auth.settings")
+    def test_openapi_json_exempt(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+
+        @app.get("/openapi.json")
+        async def openapi():
+            return {"openapi": True}
+
+        client = TestClient(app)
+        resp = client.get("/openapi.json")
+        assert resp.status_code == 200
+
+    @patch("app.middleware.auth.settings")
+    def test_redoc_exempt(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+
+        @app.get("/redoc")
+        async def redoc():
+            return {"redoc": True}
+
+        client = TestClient(app)
+        resp = client.get("/redoc")
+        assert resp.status_code == 200
+
+
+class TestPublicGetPrefixes:
+    @patch("app.middleware.auth.settings")
+    def test_skills_list_no_auth(self, mock_settings):
         mock_settings.webhook_api_key = "secret"
         app = _make_app()
         client = TestClient(app)
         resp = client.get("/skills")
         assert resp.status_code == 200
+
+    @patch("app.middleware.auth.settings")
+    def test_skills_detail_no_auth(self, mock_settings):
+        """Subpaths under /skills are also public."""
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/skills/email-gen")
+        assert resp.status_code == 200
+
+
+class TestSensitiveGetsRequireAuth:
+    """GET requests to sensitive endpoints now require an API key."""
+
+    @patch("app.middleware.auth.settings")
+    def test_clients_get_requires_auth(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/clients")
+        assert resp.status_code == 401
+
+    @patch("app.middleware.auth.settings")
+    def test_clients_detail_requires_auth(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/clients/acme")
+        assert resp.status_code == 401
+
+    @patch("app.middleware.auth.settings")
+    def test_jobs_get_requires_auth(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/jobs")
+        assert resp.status_code == 401
+
+    @patch("app.middleware.auth.settings")
+    def test_stats_get_requires_auth(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/stats")
+        assert resp.status_code == 401
+
+    @patch("app.middleware.auth.settings")
+    def test_destinations_get_requires_auth(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/destinations")
+        assert resp.status_code == 401
+
+    @patch("app.middleware.auth.settings")
+    def test_feedback_get_requires_auth(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/feedback/summary")
+        assert resp.status_code == 401
+
+    @patch("app.middleware.auth.settings")
+    def test_usage_get_requires_auth(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/usage")
+        assert resp.status_code == 401
+
+    @patch("app.middleware.auth.settings")
+    def test_sensitive_get_with_key_passes(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/clients", headers={"x-api-key": "secret"})
+        assert resp.status_code == 200
+        assert resp.json()["clients"] == []
+
+    @patch("app.middleware.auth.settings")
+    def test_sensitive_get_with_wrong_key_returns_401(self, mock_settings):
+        mock_settings.webhook_api_key = "secret"
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/clients", headers={"x-api-key": "wrong"})
+        assert resp.status_code == 401
 
 
 class TestPostAuthRequired:
@@ -117,6 +274,23 @@ class TestNoKeyConfigured:
         resp = client.post("/campaigns", json={})
         assert resp.status_code == 200
 
+    @patch("app.middleware.auth.settings")
+    def test_no_key_sensitive_gets_pass(self, mock_settings):
+        mock_settings.webhook_api_key = ""
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.get("/clients")
+        assert resp.status_code == 200
+
+    @patch("app.middleware.auth.settings")
+    def test_none_key_skips_auth(self, mock_settings):
+        """When webhook_api_key is None (falsy), auth is skipped."""
+        mock_settings.webhook_api_key = None
+        app = _make_app()
+        client = TestClient(app)
+        resp = client.post("/webhook", json={})
+        assert resp.status_code == 200
+
 
 class TestTimingSafe:
     @patch("app.middleware.auth.settings")
@@ -125,8 +299,6 @@ class TestTimingSafe:
         mock_settings.webhook_api_key = "secret"
         app = _make_app()
         client = TestClient(app)
-        # The important thing is it works correctly — hmac.compare_digest
-        # is used in source, we verify behavior here
         resp_wrong = client.post("/webhook", json={}, headers={"x-api-key": "secre"})
         resp_right = client.post("/webhook", json={}, headers={"x-api-key": "secret"})
         assert resp_wrong.status_code == 401
@@ -144,47 +316,6 @@ class TestErrorResponseFormat:
         assert set(body.keys()) == {"error", "error_message", "skill"}
         assert body["error"] is True
         assert body["skill"] == "unknown"
-
-
-class TestAdditionalExemptPaths:
-    @patch("app.middleware.auth.settings")
-    def test_docs_exempt(self, mock_settings):
-        mock_settings.webhook_api_key = "secret"
-        app = _make_app()
-
-        @app.get("/docs")
-        async def docs():
-            return {"docs": True}
-
-        client = TestClient(app)
-        resp = client.get("/docs")
-        assert resp.status_code == 200
-
-    @patch("app.middleware.auth.settings")
-    def test_openapi_json_exempt(self, mock_settings):
-        mock_settings.webhook_api_key = "secret"
-        app = _make_app()
-
-        @app.get("/openapi.json")
-        async def openapi():
-            return {"openapi": True}
-
-        client = TestClient(app)
-        resp = client.get("/openapi.json")
-        assert resp.status_code == 200
-
-    @patch("app.middleware.auth.settings")
-    def test_redoc_exempt(self, mock_settings):
-        mock_settings.webhook_api_key = "secret"
-        app = _make_app()
-
-        @app.get("/redoc")
-        async def redoc():
-            return {"redoc": True}
-
-        client = TestClient(app)
-        resp = client.get("/redoc")
-        assert resp.status_code == 200
 
 
 class TestNonGetMethods:
@@ -235,14 +366,3 @@ class TestNonGetMethods:
         client = TestClient(app)
         assert client.post("/webhook", json={}).status_code == 401
         assert client.post("/campaigns", json={}).status_code == 401
-
-
-class TestNoneApiKey:
-    @patch("app.middleware.auth.settings")
-    def test_none_key_skips_auth(self, mock_settings):
-        """When webhook_api_key is None (falsy), auth is skipped."""
-        mock_settings.webhook_api_key = None
-        app = _make_app()
-        client = TestClient(app)
-        resp = client.post("/webhook", json={})
-        assert resp.status_code == 200

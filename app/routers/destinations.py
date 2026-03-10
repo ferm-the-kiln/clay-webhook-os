@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from app.models.destinations import (
     CreateDestinationRequest,
@@ -19,7 +20,13 @@ async def list_destinations(request: Request):
 @router.post("/destinations")
 async def create_destination(body: CreateDestinationRequest, request: Request):
     store = request.app.state.destination_store
-    dest = store.create(body)
+    try:
+        dest = store.create(body)
+    except ValueError as e:
+        return JSONResponse(
+            status_code=400,
+            content={"error": True, "error_message": str(e)},
+        )
     return dest.model_dump()
 
 
@@ -35,7 +42,13 @@ async def get_destination(dest_id: str, request: Request):
 @router.put("/destinations/{dest_id}")
 async def update_destination(dest_id: str, body: UpdateDestinationRequest, request: Request):
     store = request.app.state.destination_store
-    dest = store.update(dest_id, body)
+    try:
+        dest = store.update(dest_id, body)
+    except ValueError as e:
+        return JSONResponse(
+            status_code=400,
+            content={"error": True, "error_message": str(e)},
+        )
     if dest is None:
         return {"error": True, "error_message": f"Destination '{dest_id}' not found"}
     return dest.model_dump()

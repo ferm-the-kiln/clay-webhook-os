@@ -99,31 +99,43 @@ class TestAppSetup:
         from app.main import app
         middleware_classes = [m.cls.__name__ for m in app.user_middleware]
         assert "ErrorHandlerMiddleware" in middleware_classes
+        assert "SecurityHeadersMiddleware" in middleware_classes
+        assert "RateLimitMiddleware" in middleware_classes
         assert "ApiKeyMiddleware" in middleware_classes
         assert "CORSMiddleware" in middleware_classes
 
     def test_middleware_order(self):
-        """ErrorHandler added first, Auth second, CORS last — FastAPI stores in reverse."""
+        """ErrorHandler outermost, then SecurityHeaders, RateLimit, Auth, CORS innermost."""
         from app.main import app
         names = [m.cls.__name__ for m in app.user_middleware]
-        # user_middleware is stored in add order reversed: last added = first in list
         assert names.index("CORSMiddleware") < names.index("ApiKeyMiddleware")
-        assert names.index("ApiKeyMiddleware") < names.index("ErrorHandlerMiddleware")
+        assert names.index("ApiKeyMiddleware") < names.index("RateLimitMiddleware")
+        assert names.index("RateLimitMiddleware") < names.index("SecurityHeadersMiddleware")
+        assert names.index("SecurityHeadersMiddleware") < names.index("ErrorHandlerMiddleware")
 
-    def test_cors_allows_all_origins(self):
+    def test_cors_restricts_origins(self):
         from app.main import app
         cors = next(m for m in app.user_middleware if m.cls.__name__ == "CORSMiddleware")
-        assert "*" in cors.kwargs["allow_origins"]
+        origins = cors.kwargs["allow_origins"]
+        assert "*" not in origins
+        assert "https://dashboard-beta-sable-36.vercel.app" in origins
+        assert "http://localhost:3000" in origins
 
-    def test_cors_allows_all_methods(self):
+    def test_cors_restricts_methods(self):
         from app.main import app
         cors = next(m for m in app.user_middleware if m.cls.__name__ == "CORSMiddleware")
-        assert "*" in cors.kwargs["allow_methods"]
+        methods = cors.kwargs["allow_methods"]
+        assert "*" not in methods
+        assert "GET" in methods
+        assert "POST" in methods
 
-    def test_cors_allows_all_headers(self):
+    def test_cors_restricts_headers(self):
         from app.main import app
         cors = next(m for m in app.user_middleware if m.cls.__name__ == "CORSMiddleware")
-        assert "*" in cors.kwargs["allow_headers"]
+        headers = cors.kwargs["allow_headers"]
+        assert "*" not in headers
+        assert "x-api-key" in headers
+        assert "Content-Type" in headers
 
     def test_cors_allows_credentials(self):
         from app.main import app

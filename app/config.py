@@ -6,6 +6,19 @@ class Settings(BaseSettings):
     webhook_api_key: str = ""
     host: str = "0.0.0.0"
     port: int = 8000
+
+    # CORS
+    allowed_origins: list[str] = [
+        "https://dashboard-beta-sable-36.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ]
+
+    # Rate limiting (requests per minute per IP)
+    rate_limit_webhook: int = 60
+    rate_limit_batch: int = 10
+    rate_limit_pipeline: int = 20
+    rate_limit_default: int = 120
     max_workers: int = 10
     default_model: str = "opus"
     request_timeout: int = 120

@@ -12,6 +12,8 @@ from app.core.skill_loader import list_skills
 from app.core.worker_pool import WorkerPool
 from app.middleware.auth import ApiKeyMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
+from app.middleware.rate_limiter import RateLimitMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.core.context_index import ContextIndex
 from app.core.context_store import ContextStore
 from app.core.destination_store import DestinationStore
@@ -40,15 +42,17 @@ app = FastAPI(
     version="3.0.0",
 )
 
-# Middleware (order matters: error handler wraps auth wraps CORS wraps routes)
+# Middleware (order matters: outermost first — error → security → rate limit → auth → CORS)
 app.add_middleware(ErrorHandlerMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(ApiKeyMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "x-api-key"],
 )
 
 # Routers
