@@ -101,6 +101,30 @@ class JobQueue:
     def register_batch(self, batch_id: str, job_ids: list[str]) -> None:
         self._batches[batch_id] = job_ids
 
+    def list_batches(self) -> list[dict]:
+        """Return summary info for all registered batches, newest first."""
+        result = []
+        for batch_id, job_ids in self._batches.items():
+            jobs = [self._jobs[jid] for jid in job_ids if jid in self._jobs]
+            total = len(jobs)
+            completed = sum(1 for j in jobs if j.status == "completed")
+            failed = sum(1 for j in jobs if j.status in ("failed", "dead_letter"))
+            done = (completed + failed) == total and total > 0
+            # Use first job's skill and created_at
+            skill = jobs[0].skill if jobs else ""
+            created_at = min((j.created_at for j in jobs), default=0)
+            result.append({
+                "batch_id": batch_id,
+                "skill": skill,
+                "total_rows": total,
+                "completed": completed,
+                "failed": failed,
+                "done": done,
+                "created_at": created_at,
+            })
+        result.sort(key=lambda b: b["created_at"], reverse=True)
+        return result
+
     def get_batch_jobs(self, batch_id: str) -> list[Job] | None:
         job_ids = self._batches.get(batch_id)
         if job_ids is None:

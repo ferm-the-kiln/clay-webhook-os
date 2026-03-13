@@ -19,6 +19,7 @@ export function SpreadsheetCell({
 }) {
   // Checkbox column
   if (columnId === "select") {
+    if (!value || typeof value !== "object") return null;
     const v = value as { checked: boolean; onChange: (e: unknown) => void };
     return (
       <input

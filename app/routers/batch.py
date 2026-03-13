@@ -17,6 +17,12 @@ router = APIRouter()
 logger = logging.getLogger("clay-webhook-os")
 
 
+@router.get("/batches")
+async def list_batches(request: Request):
+    queue = request.app.state.job_queue
+    return {"batches": queue.list_batches()}
+
+
 @router.post("/batch")
 async def batch(body: BatchRequest, request: Request):
     queue = request.app.state.job_queue

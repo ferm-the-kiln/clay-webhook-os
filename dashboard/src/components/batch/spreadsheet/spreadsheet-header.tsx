@@ -1,8 +1,39 @@
 "use client";
 
-import type { Header, flexRender } from "@tanstack/react-table";
+import type { Header } from "@tanstack/react-table";
+import { flexRender } from "@tanstack/react-table";
 import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import type { SpreadsheetRow } from "./column-utils";
+
+function renderHeaderContent(header: Header<SpreadsheetRow, unknown>) {
+  if (header.isPlaceholder) return null;
+
+  // Select column: render a checkbox from the header function's return value
+  if (header.column.id === "select") {
+    const val = flexRender(header.column.columnDef.header, header.getContext());
+    // The header function returns { checked, indeterminate, onChange }
+    if (val && typeof val === "object" && "checked" in (val as unknown as Record<string, unknown>)) {
+      const v = val as unknown as { checked: boolean; indeterminate: boolean; onChange: (e: unknown) => void };
+      return (
+        <input
+          type="checkbox"
+          checked={v.checked}
+          ref={(el) => { if (el) el.indeterminate = v.indeterminate; }}
+          onChange={v.onChange}
+          className="h-3.5 w-3.5 rounded border-clay-600 bg-clay-800 text-kiln-teal focus:ring-kiln-teal/50 cursor-pointer"
+        />
+      );
+    }
+    return null;
+  }
+
+  // All other columns: render string header
+  if (typeof header.column.columnDef.header === "string") {
+    return header.column.columnDef.header;
+  }
+
+  return flexRender(header.column.columnDef.header, header.getContext());
+}
 
 export function SpreadsheetHeaderCell({
   header,
@@ -23,11 +54,7 @@ export function SpreadsheetHeaderCell({
         className={`flex items-center gap-1 ${canSort ? "cursor-pointer hover:text-clay-300" : ""}`}
         onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
       >
-        {header.isPlaceholder
-          ? null
-          : typeof header.column.columnDef.header === "string"
-            ? header.column.columnDef.header
-            : header.column.columnDef.header?.toString()}
+        {renderHeaderContent(header)}
         {canSort && (
           <span className="ml-auto">
             {sorted === "asc" ? (

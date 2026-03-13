@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Play, Rocket, RotateCcw, Clock, CheckCircle, ChevronDown, ChevronUp, Send } from "lucide-react";
+import { Play, Rocket, RotateCcw, Clock, CheckCircle, ChevronDown, ChevronUp, Send, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 type BatchPhase = "upload" | "configure" | "processing" | "done" | "scheduled";
@@ -649,14 +649,26 @@ function RunInner() {
                     />
                   )}
                   {batchPhase === "done" && (
-                    <Button
-                      variant="outline"
-                      onClick={handleBatchReset}
-                      className="border-clay-700 bg-clay-800 text-clay-300 hover:bg-clay-800 hover:text-clay-100"
-                    >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Start New Batch
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {batchId && (
+                        <Button
+                          variant="outline"
+                          onClick={() => router.push(`/batch-results?id=${batchId}`)}
+                          className="border-kiln-teal/30 bg-kiln-teal/10 text-kiln-teal hover:bg-kiln-teal/20"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          View Results
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        onClick={handleBatchReset}
+                        className="border-clay-700 bg-clay-800 text-clay-300 hover:bg-clay-800 hover:text-clay-100"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Start New Batch
+                      </Button>
+                    </div>
                   )}
                 </>
               )}
