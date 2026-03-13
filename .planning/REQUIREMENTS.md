@@ -9,10 +9,10 @@ Requirements for Phase 1 (demo-ready). Each maps to roadmap phases.
 
 ### Skills
 
-- [ ] **SKILL-01**: Classify skill normalizes job titles to standard seniority levels (IC/Manager/Director/VP/C-Suite)
-- [ ] **SKILL-02**: Classify skill categorizes companies into standard industry verticals
-- [ ] **SKILL-03**: Classify skill outputs structured JSON with original values, normalized values, and per-field confidence scores
-- [ ] **SKILL-04**: Classify skill uses haiku model tier for cost efficiency
+- [x] **SKILL-01**: Classify skill normalizes job titles to standard seniority levels (IC/Manager/Director/VP/C-Suite)
+- [x] **SKILL-02**: Classify skill categorizes companies into standard industry verticals
+- [x] **SKILL-03**: Classify skill outputs structured JSON with original values, normalized values, and per-field confidence scores
+- [x] **SKILL-04**: Classify skill uses haiku model tier for cost efficiency
 
 ### Enrichment
 
@@ -76,10 +76,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SKILL-01 | Phase 1: Classify Skill | Pending |
-| SKILL-02 | Phase 1: Classify Skill | Pending |
-| SKILL-03 | Phase 1: Classify Skill | Pending |
-| SKILL-04 | Phase 1: Classify Skill | Pending |
+| SKILL-01 | Phase 1: Classify Skill | Complete |
+| SKILL-02 | Phase 1: Classify Skill | Complete |
+| SKILL-03 | Phase 1: Classify Skill | Complete |
+| SKILL-04 | Phase 1: Classify Skill | Complete |
 | ENRICH-01 | Phase 2: DeepLine Enrichment | Pending |
 | ENRICH-02 | Phase 2: DeepLine Enrichment | Pending |
 | ENRICH-03 | Phase 2: DeepLine Enrichment | Pending |
