@@ -26,8 +26,8 @@ Requirements for Phase 1 (demo-ready). Each maps to roadmap phases.
 - [x] **DASH-02**: Table columns are sortable by clicking headers
 - [x] **DASH-03**: Table columns are filterable via search/dropdown
 - [x] **DASH-04**: One-click CSV download of batch results
-- [ ] **DASH-05**: Rows colored green/yellow/red based on confidence score
-- [ ] **DASH-06**: Clicking a row opens side panel with inline email preview
+- [x] **DASH-05**: Rows colored green/yellow/red based on confidence score
+- [x] **DASH-06**: Clicking a row opens side panel with inline email preview
 
 ### Demo
 
@@ -87,8 +87,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DASH-02 | Phase 3: Batch Results Dashboard | Complete |
 | DASH-03 | Phase 3: Batch Results Dashboard | Complete |
 | DASH-04 | Phase 3: Batch Results Dashboard | Complete |
-| DASH-05 | Phase 3: Batch Results Dashboard | Pending |
-| DASH-06 | Phase 3: Batch Results Dashboard | Pending |
+| DASH-05 | Phase 3: Batch Results Dashboard | Complete |
+| DASH-06 | Phase 3: Batch Results Dashboard | Complete |
 | DEMO-01 | Phase 4: Demo Flow | Pending |
 | DEMO-02 | Phase 4: Demo Flow | Pending |
 

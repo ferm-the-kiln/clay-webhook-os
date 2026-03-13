@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-03-13T19:44:46.343Z"
-last_activity: 2026-03-13 -- Completed 03-01-PLAN.md (Batch results page)
+status: in-progress
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-13T20:30:00.000Z"
+last_activity: 2026-03-13 -- Completed 03-02-PLAN.md (Confidence coloring + email preview)
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Prove CW-OS can replace Clay for the $5-10k/mo client segment with a two-pass demo: classify messy data, research + enrich the winners, personalized emails out.
-**Current focus:** Phase 3 -- Batch Results Dashboard
+**Current focus:** Phase 3 complete -- ready for Phase 4 (Demo Flow)
 
 ## Current Position
 
-Phase: 3 of 4 (Batch Results Dashboard)
-Plan: 1 of 2 in current phase (COMPLETE)
-Status: Plan 03-01 complete, Plan 03-02 remaining
-Last activity: 2026-03-13 -- Completed 03-01-PLAN.md (Batch results page)
+Phase: 3 of 4 (Batch Results Dashboard) -- COMPLETE
+Plan: 2 of 2 in current phase (COMPLETE)
+Status: Phase 3 complete, Phase 4 remaining
+Last activity: 2026-03-13 -- Completed 03-02-PLAN.md (Confidence coloring + email preview)
 
-Progress: [████████░░] 75%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [████████░░] 75%
 | Phase 01 P01 | 3min | 2 tasks | 2 files |
 | Phase 02 P01 | 4min | 2 tasks | 6 files |
 | Phase 03 P01 | 2min | 2 tasks | 2 files |
+| Phase 03 P02 | 15min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,9 @@ Recent decisions affecting current work:
 - [Phase 02]: Multi-path response extraction handles provider variance in DeepLine responses
 - [Phase 03]: Reuse SpreadsheetView wholesale for batch results (sorting, filtering, CSV export already implemented)
 - [Phase 03]: Pass empty arrays for originalRows/csvHeaders since batch results page has no original CSV context
+- [Phase 03]: Backward-compatible onRowClick prop -- /run page uses inline expansion, /batch-results uses side panel
+- [Phase 03]: Dual confidence field support (confidence_score + overall_confidence_score) for different skill outputs
+- [Phase 03]: BatchHistory component replaces empty state on /batch-results landing page
 
 ### Pending Todos
 
@@ -83,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T19:44:46.340Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-03-13T20:30:00.000Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None
