@@ -15,6 +15,7 @@ import {
 import {
   LayoutDashboard,
   FlaskConical,
+  Table2,
   TestTubes,
   Library,
   Settings,
@@ -59,6 +60,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, shortcut: "1" },
       { href: "/run", label: "Run", icon: FlaskConical, shortcut: "2" },
+      { href: "/batch-results", label: "Batch Results", icon: Table2 },
     ],
   },
   {
