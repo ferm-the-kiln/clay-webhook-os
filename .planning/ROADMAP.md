@@ -35,10 +35,10 @@ Plans:
   1. DeepLine is available as a provider in `research_fetcher.py` following the same pattern as existing providers (Parallel.ai, Sumble)
   2. Requesting email enrichment for a contact returns a verified email address via DeepLine's multi-provider waterfall
   3. Requesting firmographic enrichment for a company returns company size, revenue range, and tech stack data via DeepLine
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md -- TDD: DeepLine email waterfall + firmographic enrichment
 
 ### Phase 3: Batch Results Dashboard
 **Goal**: Users can view, explore, and export batch processing results through a rich data table that makes CW-OS feel like a Clay replacement
@@ -76,6 +76,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Classify Skill | 0/1 | Not started | - |
-| 2. DeepLine Enrichment | 0/? | Not started | - |
+| 2. DeepLine Enrichment | 0/1 | Not started | - |
 | 3. Batch Results Dashboard | 0/? | Not started | - |
 | 4. Demo Flow | 0/? | Not started | - |
