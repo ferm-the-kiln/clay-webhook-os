@@ -1,51 +1,62 @@
----
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: planning
-stopped_at: Phase 1 context gathered — model/network decisions deferred to benchmark
-last_updated: "2026-03-11T17:57:51.390Z"
-progress:
-  total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
----
-
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-11)
+See: .planning/PROJECT.md (updated 2026-03-13)
 
-**Core value:** Score thousands of companies against any client's ICP at zero marginal cost
-**Current focus:** Phase 1 — Ollama Infrastructure
+**Core value:** Prove CW-OS can replace Clay for the $5-10k/mo client segment with a two-pass demo: classify messy data, research + enrich the winners, personalized emails out.
+**Current focus:** Phase 1 -- Classify Skill
 
 ## Current Position
 
-- **Phase:** 01-ollama-infrastructure
-- **Plan:** None yet
-- **Status:** Ready for planning
+Phase: 1 of 4 (Classify Skill)
+Plan: 0 of ? in current phase
+Status: Ready to plan
+Last activity: 2026-03-13 -- Roadmap created
 
-## Progress
+Progress: [..........] 0%
 
-```
-[--------------------] Phase 0/4 (0%)
-```
+## Performance Metrics
 
-## Decisions
+**Velocity:**
+- Total plans completed: 0
+- Average duration: -
+- Total execution time: 0 hours
 
-| Date | Phase | Decision |
-|------|-------|----------|
-| 2026-03-11 | Init | Ollama on CPU (no GPU), 7-8B model, 12hr batch runtime acceptable |
-| 2026-03-11 | Init | Per-client configurable ICP dimensions, not hardcoded |
-| 2026-03-11 | Init | File-based job persistence, matches existing Webhook OS patterns |
+**By Phase:**
 
-## Blockers
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
 
-None.
+**Recent Trend:**
+- Last 5 plans: -
+- Trend: -
 
-## Session
+*Updated after each plan completion*
 
-- **Last session:** 2026-03-11T17:57:51.388Z
-- **Stopped at:** Phase 1 context gathered — model/network decisions deferred to benchmark
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- Classify uses haiku tier for cost efficiency (pennies per row)
+- DeepLine for waterfall enrichment (one API replaces 5-6 providers)
+- Twelve Labs as demo client (profile already exists)
+- Synthetic test data over real data (faster, controllable quality variance)
+
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+None yet.
+
+## Session Continuity
+
+Last session: 2026-03-13
+Stopped at: Roadmap created, ready to plan Phase 1
+Resume file: None

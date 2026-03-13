@@ -1,7 +1,7 @@
-# Requirements: GTME Lite — Productized GTM Platform
+# Requirements: GTME Lite -- Productized GTM Platform
 
 **Defined:** 2026-03-13
-**Core Value:** Prove CW-OS can replace Clay for the $5-10k/mo client segment with a two-pass demo: classify messy data → research + personalized emails on the winners.
+**Core Value:** Prove CW-OS can replace Clay for the $5-10k/mo client segment with a two-pass demo: classify messy data -> research + personalized emails on the winners.
 
 ## v1 Requirements
 
@@ -32,7 +32,7 @@ Requirements for Phase 1 (demo-ready). Each maps to roadmap phases.
 ### Demo
 
 - [ ] **DEMO-01**: Synthetic test CSV of 50 companies with varied data quality (clean + messy + missing fields)
-- [ ] **DEMO-02**: Two-pass demo flow works end-to-end: classify → enrich → email-gen using Twelve Labs profile
+- [ ] **DEMO-02**: Two-pass demo flow works end-to-end: classify -> enrich -> email-gen using Twelve Labs profile
 
 ## v2 Requirements
 
@@ -62,13 +62,13 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Feature | Reason |
 |---------|--------|
-| Clay cost comparison calculator | Team knows Clay costs already — show CW-OS cost only via existing analytics |
-| n8n workflow integration | Complementary tool, not part of this build — integrate later |
-| Contact enrichment (DeepLine) | Job title verification + social profiles deferred — email + firmographic is enough for demo |
+| Clay cost comparison calculator | Team knows Clay costs already -- show CW-OS cost only via existing analytics |
+| n8n workflow integration | Complementary tool, not part of this build -- integrate later |
+| Contact enrichment (DeepLine) | Job title verification + social profiles deferred -- email + firmographic is enough for demo |
 | Phone waterfall (DeepLine) | Not needed for email outbound demo |
-| CRM read/write | n8n handles CRM sync — CW-OS does AI + enrichment only |
+| CRM read/write | n8n handles CRM sync -- CW-OS does AI + enrichment only |
 | Mobile/responsive dashboard | Desktop-first for internal team demo |
-| Real client data for testing | Synthetic data is faster and controllable — validate on real data before actual demo |
+| Real client data for testing | Synthetic data is faster and controllable -- validate on real data before actual demo |
 
 ## Traceability
 
@@ -76,27 +76,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SKILL-01 | TBD | Pending |
-| SKILL-02 | TBD | Pending |
-| SKILL-03 | TBD | Pending |
-| SKILL-04 | TBD | Pending |
-| ENRICH-01 | TBD | Pending |
-| ENRICH-02 | TBD | Pending |
-| ENRICH-03 | TBD | Pending |
-| DASH-01 | TBD | Pending |
-| DASH-02 | TBD | Pending |
-| DASH-03 | TBD | Pending |
-| DASH-04 | TBD | Pending |
-| DASH-05 | TBD | Pending |
-| DASH-06 | TBD | Pending |
-| DEMO-01 | TBD | Pending |
-| DEMO-02 | TBD | Pending |
+| SKILL-01 | Phase 1: Classify Skill | Pending |
+| SKILL-02 | Phase 1: Classify Skill | Pending |
+| SKILL-03 | Phase 1: Classify Skill | Pending |
+| SKILL-04 | Phase 1: Classify Skill | Pending |
+| ENRICH-01 | Phase 2: DeepLine Enrichment | Pending |
+| ENRICH-02 | Phase 2: DeepLine Enrichment | Pending |
+| ENRICH-03 | Phase 2: DeepLine Enrichment | Pending |
+| DASH-01 | Phase 3: Batch Results Dashboard | Pending |
+| DASH-02 | Phase 3: Batch Results Dashboard | Pending |
+| DASH-03 | Phase 3: Batch Results Dashboard | Pending |
+| DASH-04 | Phase 3: Batch Results Dashboard | Pending |
+| DASH-05 | Phase 3: Batch Results Dashboard | Pending |
+| DASH-06 | Phase 3: Batch Results Dashboard | Pending |
+| DEMO-01 | Phase 4: Demo Flow | Pending |
+| DEMO-02 | Phase 4: Demo Flow | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15 ⚠️
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-13*
-*Last updated: 2026-03-13 after initial definition*
+*Last updated: 2026-03-13 after roadmap creation*

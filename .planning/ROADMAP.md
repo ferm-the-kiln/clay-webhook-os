@@ -1,99 +1,82 @@
-# Roadmap: Batch ICP Scorer
+# Roadmap: GTME Lite -- Productized GTM Platform
 
-## Milestone 1: Core Batch ICP Scoring System
+## Overview
 
-### Phase 1: Ollama Infrastructure
-**Goal:** Ollama installed, running, and verified on VPS with a 7-8B model
+Transform CW-OS from an internal tool into a demo-ready productized GTM platform across four phases: build a classify skill for bulk data normalization, integrate DeepLine for waterfall enrichment, create a batch results dashboard that replaces the "Clay table" experience, then tie it all together with synthetic test data and a two-pass demo flow using the Twelve Labs client profile.
 
-**Requirements:** INFRA-01, INFRA-02, INFRA-03
+## Phases
 
-**Tasks:**
-1. Install Ollama on VPS
-2. Pull a 7-8B model (llama3.1:8b or qwen2.5:7b)
-3. Configure Ollama as systemd service (auto-start, restart on failure)
-4. Add `/health/ollama` endpoint to verify connectivity
-5. Test inference speed on VPS CPU (benchmark: time per company)
+- [ ] **Phase 1: Classify Skill** - Haiku-powered job title normalization and industry categorization
+- [ ] **Phase 2: DeepLine Enrichment** - Waterfall email discovery and firmographic enrichment via DeepLine API
+- [ ] **Phase 3: Batch Results Dashboard** - Sortable, filterable data table with confidence coloring and inline email preview
+- [ ] **Phase 4: Demo Flow** - Synthetic test data and end-to-end two-pass demo using Twelve Labs
 
-**Success Criteria:**
-- Ollama responds to API calls on VPS
-- Model loaded and generating responses
-- Health endpoint returns Ollama status
-- Benchmark: <15s per company on CPU
+## Phase Details
 
----
+### Phase 1: Classify Skill
+**Goal**: Users can send messy company/contact data through the batch API and get back normalized, structured results with confidence scores -- for pennies per row
+**Depends on**: Nothing (uses existing skill system and batch API)
+**Requirements**: SKILL-01, SKILL-02, SKILL-03, SKILL-04
+**Success Criteria** (what must be TRUE):
+  1. Sending a batch of rows with messy job titles through `classify` returns standardized seniority levels (IC/Manager/Director/VP/C-Suite) for each row
+  2. Sending a batch of rows with company descriptions through `classify` returns standardized industry verticals for each row
+  3. Every classify response includes the original value, normalized value, and a per-field confidence score (0.0-1.0) in valid JSON
+  4. The classify skill runs on haiku model tier and costs under $0.01 per row
+**Plans**: TBD
 
-### Phase 2: Scoring Engine + Job Queue + API
-**Goal:** Upload CSV via API, score companies async with Ollama, retrieve results
+Plans:
+- [ ] 01-01: TBD
+- [ ] 01-02: TBD
 
-**Requirements:** API-01 through API-05, SCORE-01 through SCORE-06, JOB-01 through JOB-04
+### Phase 2: DeepLine Enrichment
+**Goal**: Users can enrich company and contact records with email addresses and firmographic data through a single API that waterfalls across multiple providers
+**Depends on**: Nothing (uses existing research_fetcher architecture)
+**Requirements**: ENRICH-01, ENRICH-02, ENRICH-03
+**Success Criteria** (what must be TRUE):
+  1. DeepLine is available as a provider in `research_fetcher.py` following the same pattern as existing providers (Parallel.ai, Sumble)
+  2. Requesting email enrichment for a contact returns a verified email address via DeepLine's multi-provider waterfall
+  3. Requesting firmographic enrichment for a company returns company size, revenue range, and tech stack data via DeepLine
+**Plans**: TBD
 
-**Tasks:**
-1. Create `app/models/icp_scoring.py` — request/response models
-2. Create `app/core/icp_job_store.py` — file-based job persistence in `data/icp-jobs/`
-3. Create `app/core/icp_scorer.py` — Ollama integration, prompt assembly, response parsing
-4. Create `app/routers/icp_scoring.py` — API endpoints (upload, status, results, list)
-5. Wire job queue into background worker (process jobs sequentially)
-6. Add job resume logic on startup in `app/main.py`
-7. End-to-end test: upload CSV → poll status → download scored results
+Plans:
+- [ ] 02-01: TBD
 
-**Success Criteria:**
-- CSV upload returns job_id
-- Job progresses through companies, updating progress
-- Scored CSV contains original columns + scores + reason + pass/fail
-- Job survives server restart and resumes
-- Ollama errors retried 2x then marked as error rows
+### Phase 3: Batch Results Dashboard
+**Goal**: Users can view, explore, and export batch processing results through a rich data table that makes CW-OS feel like a Clay replacement
+**Depends on**: Nothing (existing batch API already produces results; this phase builds the frontend)
+**Requirements**: DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, DASH-06
+**Success Criteria** (what must be TRUE):
+  1. Navigating to the batch results page shows all processed rows from a batch job in a data table
+  2. Clicking any column header sorts the table by that column (ascending/descending toggle)
+  3. Using the filter controls narrows visible rows by column values (search text or dropdown selection)
+  4. Clicking the CSV download button saves all batch results (respecting current filters) as a `.csv` file
+  5. Each row displays green, yellow, or red background tinting based on its confidence score range
+  6. Clicking any row opens a side panel showing the full email preview for that row's generated content
+**Plans**: TBD
 
----
+Plans:
+- [ ] 03-01: TBD
+- [ ] 03-02: TBD
 
-### Phase 3: Client ICP Config (12 Labs First)
-**Goal:** Scoring dimensions configurable per client, 12 Labs fully configured
+### Phase 4: Demo Flow
+**Goal**: The Kiln team can watch a complete two-pass demo that proves CW-OS replaces Clay: messy data in, classified + enriched + personalized emails out
+**Depends on**: Phase 1, Phase 2, Phase 3
+**Requirements**: DEMO-01, DEMO-02
+**Success Criteria** (what must be TRUE):
+  1. A synthetic CSV of 50 companies exists with intentionally varied data quality -- some clean, some with messy job titles, some with missing fields
+  2. Running the two-pass demo end-to-end (classify -> enrich -> email-gen) using the Twelve Labs client profile produces personalized emails for the top-scoring companies, viewable in the batch results dashboard with per-row and total cost displayed
+**Plans**: TBD
 
-**Requirements:** CFG-01 through CFG-04
+Plans:
+- [ ] 04-01: TBD
 
-**Tasks:**
-1. Define `## ICP Scoring` section format for client profiles
-2. Build config parser in `app/core/icp_scorer.py` to read client ICP config
-3. Create 12 Labs ICP scoring config (Video Intensity + Technical Builder dimensions)
-4. Create scoring prompt template with dimension definitions and JSON output format
-5. Test with real company data — verify scoring accuracy on known-good and known-bad companies
+## Progress
 
-**Success Criteria:**
-- Scoring prompt dynamically assembled from client config
-- 12 Labs config produces accurate Video (1-5) + Technical (1-5) scores
-- Known video companies (Netflix, Mux) score 4-5 on Video Intensity
-- Known non-video companies (Stripe, Datadog) score 1-2 on Video Intensity
-- Pass/fail threshold correctly filters
+**Execution Order:** Phases 1 and 2 have no interdependencies. Phase 3 is frontend-only. Phase 4 integrates all three.
 
----
-
-### Phase 4: Dashboard UI
-**Goal:** Upload, monitor, and download ICP scoring jobs from the dashboard
-
-**Requirements:** DASH-01 through DASH-03
-
-**Tasks:**
-1. Create `dashboard/src/app/icp-scorer/page.tsx` — main page
-2. Build CSV upload component with client selector
-3. Build job progress component (live polling, progress bar)
-4. Build results table with pass/fail filtering
-5. Add CSV download button for filtered results
-6. Add nav link in sidebar
-
-**Success Criteria:**
-- User can upload CSV and select client from dashboard
-- Progress updates live as companies are scored
-- Results table shows scores, reasons, pass/fail
-- CSV download works with filters applied
-
----
-
-## Phase Summary
-
-| # | Phase | Requirements | Est. Plans |
-|---|-------|-------------|------------|
-| 1 | Ollama Infrastructure | INFRA-01..03 | 1 |
-| 2 | Scoring Engine + Job Queue + API | API-01..05, SCORE-01..06, JOB-01..04 | 2-3 |
-| 3 | Client ICP Config | CFG-01..04 | 1 |
-| 4 | Dashboard UI | DASH-01..03 | 1-2 |
-
-**Total:** 4 phases, 25 requirements
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Classify Skill | 0/? | Not started | - |
+| 2. DeepLine Enrichment | 0/? | Not started | - |
+| 3. Batch Results Dashboard | 0/? | Not started | - |
+| 4. Demo Flow | 0/? | Not started | - |
