@@ -22,10 +22,10 @@ Requirements for Phase 1 (demo-ready). Each maps to roadmap phases.
 
 ### Dashboard
 
-- [ ] **DASH-01**: Batch results page displays all processed rows in a data table
-- [ ] **DASH-02**: Table columns are sortable by clicking headers
-- [ ] **DASH-03**: Table columns are filterable via search/dropdown
-- [ ] **DASH-04**: One-click CSV download of batch results
+- [x] **DASH-01**: Batch results page displays all processed rows in a data table
+- [x] **DASH-02**: Table columns are sortable by clicking headers
+- [x] **DASH-03**: Table columns are filterable via search/dropdown
+- [x] **DASH-04**: One-click CSV download of batch results
 - [ ] **DASH-05**: Rows colored green/yellow/red based on confidence score
 - [ ] **DASH-06**: Clicking a row opens side panel with inline email preview
 
@@ -83,10 +83,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ENRICH-01 | Phase 2: DeepLine Enrichment | Complete |
 | ENRICH-02 | Phase 2: DeepLine Enrichment | Complete |
 | ENRICH-03 | Phase 2: DeepLine Enrichment | Complete |
-| DASH-01 | Phase 3: Batch Results Dashboard | Pending |
-| DASH-02 | Phase 3: Batch Results Dashboard | Pending |
-| DASH-03 | Phase 3: Batch Results Dashboard | Pending |
-| DASH-04 | Phase 3: Batch Results Dashboard | Pending |
+| DASH-01 | Phase 3: Batch Results Dashboard | Complete |
+| DASH-02 | Phase 3: Batch Results Dashboard | Complete |
+| DASH-03 | Phase 3: Batch Results Dashboard | Complete |
+| DASH-04 | Phase 3: Batch Results Dashboard | Complete |
 | DASH-05 | Phase 3: Batch Results Dashboard | Pending |
 | DASH-06 | Phase 3: Batch Results Dashboard | Pending |
 | DEMO-01 | Phase 4: Demo Flow | Pending |
