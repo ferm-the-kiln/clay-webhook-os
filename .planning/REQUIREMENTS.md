@@ -1,111 +1,102 @@
-# Requirements: Batch ICP Scorer
+# Requirements: GTME Lite — Productized GTM Platform
 
-**Defined:** 2026-03-11
-**Core Value:** Score thousands of companies against any client's ICP at zero marginal cost
+**Defined:** 2026-03-13
+**Core Value:** Prove CW-OS can replace Clay for the $5-10k/mo client segment with a two-pass demo: classify messy data → research + personalized emails on the winners.
 
 ## v1 Requirements
 
-### Infrastructure
+Requirements for Phase 1 (demo-ready). Each maps to roadmap phases.
 
-- [ ] **INFRA-01**: Ollama installed and running on VPS as a systemd service
-- [ ] **INFRA-02**: 7-8B model pulled and available (e.g., llama3.1:8b or qwen2.5:7b)
-- [ ] **INFRA-03**: Health check endpoint verifies Ollama connectivity
+### Skills
 
-### API
+- [ ] **SKILL-01**: Classify skill normalizes job titles to standard seniority levels (IC/Manager/Director/VP/C-Suite)
+- [ ] **SKILL-02**: Classify skill categorizes companies into standard industry verticals
+- [ ] **SKILL-03**: Classify skill outputs structured JSON with original values, normalized values, and per-field confidence scores
+- [ ] **SKILL-04**: Classify skill uses haiku model tier for cost efficiency
 
-- [ ] **API-01**: `POST /batch-icp-score` accepts CSV upload (columns: company_name, domain, description) + client_slug
-- [ ] **API-02**: Returns job_id immediately (async processing)
-- [ ] **API-03**: `GET /batch-icp-score/{job_id}` returns job status + progress (queued/running/complete/failed)
-- [ ] **API-04**: `GET /batch-icp-score/{job_id}/results` returns scored CSV when complete
-- [ ] **API-05**: `GET /batch-icp-score/jobs` lists all jobs with status summary
+### Enrichment
 
-### Scoring Engine
-
-- [ ] **SCORE-01**: Reads ICP scoring config from client profile (dimensions, thresholds, prompt template)
-- [ ] **SCORE-02**: Sends company_name + domain + description to Ollama with client's scoring prompt
-- [ ] **SCORE-03**: Parses structured JSON response (dimension scores 1-5, reason)
-- [ ] **SCORE-04**: Marks each company pass/fail based on client's threshold config
-- [ ] **SCORE-05**: Handles Ollama errors gracefully (retry 2x, then mark row as "error")
-- [ ] **SCORE-06**: Processes companies sequentially with progress tracking
-
-### Job Queue
-
-- [ ] **JOB-01**: Jobs persist to disk (JSON in data/icp-jobs/)
-- [ ] **JOB-02**: Job state survives server restart — resumes incomplete jobs on startup
-- [ ] **JOB-03**: Job stores: total rows, processed rows, passed rows, failed rows, error rows
-- [ ] **JOB-04**: Job results stored as CSV in data/icp-jobs/{job_id}/results.csv
-
-### Client Config
-
-- [ ] **CFG-01**: Client profile supports `## ICP Scoring` section with structured config
-- [ ] **CFG-02**: Config defines: dimension names, dimension descriptions (1-5 scale), pass thresholds
-- [ ] **CFG-03**: Config defines: scoring prompt template with {company_name}, {domain}, {description} placeholders
-- [ ] **CFG-04**: 12 Labs ICP scoring config created as first implementation (Video Intensity + Technical Builder)
+- [ ] **ENRICH-01**: DeepLine integration in `research_fetcher.py` following existing provider pattern
+- [ ] **ENRICH-02**: Waterfall email discovery via DeepLine (multi-provider fallback)
+- [ ] **ENRICH-03**: Firmographic enrichment via DeepLine (company size, revenue, tech stack)
 
 ### Dashboard
 
-- [ ] **DASH-01**: Dashboard page to upload CSV and select client
-- [ ] **DASH-02**: Job progress view (live progress bar, rows processed/total)
-- [ ] **DASH-03**: Results view with pass/fail filtering and CSV download
+- [ ] **DASH-01**: Batch results page displays all processed rows in a data table
+- [ ] **DASH-02**: Table columns are sortable by clicking headers
+- [ ] **DASH-03**: Table columns are filterable via search/dropdown
+- [ ] **DASH-04**: One-click CSV download of batch results
+- [ ] **DASH-05**: Rows colored green/yellow/red based on confidence score
+- [ ] **DASH-06**: Clicking a row opens side panel with inline email preview
+
+### Demo
+
+- [ ] **DEMO-01**: Synthetic test CSV of 50 companies with varied data quality (clean + messy + missing fields)
+- [ ] **DEMO-02**: Two-pass demo flow works end-to-end: classify → enrich → email-gen using Twelve Labs profile
 
 ## v2 Requirements
 
-### Scale
+Deferred to future release. Tracked but not in current roadmap.
 
-- **SCALE-01**: Parallel scoring (multiple Ollama workers)
-- **SCALE-02**: GPU support for faster inference
-- **SCALE-03**: Model A/B testing (compare scoring accuracy across models)
+### Signal Product (Phase 2)
 
-### Integration
+- **SIG-01**: Signal classifier skill detects active buying signals from company data
+- **SIG-02**: Signal intake skill generates client profiles from form answers
+- **SIG-03**: Signal Setup Wizard dashboard page
 
-- **INT-01**: Auto-trigger enrichment pipeline for passed companies
-- **INT-02**: Push scored results directly to Clay table
-- **INT-03**: Webhook notification when job completes
+### Self-Service (Phase 3)
+
+- **SELF-01**: Client intake form auto-generates profile markdown
+- **SELF-02**: Play forking via dashboard UI
+- **SELF-03**: Destination templates for Instantly, Smartlead, HeyReach
+- **SELF-04**: Client-facing dashboard view with limited permissions
+
+### Platform (Phase 4)
+
+- **PLAT-01**: Multi-tenant auth via JWT
+- **PLAT-02**: Per-client billing dashboard
+- **PLAT-03**: White-label dashboard per client
+- **PLAT-04**: Template marketplace
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Real-time scoring | Batch/async only — designed for overnight runs |
-| External API fallback | Zero cost is the core value proposition |
-| Models > 8B | No GPU on VPS, CPU-only |
-| Contact-level scoring | Companies only — contact enrichment is downstream |
-| Multi-model ensemble | v1 uses single model, ensemble is v2+ |
+| Clay cost comparison calculator | Team knows Clay costs already — show CW-OS cost only via existing analytics |
+| n8n workflow integration | Complementary tool, not part of this build — integrate later |
+| Contact enrichment (DeepLine) | Job title verification + social profiles deferred — email + firmographic is enough for demo |
+| Phone waterfall (DeepLine) | Not needed for email outbound demo |
+| CRM read/write | n8n handles CRM sync — CW-OS does AI + enrichment only |
+| Mobile/responsive dashboard | Desktop-first for internal team demo |
+| Real client data for testing | Synthetic data is faster and controllable — validate on real data before actual demo |
 
 ## Traceability
 
+Which phases cover which requirements. Updated during roadmap creation.
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 1 | Pending |
-| INFRA-02 | Phase 1 | Pending |
-| INFRA-03 | Phase 1 | Pending |
-| API-01 | Phase 2 | Pending |
-| API-02 | Phase 2 | Pending |
-| API-03 | Phase 2 | Pending |
-| API-04 | Phase 2 | Pending |
-| API-05 | Phase 2 | Pending |
-| SCORE-01 | Phase 2 | Pending |
-| SCORE-02 | Phase 2 | Pending |
-| SCORE-03 | Phase 2 | Pending |
-| SCORE-04 | Phase 2 | Pending |
-| SCORE-05 | Phase 2 | Pending |
-| SCORE-06 | Phase 2 | Pending |
-| JOB-01 | Phase 2 | Pending |
-| JOB-02 | Phase 2 | Pending |
-| JOB-03 | Phase 2 | Pending |
-| JOB-04 | Phase 2 | Pending |
-| CFG-01 | Phase 3 | Pending |
-| CFG-02 | Phase 3 | Pending |
-| CFG-03 | Phase 3 | Pending |
-| CFG-04 | Phase 3 | Pending |
-| DASH-01 | Phase 4 | Pending |
-| DASH-02 | Phase 4 | Pending |
-| DASH-03 | Phase 4 | Pending |
+| SKILL-01 | TBD | Pending |
+| SKILL-02 | TBD | Pending |
+| SKILL-03 | TBD | Pending |
+| SKILL-04 | TBD | Pending |
+| ENRICH-01 | TBD | Pending |
+| ENRICH-02 | TBD | Pending |
+| ENRICH-03 | TBD | Pending |
+| DASH-01 | TBD | Pending |
+| DASH-02 | TBD | Pending |
+| DASH-03 | TBD | Pending |
+| DASH-04 | TBD | Pending |
+| DASH-05 | TBD | Pending |
+| DASH-06 | TBD | Pending |
+| DEMO-01 | TBD | Pending |
+| DEMO-02 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 25 total
-- Mapped to phases: 25
-- Unmapped: 0
+- v1 requirements: 15 total
+- Mapped to phases: 0
+- Unmapped: 15 ⚠️
 
 ---
-*Requirements defined: 2026-03-11*
+*Requirements defined: 2026-03-13*
+*Last updated: 2026-03-13 after initial definition*
