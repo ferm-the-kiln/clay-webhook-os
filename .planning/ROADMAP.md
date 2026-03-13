@@ -51,11 +51,11 @@ Plans:
   4. Clicking the CSV download button saves all batch results (respecting current filters) as a `.csv` file
   5. Each row displays green, yellow, or red background tinting based on its confidence score range
   6. Clicking any row opens a side panel showing the full email preview for that row's generated content
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md -- Data table page with sorting, filtering, CSV export, and sidebar nav
+- [ ] 03-02-PLAN.md -- Confidence coloring and email preview side panel
 
 ### Phase 4: Demo Flow
 **Goal**: The Kiln team can watch a complete two-pass demo that proves CW-OS replaces Clay: messy data in, classified + enriched + personalized emails out
@@ -77,5 +77,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Classify Skill | 0/1 | Not started | - |
 | 2. DeepLine Enrichment | 1/1 | Complete   | 2026-03-13 |
-| 3. Batch Results Dashboard | 0/? | Not started | - |
+| 3. Batch Results Dashboard | 0/2 | Not started | - |
 | 4. Demo Flow | 0/? | Not started | - |
