@@ -31,8 +31,8 @@ Requirements for Phase 1 (demo-ready). Each maps to roadmap phases.
 
 ### Demo
 
-- [ ] **DEMO-01**: Synthetic test CSV of 50 companies with varied data quality (clean + messy + missing fields)
-- [ ] **DEMO-02**: Two-pass demo flow works end-to-end: classify -> enrich -> email-gen using Twelve Labs profile
+- [x] **DEMO-01**: Synthetic test CSV of 50 companies with varied data quality (clean + messy + missing fields)
+- [x] **DEMO-02**: Two-pass demo flow works end-to-end: classify -> enrich -> email-gen using Twelve Labs profile
 
 ## v2 Requirements
 
@@ -89,8 +89,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DASH-04 | Phase 3: Batch Results Dashboard | Complete |
 | DASH-05 | Phase 3: Batch Results Dashboard | Complete |
 | DASH-06 | Phase 3: Batch Results Dashboard | Complete |
-| DEMO-01 | Phase 4: Demo Flow | Pending |
-| DEMO-02 | Phase 4: Demo Flow | Pending |
+| DEMO-01 | Phase 4: Demo Flow | Complete |
+| DEMO-02 | Phase 4: Demo Flow | Complete |
 
 **Coverage:**
 - v1 requirements: 15 total
@@ -99,4 +99,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-13*
-*Last updated: 2026-03-13 after roadmap creation*
+*Last updated: 2026-03-14 after Phase 4 completion*

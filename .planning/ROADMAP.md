@@ -9,7 +9,7 @@ Transform CW-OS from an internal tool into a demo-ready productized GTM platform
 - [ ] **Phase 1: Classify Skill** - Haiku-powered job title normalization and industry categorization
 - [x] **Phase 2: DeepLine Enrichment** - Waterfall email discovery and firmographic enrichment via DeepLine API (completed 2026-03-13)
 - [x] **Phase 3: Batch Results Dashboard** - Sortable, filterable data table with confidence coloring and inline email preview (completed 2026-03-13)
-- [ ] **Phase 4: Demo Flow** - Synthetic test data and end-to-end two-pass demo using Twelve Labs
+- [x] **Phase 4: Demo Flow** - Synthetic test data and end-to-end two-pass demo using Twelve Labs (completed 2026-03-14)
 
 ## Phase Details
 
@@ -64,10 +64,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A synthetic CSV of 50 companies exists with intentionally varied data quality -- some clean, some with messy job titles, some with missing fields
   2. Running the two-pass demo end-to-end (classify -> enrich -> email-gen) using the Twelve Labs client profile produces personalized emails for the top-scoring companies, viewable in the batch results dashboard with per-row and total cost displayed
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 04-01-PLAN.md -- Synthetic CSV (50 companies) + Python demo script (classify -> email-gen)
+- [x] 04-01-PLAN.md -- Synthetic CSV (50 companies) + Python demo script (classify -> email-gen)
 
 ## Progress
 
@@ -78,4 +78,4 @@ Plans:
 | 1. Classify Skill | 0/1 | Not started | - |
 | 2. DeepLine Enrichment | 1/1 | Complete   | 2026-03-13 |
 | 3. Batch Results Dashboard | 2/2 | Complete   | 2026-03-13 |
-| 4. Demo Flow | 0/1 | Not started | - |
+| 4. Demo Flow | 1/1 | Complete | 2026-03-14 |

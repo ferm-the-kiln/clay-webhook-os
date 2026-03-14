@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-13T20:35:30.051Z"
-last_activity: 2026-03-13 -- Completed 03-02-PLAN.md (Confidence coloring + email preview)
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-14T00:22:05Z"
+last_activity: 2026-03-14 -- Completed 04-01-PLAN.md (Synthetic CSV + demo script)
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 4
+  total_plans: 5
+  completed_plans: 5
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Prove CW-OS can replace Clay for the $5-10k/mo client segment with a two-pass demo: classify messy data, research + enrich the winners, personalized emails out.
-**Current focus:** Phase 3 complete -- ready for Phase 4 (Demo Flow)
+**Current focus:** All phases complete -- milestone v1.0 done
 
 ## Current Position
 
-Phase: 3 of 4 (Batch Results Dashboard) -- COMPLETE
-Plan: 2 of 2 in current phase (COMPLETE)
-Status: Phase 3 complete, Phase 4 remaining
-Last activity: 2026-03-13 -- Completed 03-02-PLAN.md (Confidence coloring + email preview)
+Phase: 4 of 4 (Demo Flow) -- COMPLETE
+Plan: 1 of 1 in current phase (COMPLETE)
+Status: All 4 phases complete, milestone v1.0 done
+Last activity: 2026-03-14 -- Completed 04-01-PLAN.md (Synthetic CSV + demo script)
 
 Progress: [██████████] 100%
 
@@ -54,6 +54,7 @@ Progress: [██████████] 100%
 | Phase 02 P01 | 4min | 2 tasks | 6 files |
 | Phase 03 P01 | 2min | 2 tasks | 2 files |
 | Phase 03 P02 | 15min | 2 tasks | 10 files |
+| Phase 04 P01 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,9 @@ Recent decisions affecting current work:
 - [Phase 03]: Backward-compatible onRowClick prop -- /run page uses inline expansion, /batch-results uses side panel
 - [Phase 03]: Dual confidence field support (confidence_score + overall_confidence_score) for different skill outputs
 - [Phase 03]: BatchHistory component replaces empty state on /batch-results landing page
+- [Phase 04]: Mock classify output in dry-run simulates ~60% pass rate for realistic demo validation
+- [Phase 04]: Force-added demo CSV to git despite data/ gitignore (demo fixtures belong in VCS)
+- [Phase 04]: Fetch job results individually via GET /jobs/{id} since batch status omits result field
 
 ### Pending Todos
 
@@ -87,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T20:30:00.000Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-03-14T00:22:05Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
