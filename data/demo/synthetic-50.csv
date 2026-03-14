@@ -1,0 +1,51 @@
+first_name,last_name,title,company_name,company_domain,company_description,industry,employee_count
+Alex,Chen,VP of Engineering,Mux,mux.com,Video infrastructure for developers. APIs for live and on-demand video streaming.,Media/Entertainment,250
+Sarah,Nguyen,Director of Product,Cloudflare,cloudflare.com,Global cloud platform providing CDN and cybersecurity services.,Cybersecurity,3800
+Marcus,Rivera,Head of Partnerships,Duolingo,duolingo.com,Language-learning platform with gamified mobile app used by millions worldwide.,EdTech,700
+Priya,Sharma,VP of Sales,The Trade Desk,thetradedesk.com,Demand-side platform for digital advertising with real-time bidding.,AdTech,2900
+James,O'Brien,Director of Analytics,Catapult Sports,catapultsports.com,Wearable technology and analytics platform for elite sports performance tracking.,Sports Tech,450
+Emily,Watson,VP of Marketing,Datadog,datadoghq.com,Cloud-scale monitoring and security platform for modern infrastructure.,SaaS,5500
+David,Park,Chief Revenue Officer,Plaid,plaid.com,Financial infrastructure enabling apps to connect with users bank accounts.,FinTech,1200
+Lisa,Thompson,Director of Business Development,Tempus,tempus.com,AI-powered precision medicine company building diagnostics and data analytics tools.,HealthTech,2100
+Carlos,Mendez,VP of Product,BigCommerce,bigcommerce.com,Open SaaS ecommerce platform for fast-growing and established B2C and B2B brands.,E-Commerce,1500
+Rachel,Kim,Head of Customer Success,CrowdStrike,crowdstrike.com,Cloud-native endpoint protection platform using AI for cybersecurity threat detection.,Cybersecurity,7900
+Michael,Foster,sr. software eng,Vimeo,vimeo.com,Professional video hosting and streaming tools for businesses and creators.,Media/Entertainment,1100
+Jennifer,Adams,head of mktg,Wistia,wistia.com,Video marketing platform for business. Host and analyze branded video content.,Media/Entertainment,200
+Robert,Martinez,product mgr,HubSpot,hubspot.com,Inbound marketing and sales CRM platform with marketing automation tools.,SaaS,7400
+Amanda,Lee,biz dev assoc.,Zoom Video,zoom.us,Video-first unified communications platform for enterprise meetings and events.,SaaS,8400
+Kevin,Wright,sr. data scientist,SentinelOne,sentinelone.com,Autonomous AI-powered cybersecurity platform for endpoint and cloud security.,Cybersecurity,2400
+Stephanie,Clark,jr. account exec,Coursera,coursera.org,Online learning platform partnering with universities for courses and degrees.,EdTech,1400
+Daniel,Brown,eng. manager,Braze,braze.com,Customer engagement platform delivering cross-channel messaging for brands.,AdTech,1800
+Michelle,Taylor,sr. product designer,DraftKings,draftkings.com,Digital sports entertainment and gaming company with daily fantasy and betting.,Sports Tech,5000
+Andrew,White,tech lead & architect,Stripe,stripe.com,Financial infrastructure platform for internet businesses processing payments globally.,FinTech,8000
+Jessica,Harris,mktg ops specialist,Shopify,shopify.com,Commerce platform enabling merchants to build online stores and sell everywhere.,E-Commerce,10000
+Ryan,Sullivan,Head of Growth,Loom,loom.com,Async video messaging platform for work communication and screen recording.,SaaS,300
+Chris,Morgan,Lead,Grammarly,grammarly.com,AI writing assistant that checks grammar and provides writing suggestions.,EdTech,900
+Natalie,Brooks,Digital Strategist,Mixpanel,mixpanel.com,Product analytics platform helping teams learn from user behavior data.,SaaS,400
+Brian,Cooper,Innovation Director,Gusto,gusto.com,Cloud-based payroll benefits and HR management platform for small businesses.,HR Tech,2200
+Maria,Santos,Growth Manager,Notion,notion.so,Connected workspace combining notes docs and project management tools.,SaaS,500
+Tyler,Anderson,Partnerships Lead,Figma,figma.com,Collaborative interface design tool for building digital products in the browser.,SaaS,1200
+Olivia,Garcia,Customer Strategist,Intercom,intercom.com,Customer messaging platform with live chat bots and help desk tools.,SaaS,800
+Patrick,Reed,Business Analyst,Carta,carta.com,Equity management platform for companies managing cap tables and valuations.,FinTech,1700
+Megan,Hughes,Account Director,Veeva Systems,veeva.com,Cloud solutions for the global life sciences industry including CRM and vault.,HealthTech,6200
+Derek,Campbell,Product Lead,DocuSign,docusign.com,Electronic signature and agreement cloud platform for digital transaction management.,LegalTech,6800
+Samantha,Hill,cto & co-founder,NovaTech Solutions,novatech-solutions.io,Emerging AI consultancy helping mid-market firms adopt generative AI workflows.,,85
+Jason,Patel,vp sales / marketing,Greenfield Analytics,,Data analytics for agriculture and sustainability metrics tracking.,AgriTech,120
+Ashley,Mitchell,chief of staff & ops lead,CloudBridge Systems,cloudbridge.dev,Cloud migration and DevOps consulting for mid-sized enterprises.,,60
+Nick,Fernandez,dir. of product & eng,SolarGrid Inc,solargrid.co,Smart energy management platform for commercial solar installations.,CleanTech,200
+Rebecca,Torres,head of cs / account mgmt,PixelForge Media,,Creative tools and asset management for digital media production companies.,Media/Entertainment,150
+Anthony,Young,eng & data lead,SecureNet Pro,securenetpro.com,Network security monitoring and threat intelligence for SMBs.,,95
+Diana,Lewis,vp of biz dev & strategy,UrbanPlan Tech,,PropTech analytics and urban planning data platform.,Real Estate Tech,175
+Jared,Collins,product / design lead,FreshStack Labs,freshstack.io,Developer tools for rapid prototyping and component library management.,,45
+Vanessa,Stewart,mktg & comms director,AquaFlow Dynamics,aquaflow.co,Water treatment IoT sensors and monitoring for industrial facilities.,CleanTech,300
+Marcus,Bell,sr. eng / team lead,HealthPulse AI,healthpulse.ai,AI diagnostics for remote patient monitoring and telehealth providers.,HealthTech,110
+Associate,,associate,Apex Consulting Group,,,,,
+,,consultant,Meridian Partners,,Business advisory services.,,
+Taylor,,,Summit Digital,,,,,
+,,analyst,Vertex Solutions,,,,30
+Chris,Moore,,Caliber Group,,,,,
+,,,,Orion Dynamics,,,,
+Sam,,,Pinnacle Ltd,,,,,
+Jordan,Blake,intern,TechStart,,,,5
+,,contractor,FlexWork Co,,,,,
+Riley,,,Keystone Services,,,,,
