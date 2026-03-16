@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HubSpot Parent-Child — Two Proposals (v2)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1a1a2e;
+    background: #f8f9fa;
+    line-height: 1.6;
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+
+  .header {
+    text-align: center;
+    padding: 36px 24px 28px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: white;
+    border-radius: 14px;
+    margin-bottom: 28px;
+  }
+  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+  .header .subtitle { font-size: 15px; opacity: 0.8; }
+  .header .meta { display: flex; justify-content: center; gap: 24px; margin-top: 14px; font-size: 13px; opacity: 0.7; }
+  .header .meta span { display: inline-block; }
+
+  .proposal-divider {
+    text-align: center;
+    margin: 36px 0 24px;
+    position: relative;
+  }
+  .proposal-divider::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; top: 50%;
+    height: 2px;
+    background: linear-gradient(to right, transparent, #dee2e6, transparent);
+  }
+  .proposal-label {
+    display: inline-block;
+    position: relative;
+    background: #f8f9fa;
+    padding: 6px 20px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #868e96;
+  }
+
+  .section {
+    background: white;
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .section.proposal-1 { border-left: 4px solid #1971c2; }
+  .section.proposal-2 { border-left: 4px solid #2f9e44; }
+  .section.bridge { border-left: 4px solid #7048e8; }
+
+  .section h2 {
+    font-size: 20px; font-weight: 700; margin-bottom: 14px; color: #1a1a2e;
+    border-bottom: 2px solid #e9ecef; padding-bottom: 6px;
+  }
+  .section h3 {
+    font-size: 16px; font-weight: 600; margin: 20px 0 8px; color: #16213e;
+  }
+  .section p { margin-bottom: 10px; color: #495057; font-size: 14px; }
+  .section ul, .section ol { margin: 8px 0 14px 20px; font-size: 14px; color: #495057; }
+  .section li { margin-bottom: 6px; }
+
+  .callout {
+    padding: 14px 18px; border-radius: 8px; margin: 14px 0; font-size: 13px;
+  }
+  .callout-problem { background: #fff5f5; border-left: 4px solid #e03131; color: #c92a2a; }
+  .callout-insight { background: #e7f5ff; border-left: 4px solid #1971c2; color: #1864ab; }
+  .callout-success { background: #ebfbee; border-left: 4px solid #2f9e44; color: #2b8a3e; }
+  .callout-neutral { background: #f8f9fa; border-left: 4px solid #868e96; color: #495057; }
+  .callout-purple { background: #f3f0ff; border-left: 4px solid #7048e8; color: #5f3dc4; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px;
+  }
+  th {
+    background: #f1f3f5; padding: 8px 10px; text-align: left;
+    font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6;
+  }
+  td { padding: 8px 10px; border-bottom: 1px solid #f1f3f5; color: #495057; }
+  tr:hover td { background: #f8f9fa; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+  }
+  .badge-green { background: #d3f9d8; color: #2b8a3e; }
+  .badge-blue { background: #d0ebff; color: #1864ab; }
+  .badge-orange { background: #fff4e6; color: #e8590c; }
+  .badge-red { background: #ffe3e3; color: #c92a2a; }
+  .badge-purple { background: #e5dbff; color: #7048e8; }
+
+  .profile-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;
+  }
+  .profile-card {
+    border: 2px solid #e9ecef; border-radius: 10px; padding: 16px; font-size: 13px;
+  }
+  .profile-card h4 { font-size: 14px; margin-bottom: 2px; }
+  .profile-card .tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 4px; margin-bottom: 8px;
+  }
+
+  .step-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 14px 0;
+  }
+  .step-card {
+    border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; background: #f8f9fa;
+  }
+  .step-card .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #1971c2;
+    color: white; border-radius: 50%; text-align: center; line-height: 24px;
+    font-size: 12px; font-weight: 700; margin-bottom: 8px;
+  }
+  .step-card.p2 .step-num { background: #2f9e44; }
+  .step-card h4 { font-size: 14px; font-weight: 600; color: #1a1a2e; margin-bottom: 4px; }
+  .step-card p { font-size: 12px; color: #868e96; margin: 0; }
+
+  .conflict-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 14px 0;
+  }
+  .conflict-card {
+    border: 1px solid #ffe3e3; background: #fff5f5; border-radius: 8px; padding: 14px;
+  }
+  .conflict-card h4 { font-size: 13px; font-weight: 600; color: #c92a2a; margin-bottom: 4px; }
+  .conflict-card p { font-size: 12px; color: #868e96; margin: 0; }
+
+  .priority-stack { margin: 16px 0; }
+  .priority-item {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 14px 16px; border: 1px solid #e9ecef; border-radius: 8px;
+    margin-bottom: 8px; background: white;
+  }
+  .priority-item .rank {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: white;
+  }
+  .priority-item .rank.r1 { background: #2f9e44; }
+  .priority-item .rank.r2 { background: #1971c2; }
+  .priority-item .rank.r3 { background: #868e96; }
+  .priority-item .info h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .priority-item .info p { font-size: 12px; color: #868e96; margin: 0; }
+
+  /* Flow diagram */
+  .flow-container {
+    background: #fafbfc; border: 1px solid #e9ecef; border-radius: 8px;
+    padding: 24px; margin: 16px 0; position: relative; overflow-x: auto;
+  }
+  .flow-container.fullscreen {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 9999; margin: 0; border-radius: 0; background: white;
+    padding: 40px; overflow: auto; display: flex; flex-direction: column;
+  }
+  .flow-container.fullscreen svg {
+    flex: 1; max-height: calc(100vh - 120px); width: auto; margin: 0 auto;
+  }
+  .fullscreen-btn {
+    position: absolute; top: 10px; right: 10px; width: 30px; height: 30px;
+    border: 1px solid #dee2e6; border-radius: 6px; background: white;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: #868e96; transition: all 0.15s;
+  }
+  .fullscreen-btn:hover { background: #f1f3f5; color: #495057; border-color: #adb5bd; }
+  .flow-container.fullscreen .fullscreen-btn { top: 16px; right: 16px; width: 36px; height: 36px; }
+  .flow-title {
+    font-size: 13px; font-weight: 600; color: #868e96;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;
+  }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+  /* Clay columns table */
+  .clay-col-table td:first-child { font-family: 'SF Mono', SFMono-Regular, Menlo, monospace; font-size: 12px; background: #f8f9fa; }
+
+  .footer {
+    text-align: center; padding: 20px; color: #adb5bd; font-size: 12px;
+  }
+
+  @media (max-width: 700px) {
+    .profile-grid, .step-grid, .conflict-grid { grid-template-columns: 1fr; }
+    .container { padding: 16px; }
+    .section { padding: 20px; }
+    .header .meta { flex-direction: column; gap: 4px; }
+  }
+  @media print {
+    body { background: white; }
+    .container { padding: 0; }
+    .section { box-shadow: none; border: 1px solid #e9ecef; break-inside: avoid; }
+    .flow-container { break-inside: avoid; }
+    .fullscreen-btn { display: none; }
+    .page-break { page-break-before: always; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ===== HEADER ===== -->
+<div class="header">
+  <h1>HubSpot Parent-Child &mdash; Two Proposals</h1>
+  <div class="meta">
+    <span><strong>Prepared for:</strong> Sean Graham &amp; 12 Labs Team</span>
+    <span><strong>Date:</strong> March 11, 2026</span>
+    <span><strong>From:</strong> Fermin</span>
+  </div>
+</div>
+
+<!-- ===== THE PROBLEM ===== -->
+<div class="section">
+  <h2>The Problem</h2>
+  <div class="callout callout-problem">
+    When contacts share a parent company email domain (e.g., @nfl.com), HubSpot auto-associates them to the parent company. But many of these contacts actually work for subsidiaries or child companies (e.g., Kansas City Chiefs, Dallas Cowboys).
+  </div>
+  <p>This means:</p>
+  <ul>
+    <li>Contacts sitting on the wrong company record</li>
+    <li>Reps not knowing who actually belongs to which team/subsidiary</li>
+    <li>Owner assignment based on incorrect company data</li>
+  </ul>
+  <div class="callout callout-neutral">
+    <strong>We're solving this in two stages:</strong> clean up what's already there, then change how new contacts get routed going forward.
+  </div>
+</div>
+
+<!-- ==================== PROPOSAL 1 ==================== -->
+
+<div class="proposal-divider">
+  <span class="proposal-label">Proposal 1</span>
+</div>
+
+<div class="section proposal-1">
+  <h2>Migration &mdash; Clean Up Existing Records</h2>
+  <p><strong>Goal:</strong> Take what's currently in HubSpot and move companies and contacts into the correct parent-child associations.</p>
+
+  <h3>Step 1: Discovery &amp; Flagging</h3>
+  <p>We use Claude and Clay together to analyze existing HubSpot records and flag which companies should be parents, which should be children, and which should be merged.</p>
+
+  <p><strong>How we detect it: type/segment/sizing/unique domain/unique linkedin</strong></p>
+
+  <h3>What Claude does:</h3>
+  <p>For each parent company, Claude analyzes its contacts and cross-references LinkedIn data, job titles, and company names to identify child companies grouped under that parent. It outputs a recommendation for each: <span class="badge badge-green">Create as child</span>, <span class="badge badge-blue">Merge with parent</span>, or <span class="badge badge-orange">Needs team decision</span>.</p>
+</div>
+
+<div class="section proposal-1">
+  <h3>Step 2: Google Sheet for Team Review</h3>
+  <p>The output is a shared Google Sheet &mdash; one row per company &mdash; with recommendations and conflict highlights.</p>
+
+  <!-- Migration Flow Diagram -->
+  <div class="flow-container">
+    <button class="fullscreen-btn" onclick="toggleFullscreen(this)" title="Toggle fullscreen">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path class="expand-icon" d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/>
+        <path class="collapse-icon" d="M6 2v4H2M10 2v4h4M14 10h-4v4M6 14v-4H2" style="display:none"/>
+      </svg>
+    </button>
+    <div class="flow-title">Proposal 1: Discovery &amp; Review Flow</div>
+    <svg viewBox="0 0 880 160" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#495057"/></marker>
+      </defs>
+      <!-- Parent Company -->
+      <rect x="10" y="45" width="130" height="65" rx="8" fill="#d0ebff" stroke="#1971c2" stroke-width="2"/>
+      <text x="75" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#1864ab">Parent Company</text>
+      <text x="75" y="88" text-anchor="middle" font-size="10" fill="#495057">Contacts from</text>
+      <text x="75" y="100" text-anchor="middle" font-size="10" fill="#495057">HubSpot</text>
+
+      <line x1="140" y1="77" x2="170" y2="77" stroke="#495057" stroke-width="2" marker-end="url(#arrow)"/>
+
+      <!-- Clay -->
+      <rect x="170" y="50" width="110" height="55" rx="8" fill="#e7f5ff" stroke="#1971c2" stroke-width="2"/>
+      <text x="225" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="#1864ab">Clay</text>
+      <text x="225" y="88" text-anchor="middle" font-size="10" fill="#495057">Enrich LinkedIn</text>
+      <text x="225" y="100" text-anchor="middle" font-size="10" fill="#495057">+ Type/Segment/Size</text>
+
+      <line x1="280" y1="77" x2="310" y2="77" stroke="#495057" stroke-width="2" marker-end="url(#arrow)"/>
+
+      <!-- Claude -->
+      <rect x="310" y="50" width="130" height="55" rx="8" fill="#e5dbff" stroke="#7048e8" stroke-width="2"/>
+      <text x="375" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="#5f3dc4">Claude</text>
+      <text x="375" y="88" text-anchor="middle" font-size="10" fill="#495057">Flag parents, children,</text>
+      <text x="375" y="100" text-anchor="middle" font-size="10" fill="#495057">merges + conflicts</text>
+
+      <!-- Annotation: Claude's role ends at discovery -->
+      <line x1="375" y1="50" x2="375" y2="25" stroke="#868e96" stroke-width="1" stroke-dasharray="4,3"/>
+      <rect x="300" y="5" width="150" height="22" rx="4" fill="#f1f3f5" stroke="#dee2e6" stroke-width="1"/>
+      <text x="375" y="20" text-anchor="middle" font-size="10" fill="#868e96">Claude's role ends here</text>
+
+      <line x1="440" y1="77" x2="470" y2="77" stroke="#495057" stroke-width="2" marker-end="url(#arrow)"/>
+
+      <!-- Google Sheet -->
+      <rect x="470" y="50" width="130" height="55" rx="8" fill="#ebfbee" stroke="#2f9e44" stroke-width="2"/>
+      <text x="535" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="#2b8a3e">Google Sheet</text>
+      <text x="535" y="88" text-anchor="middle" font-size="10" fill="#495057">Recommendations +</text>
+      <text x="535" y="100" text-anchor="middle" font-size="10" fill="#495057">conflict highlights</text>
+
+      <line x1="600" y1="77" x2="630" y2="77" stroke="#495057" stroke-width="2" marker-end="url(#arrow)"/>
+
+      <!-- Team -->
+      <rect x="630" y="50" width="110" height="55" rx="8" fill="#fff4e6" stroke="#e8590c" stroke-width="2"/>
+      <text x="685" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="#e8590c">Team</text>
+      <text x="685" y="88" text-anchor="middle" font-size="10" fill="#495057">Reviews &amp;</text>
+      <text x="685" y="100" text-anchor="middle" font-size="10" fill="#495057">Approves</text>
+
+      <!-- Annotation: After approval = pure automation -->
+      <rect x="632" y="5" width="170" height="22" rx="4" fill="#ebfbee" stroke="#2f9e44" stroke-width="1"/>
+      <text x="717" y="20" text-anchor="middle" font-size="10" fill="#2b8a3e">After approval = pure automation</text>
+      <line x1="685" y1="50" x2="685" y2="27" stroke="#2f9e44" stroke-width="1" stroke-dasharray="4,3"/>
+
+      <!-- Arrow down to Clay Executes -->
+      <line x1="685" y1="105" x2="685" y2="120" stroke="#495057" stroke-width="2" marker-end="url(#arrow)"/>
+
+      <!-- Clay Executes -->
+      <rect x="620" y="120" width="130" height="38" rx="8" fill="#d0ebff" stroke="#1971c2" stroke-width="2"/>
+      <text x="685" y="136" text-anchor="middle" font-size="11" font-weight="700" fill="#1864ab">Clay Executes</text>
+      <text x="685" y="150" text-anchor="middle" font-size="9" fill="#495057">Create children, re-associate</text>
+    </svg>
+  </div>
+
+  <h3>What gets highlighted as a conflict:</h3>
+  <div class="conflict-grid">
+    <div class="conflict-card">
+      <h4>Ownership Conflicts</h4>
+      <p>Two reps own contacts that will move to the same child company. Who gets ownership?</p>
+    </div>
+    <div class="conflict-card">
+      <h4>Merge Conflicts</h4>
+      <p>A company marked for merging has contacts with activity history on both records. Which record survives?</p>
+    </div>
+    <div class="conflict-card">
+      <h4>Ambiguous Entities</h4>
+      <p>Small divisions where it's unclear if they need their own record (e.g., NFL Films &mdash; 3 contacts, is it worth a separate company?)</p>
+    </div>
+  </div>
+
+  <div class="callout callout-insight">
+    The sheet includes a <strong>Notes</strong> column for the team to add context only they would know. The system recommends &mdash; humans decide.
+  </div>
+</div>
+
+<div class="section proposal-1">
+  <h3>Step 3: Automated Execution</h3>
+  <p>Once the team returns the approved Google Sheet, Clay handles all the HubSpot updates automatically:</p>
+
+  <div class="step-grid">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <h4>Creates child company records</h4>
+      <p>Via HubSpot API, with parent-child association set.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <h4>Re-associates contacts</h4>
+      <p>Moves contacts from the parent to the correct child company.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <h4>Handles merges</h4>
+      <p>For companies marked "merge," consolidates records and preserves activity history.</p>
+    </div>
+  </div>
+
+  <div class="callout callout-success">
+    <strong>No manual HubSpot work required.</strong> The team reviews and decides, Clay executes.
+  </div>
+
+  <h3>Dedup protection during execution:</h3>
+  <p>When creating child companies at scale, duplicates can slip through. We prevent this with three checks:</p>
+  <ol>
+    <li><strong>Before creating</strong> &mdash; Clay checks searches HubSpot. If the company already exists, skip creation and just associate the contact.</li>
+    <li><strong>After creating</strong> &mdash; Clay verifies no duplicate was just created by another concurrent process.</li>
+  </ol>
+</div>
+
+<div class="section proposal-1">
+  <h3>Edge Cases</h3>
+
+  <div class="callout callout-purple">
+    <strong>The NFL problem:</strong> A contact lists "NFL" on LinkedIn even though they work for the Kansas City Chiefs. Their job title says "Director of Entertainment Teams - Kansas City Chiefs."
+  </div>
+
+  <ul>
+    <li><strong>For migration:</strong> Claude catches these via job title analysis and flags them in the Google Sheet.</li>
+    <li><strong>Pragmatic default:</strong> If detection is uncertain, the contact stays on the parent record. The job title is visible to reps, so they can manually re-associate if needed.</li>
+  </ul>
+
+  <h3>What We Need From the Team (Proposal 1)</h3>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Item</th><th>Details</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td><strong>List of parent companies</strong></td><td>To start the discovery analysis (or we can pull the top companies by child count from HubSpot)</td></tr>
+      <tr><td>2</td><td><strong>Time to review</strong></td><td>The Google Sheet and make approve/merge/flag decisions per row</td></tr>
+      <tr><td>3</td><td><strong>Ownership rules</strong></td><td>When two reps own contacts moving to the same child, who gets it?</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ==================== PROPOSAL 2 ==================== -->
+
+<div class="proposal-divider">
+  <span class="proposal-label">Proposal 2</span>
+</div>
+
+<div class="section proposal-2">
+  <h2>Enrichment Process &mdash; Route New Contacts Correctly</h2>
+  <p><strong>Goal:</strong> Change the current enrichment process so that when new contacts get added to HubSpot, they automatically land on the correct child or parent company &mdash; not just wherever the email domain points.</p>
+
+  <h3>The Problem Today</h3>
+  <p>Contact-to-company association currently relies on:</p>
+  <ul>
+    <li>Email domain (unreliable for parent-child &mdash; @nfl.com goes to NFL, not Kansas City Chiefs)</li>
+    <li>Company info from imported spreadsheets (may be outdated or generic)</li>
+  </ul>
+  <p>This means every new contact under a parent-child structure risks landing on the wrong company.</p>
+
+  <h3>The Fix: LinkedIn First, Email as Fallback</h3>
+  <p>When a new contact enters the system, Clay enriches them and routes based on <strong>LinkedIn data as the primary signal</strong>, with work email as a fallback.</p>
+
+  <div class="priority-stack">
+    <div class="priority-item">
+      <div class="rank r1">1st</div>
+      <div class="info">
+        <h4>LinkedIn Company URL</h4>
+        <p>Exact match&hellip;no fuzzy matching needed.</p>
+      </div>
+    </div>
+    <div class="priority-item">
+      <div class="rank r2">2nd</div>
+      <div class="info">
+        <h4>LinkedIn Company Name</h4>
+        <p>If the LinkedIn URL doesn't match a known child or parent, check the company name.</p>
+      </div>
+    </div>
+    <div class="priority-item">
+      <div class="rank r3">FB</div>
+      <div class="info">
+        <h4>Work Email Domain</h4>
+        <p>Only used when LinkedIn data is missing or inconclusive. This is the current behavior, but now it's intentionally last &mdash; not the default.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section proposal-2">
+  <h3>How Routing Works</h3>
+  <div class="flow-container">
+    <button class="fullscreen-btn" onclick="toggleFullscreen(this)" title="Toggle fullscreen">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path class="expand-icon" d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/>
+        <path class="collapse-icon" d="M6 2v4H2M10 2v4h4M14 10h-4v4M6 14v-4H2" style="display:none"/>
+      </svg>
+    </button>
+    <div class="flow-title">Proposal 2: Contact Routing Decision Tree</div>
+    <svg viewBox="0 0 920 660" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ad" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#495057"/></marker>
+        <marker id="agr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#2f9e44"/></marker>
+        <marker id="ao" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#e8590c"/></marker>
+        <marker id="ab" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#1971c2"/></marker>
+        <marker id="apu" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#7048e8"/></marker>
+        <marker id="agray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#868e96"/></marker>
+      </defs>
+
+      <!-- Start -->
+      <rect x="340" y="15" width="220" height="45" rx="22" fill="#e9ecef" stroke="#495057" stroke-width="2"/>
+      <text x="450" y="43" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">New Contact Enters HubSpot</text>
+
+      <line x1="450" y1="60" x2="450" y2="95" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+
+      <!-- Decision 1: LinkedIn Company URL? -->
+      <rect x="300" y="95" width="300" height="50" rx="8" fill="#f1f3f5" stroke="#868e96" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="450" y="117" text-anchor="middle" font-size="13" font-weight="600" fill="#495057">Has LinkedIn Company URL?</text>
+      <text x="450" y="133" text-anchor="middle" font-size="11" fill="#868e96">Priority 1 &mdash; strongest signal</text>
+
+      <!-- YES: has URL -->
+      <line x1="450" y1="145" x2="450" y2="185" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+      <text x="470" y="170" font-size="11" font-weight="600" fill="#2f9e44">YES</text>
+
+      <!-- NO: fall to LinkedIn Name -->
+      <line x1="600" y1="120" x2="750" y2="120" stroke="#868e96" stroke-width="2" marker-end="url(#agray)"/>
+      <text x="670" y="113" text-anchor="middle" font-size="11" font-weight="600" fill="#868e96">NO</text>
+
+      <!-- LinkedIn Name check (right branch) -->
+      <rect x="750" y="95" width="155" height="50" rx="8" fill="#f1f3f5" stroke="#868e96" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="827" y="115" text-anchor="middle" font-size="12" font-weight="600" fill="#495057">Has LI Company</text>
+      <text x="827" y="131" text-anchor="middle" font-size="12" font-weight="600" fill="#495057">Name?</text>
+
+      <!-- LI Name YES -->
+      <line x1="827" y1="145" x2="827" y2="185" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+      <text x="847" y="170" font-size="11" font-weight="600" fill="#2f9e44">YES</text>
+
+      <rect x="740" y="185" width="175" height="45" rx="8" fill="#f1f3f5" stroke="#868e96" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="827" y="205" text-anchor="middle" font-size="12" font-weight="600" fill="#495057">Name matches child?</text>
+      <text x="827" y="220" text-anchor="middle" font-size="10" fill="#868e96">Priority 2</text>
+
+      <!-- Name matches → auto-associate -->
+      <line x1="827" y1="230" x2="827" y2="265" stroke="#2f9e44" stroke-width="2" marker-end="url(#agr)"/>
+      <text x="847" y="252" font-size="11" font-weight="600" fill="#2f9e44">YES</text>
+      <rect x="752" y="265" width="150" height="45" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2.5"/>
+      <text x="827" y="292" text-anchor="middle" font-size="13" font-weight="700" fill="#2b8a3e">Auto-Associate</text>
+
+      <!-- Decision 2: URL matches known child? -->
+      <rect x="300" y="185" width="300" height="50" rx="8" fill="#f1f3f5" stroke="#868e96" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="450" y="207" text-anchor="middle" font-size="13" font-weight="600" fill="#495057">URL matches known child?</text>
+      <text x="450" y="223" text-anchor="middle" font-size="11" fill="#868e96">Lookup against mapping table from Proposal 1</text>
+
+      <!-- YES: auto-associate -->
+      <line x1="300" y1="210" x2="200" y2="210" stroke="#2f9e44" stroke-width="2"/>
+      <line x1="200" y1="210" x2="200" y2="270" stroke="#2f9e44" stroke-width="2" marker-end="url(#agr)"/>
+      <text x="245" y="203" font-size="11" font-weight="600" fill="#2f9e44">YES</text>
+      <rect x="120" y="270" width="160" height="50" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2.5"/>
+      <text x="200" y="291" text-anchor="middle" font-size="13" font-weight="700" fill="#2b8a3e">Auto-Associate</text>
+      <text x="200" y="307" text-anchor="middle" font-size="11" fill="#495057">to Child Company</text>
+
+      <!-- NO -->
+      <line x1="450" y1="235" x2="450" y2="275" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+      <text x="470" y="260" font-size="11" font-weight="600" fill="#1971c2">NO</text>
+
+      <!-- Decision 3: Check LinkedIn company name -->
+      <rect x="320" y="275" width="260" height="50" rx="8" fill="#f1f3f5" stroke="#868e96" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="450" y="297" text-anchor="middle" font-size="13" font-weight="600" fill="#495057">LI company name = child?</text>
+
+      <!-- YES -->
+      <line x1="320" y1="300" x2="200" y2="300" stroke="#2f9e44" stroke-width="2"/>
+      <line x1="200" y1="300" x2="200" y2="320" stroke="#2f9e44" stroke-width="1" stroke-dasharray="3,3"/>
+      <text x="255" y="293" font-size="11" font-weight="600" fill="#2f9e44">YES</text>
+
+      <!-- NO: fall to email -->
+      <line x1="450" y1="325" x2="450" y2="365" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+      <text x="470" y="350" font-size="11" font-weight="600" fill="#495057">NO</text>
+
+      <!-- Decision 4: Has work email? -->
+      <rect x="295" y="365" width="310" height="50" rx="8" fill="#f8f0e0" stroke="#e8590c" stroke-width="1.5" stroke-dasharray="6,3"/>
+      <text x="450" y="387" text-anchor="middle" font-size="13" font-weight="600" fill="#e8590c">Has work email?</text>
+      <text x="450" y="403" text-anchor="middle" font-size="11" fill="#868e96">Fallback &mdash; check email domain</text>
+
+      <!-- No work email → no LinkedIn either → flag -->
+      <line x1="605" y1="390" x2="720" y2="390" stroke="#e8590c" stroke-width="2" marker-end="url(#ao)"/>
+      <text x="660" y="383" text-anchor="middle" font-size="11" font-weight="600" fill="#e8590c">NO</text>
+      <rect x="720" y="365" width="160" height="50" rx="8" fill="#fff4e6" stroke="#e8590c" stroke-width="2"/>
+      <text x="800" y="386" text-anchor="middle" font-size="12" font-weight="600" fill="#e8590c">Flag for Manual</text>
+      <text x="800" y="402" text-anchor="middle" font-size="10" fill="#868e96">No work email either</text>
+
+      <!-- YES: has email -->
+      <line x1="450" y1="415" x2="450" y2="455" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+      <text x="470" y="440" font-size="11" font-weight="600" fill="#2f9e44">YES</text>
+
+      <!-- Decision 5: Email domain matches child domain? -->
+      <rect x="295" y="455" width="310" height="50" rx="8" fill="#f8f0e0" stroke="#e8590c" stroke-width="1.5" stroke-dasharray="6,3"/>
+      <text x="450" y="475" text-anchor="middle" font-size="13" font-weight="600" fill="#e8590c">Email domain matches child?</text>
+      <text x="450" y="491" text-anchor="middle" font-size="11" fill="#868e96">e.g. @chiefs.com &ne; @nfl.com</text>
+
+      <!-- YES: email differentiates -->
+      <line x1="295" y1="480" x2="200" y2="480" stroke="#2f9e44" stroke-width="2"/>
+      <line x1="200" y1="480" x2="200" y2="535" stroke="#2f9e44" stroke-width="2" marker-end="url(#agr)"/>
+      <text x="245" y="473" font-size="11" font-weight="600" fill="#2f9e44">YES</text>
+      <rect x="120" y="535" width="160" height="50" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2.5"/>
+      <text x="200" y="556" text-anchor="middle" font-size="13" font-weight="700" fill="#2b8a3e">Auto-Associate</text>
+      <text x="200" y="572" text-anchor="middle" font-size="11" fill="#495057">via email fallback</text>
+
+      <!-- NO: keep on parent -->
+      <line x1="450" y1="505" x2="450" y2="545" stroke="#1971c2" stroke-width="2" marker-end="url(#ab)"/>
+      <text x="470" y="530" font-size="11" font-weight="600" fill="#1971c2">NO</text>
+      <rect x="370" y="545" width="160" height="50" rx="8" fill="#d0ebff" stroke="#1971c2" stroke-width="2.5"/>
+      <text x="450" y="566" text-anchor="middle" font-size="13" font-weight="700" fill="#1864ab">Keep on Parent</text>
+      <text x="450" y="582" text-anchor="middle" font-size="11" fill="#495057">email = parent domain</text>
+
+      <!-- Confidence check at bottom -->
+      <line x1="450" y1="595" x2="450" y2="620" stroke="#e8590c" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <rect x="340" y="620" width="220" height="30" rx="6" fill="#fff4e6" stroke="#e8590c" stroke-width="1.5"/>
+      <text x="450" y="640" text-anchor="middle" font-size="11" font-weight="600" fill="#e8590c">Confidence too low? &rarr; Flag for rep review</text>
+
+      <!-- Legend -->
+      <line x1="60" y1="600" x2="60" y2="600" stroke="transparent"/>
+      <rect x="80" y="660" width="14" height="14" rx="3" fill="#d3f9d8" stroke="#2f9e44" stroke-width="1.5"/>
+      <text x="100" y="672" font-size="11" font-weight="600" fill="#495057">Auto-Associate</text>
+      <rect x="230" y="660" width="14" height="14" rx="3" fill="#d0ebff" stroke="#1971c2" stroke-width="1.5"/>
+      <text x="250" y="672" font-size="11" font-weight="600" fill="#495057">Keep on Parent</text>
+      <rect x="390" y="660" width="14" height="14" rx="3" fill="#fff4e6" stroke="#e8590c" stroke-width="1.5"/>
+      <text x="410" y="672" font-size="11" font-weight="600" fill="#495057">Flag for Review</text>
+      <rect x="550" y="660" width="14" height="14" rx="3" fill="#f1f3f5" stroke="#868e96" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <text x="570" y="672" font-size="11" font-weight="600" fill="#495057">Decision Point</text>
+      <rect x="720" y="660" width="14" height="14" rx="3" fill="#f8f0e0" stroke="#e8590c" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <text x="740" y="672" font-size="11" font-weight="600" fill="#495057">Fallback (Email)</text>
+    </svg>
+  </div>
+</div>
+
+<div class="section proposal-2">
+  <h3>Every Scenario</h3>
+  <table>
+    <thead>
+      <tr><th>LinkedIn</th><th>Email</th><th>What Happens</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Points to Chiefs (URL match)</td>
+        <td>@chiefs.com</td>
+        <td><span class="badge badge-green">Auto-route to Chiefs</span></td>
+      </tr>
+      <tr>
+        <td>Points to Chiefs (URL match)</td>
+        <td>@nfl.com</td>
+        <td><span class="badge badge-green">Auto-route to Chiefs</span> (LinkedIn wins)</td>
+      </tr>
+      <tr>
+        <td>Points to Chiefs (name match)</td>
+        <td>@nfl.com</td>
+        <td><span class="badge badge-green">Auto-route to Chiefs</span></td>
+      </tr>
+      <tr>
+        <td>Points to NFL</td>
+        <td>@chiefs.com</td>
+        <td><span class="badge badge-green">Auto-route to Chiefs</span> (email fallback differentiates)</td>
+      </tr>
+      <tr>
+        <td>Points to NFL</td>
+        <td>@nfl.com</td>
+        <td><span class="badge badge-blue">Keep on NFL</span> (both agree &mdash; they actually work at HQ)</td>
+      </tr>
+      <tr style="background:#f3f0ff;">
+        <td>Points to NFL + title mentions Chiefs</td>
+        <td>@nfl.com</td>
+        <td><span class="badge badge-orange">Flag for rep review</span></td>
+      </tr>
+      <tr>
+        <td>Missing</td>
+        <td>@chiefs.com</td>
+        <td><span class="badge badge-green">Auto-route to Chiefs</span> (email fallback)</td>
+      </tr>
+      <tr>
+        <td>Missing</td>
+        <td>@nfl.com</td>
+        <td><span class="badge badge-blue">Keep on parent</span> (can't differentiate)</td>
+      </tr>
+      <tr>
+        <td>Missing</td>
+        <td>@gmail.com</td>
+        <td><span class="badge badge-orange">Flag for rep review</span> (personal email)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section proposal-2">
+  <h3>What This Looks Like in Clay</h3>
+  <table class="clay-col-table">
+    <thead>
+      <tr><th>Column</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>linkedin_company_url</td><td>From Clay enrichment &mdash; primary routing signal</td></tr>
+      <tr><td>linkedin_company_name</td><td>Company name from contact's current LinkedIn experience</td></tr>
+      <tr><td>linkedin_company_domain</td><td>Domain from the LinkedIn company page</td></tr>
+      <tr><td>work_email</td><td>Contact's work email &mdash; fallback signal</td></tr>
+      <tr><td>email_domain</td><td>Extracted from work email (formula)</td></tr>
+      <tr><td>is_personal_email</td><td>Gmail/Yahoo/etc. check (formula)</td></tr>
+      <tr><td>HubSpot_Lookup</td><td>Lookup against parent-child mapping table</td></tr>
+      <tr><td>routing_decision</td><td>Auto-route / Keep on parent / Flag for review (formula)</td></tr>
+      <tr><td>routing_confidence</td><td>High / Medium / Low based on which signal matched</td></tr>
+      <tr><td>job_title</td><td>For edge case detection (title mentions child company)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section proposal-2">
+  <h3>Ongoing Monitoring</h3>
+  <p>Once routing is live, two automations keep it honest:</p>
+
+  <div class="profile-grid">
+    <div class="profile-card" style="border-color:#e8590c;background:#fff9f5;">
+      <h4>Mismatch Alert</h4>
+      <p style="font-size:13px;color:#495057;margin-top:6px;">When a contact's job title contains a known child company name but they're associated with the parent &rarr; HubSpot creates a task for the rep to review.</p>
+    </div>
+    <div class="profile-card" style="border-color:#7048e8;background:#faf8ff;">
+      <h4>Re-Association Audit</h4>
+      <p style="font-size:13px;color:#495057;margin-top:6px;">Weekly report showing contacts whose company association was manually changed by a rep. High volume of manual changes = signal that routing needs tuning for that parent.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== HOW THEY CONNECT ==================== -->
+
+<div class="proposal-divider">
+  <span class="proposal-label">How They Connect</span>
+</div>
+
+<div class="section bridge">
+  <h2>How the Two Proposals Connect</h2>
+  <p>Proposal 1 creates the <strong>mapping table</strong> (parent &rarr; child LinkedIn URL mappings) that Proposal 2 uses for ongoing routing. They're designed to run in sequence:</p>
+
+  <ol>
+    <li><strong>Proposal 1 first</strong> &mdash; clean up existing records, build the mapping table</li>
+    <li><strong>Proposal 2 second</strong> &mdash; change the enrichment process so new contacts route correctly from day one</li>
+  </ol>
+
+  <p>The mapping table is the bridge. As new child companies are discovered (either through Proposal 1's migration or organically), they get added to the table and Proposal 2 automatically picks them up.</p>
+</div>
+
+<!-- ==================== NEXT STEPS ==================== -->
+
+<div class="section">
+  <h2>Next Steps</h2>
+  <ol>
+    <li>Align on both proposals</li>
+    <li>Start Proposal 1 with the top parent companies (we can pull these from HubSpot or the team provides a list)</li>
+    <li>Team reviews the Google Sheet, resolves conflicts</li>
+    <li>Clay executes the approved migrations</li>
+    <li>Build Proposal 2 routing using the mapping table from step 4</li>
+    <li>Pilot on one parent-child group, then scale</li>
+  </ol>
+</div>
+
+<div class="footer">
+  Clay Webhook OS &bull; HubSpot Parent-Child &mdash; Two Proposals (v2) &bull; March 11, 2026
+</div>
+
+</div>
+
+<script>
+function toggleFullscreen(btn) {
+  var container = btn.closest('.flow-container');
+  var isFullscreen = container.classList.toggle('fullscreen');
+  btn.querySelector('.expand-icon').style.display = isFullscreen ? 'none' : '';
+  btn.querySelector('.collapse-icon').style.display = isFullscreen ? '' : 'none';
+  document.body.style.overflow = isFullscreen ? 'hidden' : '';
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var el = document.querySelector('.flow-container.fullscreen');
+    if (el) el.querySelector('.fullscreen-btn').click();
+  }
+});
+</script>
+</body>
+</html>

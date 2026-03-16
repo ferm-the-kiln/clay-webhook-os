@@ -1,27 +1,12 @@
 "use client";
 
-import { Suspense } from "react";
-import { Header } from "@/components/layout/header";
-import { SequenceLabContent } from "@/components/sequence-lab/sequence-lab-content";
-import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function SequenceLabPage() {
-  return (
-    <div className="flex flex-col h-full">
-      <Header
-        title="Sequence Lab"
-        breadcrumbs={[{ label: "Sequence Lab" }]}
-      />
-
-      <Suspense
-        fallback={
-          <div className="flex-1 flex items-center justify-center text-clay-300">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        }
-      >
-        <SequenceLabContent />
-      </Suspense>
-    </div>
-  );
+export default function SequenceLabRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/pipeline/sequence-lab");
+  }, [router]);
+  return null;
 }

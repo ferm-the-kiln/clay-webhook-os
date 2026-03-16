@@ -44,6 +44,7 @@ def _build_startup_patches():
         "RetryWorker": {"has_load": True, "has_start": True},
         "SubscriptionMonitor": {"has_start": True},
         "DataCleanupWorker": {"has_start": True},
+        "DatasetStore": {"has_load": True},
     }
     patches = {}
     instances = {}
@@ -338,6 +339,7 @@ class TestStartupConstructorArgs:
             mock_settings.parallel_api_key = ""
             mock_settings.base_dir = "/tmp"
             mock_settings.sumble_api_key = ""
+            mock_settings.findymail_api_key = ""
             for p in patches.values():
                 p.start()
             try:
@@ -376,6 +378,7 @@ class TestStartupConstructorArgs:
             mock_settings.parallel_api_key = ""
             mock_settings.base_dir = "/tmp"
             mock_settings.sumble_api_key = ""
+            mock_settings.findymail_api_key = ""
             for p in patches.values():
                 p.start()
             try:
@@ -414,6 +417,7 @@ class TestStartupConstructorArgs:
             mock_settings.parallel_api_key = ""
             mock_settings.base_dir = "/tmp"
             mock_settings.sumble_api_key = ""
+            mock_settings.findymail_api_key = ""
             for p in patches.values():
                 p.start()
             try:

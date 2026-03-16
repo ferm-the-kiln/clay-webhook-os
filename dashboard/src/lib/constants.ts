@@ -182,6 +182,11 @@ export const SKILL_FIELDS: Record<string, SkillFieldMeta[]> = {
     { name: "first_name", required: true, placeholder: "Sarah", type: "text" },
     { name: "company_name", required: true, placeholder: "Lattice", type: "text" },
   ],
+  "find-email": [
+    { name: "first_name", required: true, placeholder: "Sarah", type: "text" },
+    { name: "last_name", required: true, placeholder: "Chen", type: "text" },
+    { name: "company_domain", required: true, placeholder: "lattice.com", type: "text" },
+  ],
   // ─── Strategic Analysis ───
   "account-researcher": [
     { name: "company_name", required: true, placeholder: "Notion", type: "text" },

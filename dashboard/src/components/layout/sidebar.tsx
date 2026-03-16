@@ -22,13 +22,16 @@ import {
   Activity,
   FolderTree,
   PenLine,
-  Radar,
-  Brain,
   Search,
   Target,
   MoreHorizontal,
   Mail,
   ListOrdered,
+  Workflow,
+  UserSearch,
+  Send,
+  Database as DatabaseIcon,
+  GitBranch,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -36,6 +39,8 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import { fetchDataset } from "@/lib/api";
+import type { Dataset } from "@/lib/types";
 
 interface NavItem {
   href: string;
@@ -54,35 +59,61 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    id: "overview",
-    label: "Overview",
-    accentColor: "clay-500",
-    items: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard, shortcut: "1" },
-      { href: "/run", label: "Run", icon: FlaskConical, shortcut: "2" },
-      { href: "/batch-results", label: "Batch Results", icon: Table2 },
-    ],
-  },
-  {
-    id: "outbound",
-    label: "Outbound",
-    icon: PenLine,
+    id: "pipeline",
+    label: "Pipeline",
+    icon: Workflow,
     accentColor: "kiln-teal",
     items: [
-      { href: "/email-lab", label: "Email Lab", icon: Mail, shortcut: "3" },
-      { href: "/sequence-lab", label: "Sequence Lab", icon: ListOrdered },
+      { href: "/pipeline", label: "Pipeline Home", icon: Workflow, shortcut: "1" },
     ],
   },
   {
-    id: "analyze",
-    label: "Analyze",
-    icon: Radar,
+    id: "source",
+    label: "Source",
+    icon: UserSearch,
+    accentColor: "kiln-teal",
+    items: [
+      { href: "/pipeline/find", label: "Find Contacts", icon: UserSearch, shortcut: "2" },
+    ],
+  },
+  {
+    id: "enrich",
+    label: "Enrich",
+    icon: Search,
+    accentColor: "kiln-teal",
+    items: [
+      { href: "/pipeline/research", label: "Research", icon: Search, shortcut: "3" },
+      { href: "/pipeline/score", label: "Score", icon: Target, shortcut: "4" },
+      { href: "/pipeline/enrich", label: "Find Email", icon: Mail, shortcut: "5" },
+    ],
+  },
+  {
+    id: "generate",
+    label: "Generate",
+    icon: PenLine,
     accentColor: "kiln-indigo",
     items: [
-      { href: "/analyze", label: "Analyze Home", icon: Brain },
-      { href: "/analyze/research", label: "Research", icon: Search, shortcut: "4" },
-      { href: "/analyze/scoring", label: "Scoring", icon: Target, shortcut: "5" },
-      { href: "/analyze/plays", label: "Plays", icon: Library, shortcut: "6" },
+      { href: "/pipeline/email-lab", label: "Email Lab", icon: Mail, shortcut: "6" },
+      { href: "/pipeline/sequence-lab", label: "Sequence Lab", icon: ListOrdered, shortcut: "7" },
+    ],
+  },
+  {
+    id: "deliver",
+    label: "Deliver",
+    icon: Send,
+    accentColor: "kiln-indigo",
+    items: [
+      { href: "/pipeline/send", label: "Send", icon: Send, shortcut: "8" },
+      { href: "/pipeline/crm", label: "CRM Sync", icon: GitBranch },
+    ],
+  },
+  {
+    id: "orchestrate",
+    label: "Orchestrate",
+    icon: Library,
+    accentColor: "kiln-indigo",
+    items: [
+      { href: "/pipeline/plays", label: "Plays", icon: Library, shortcut: "9" },
     ],
   },
   {
@@ -90,7 +121,10 @@ const NAV_SECTIONS: NavSection[] = [
     label: "Platform",
     accentColor: "clay-500",
     items: [
-      { href: "/context", label: "Context", icon: FolderTree, shortcut: "7" },
+      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/run", label: "Run", icon: FlaskConical },
+      { href: "/batch-results", label: "Batch Results", icon: Table2 },
+      { href: "/context", label: "Context", icon: FolderTree },
       { href: "/lab", label: "Skills Lab", icon: TestTubes },
       { href: "/status", label: "Status", icon: Activity },
       { href: "/settings", label: "Settings", icon: Settings },
@@ -121,6 +155,15 @@ const ACCENT_CLASSES: Record<string, { active: string; text: string }> = {
   },
 };
 
+// Map nav items to pipeline stages for completion dots
+const STAGE_NAV_MAP: Record<string, string> = {
+  "/pipeline/enrich": "find-email",
+  "/pipeline/research": "research",
+  "/pipeline/score": "classify",
+  "/pipeline/email-lab": "email-gen",
+  "/pipeline/send": "send",
+};
+
 function getSectionForPath(pathname: string): NavSection | undefined {
   return NAV_SECTIONS.find((s) =>
     s.items.some((item) =>
@@ -132,6 +175,23 @@ function getSectionForPath(pathname: string): NavSection | undefined {
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeDataset, setActiveDataset] = useState<Dataset | null>(null);
+
+  // Fetch active dataset for sidebar indicator (outside DatasetProvider)
+  useEffect(() => {
+    if (!pathname.startsWith("/pipeline")) {
+      setActiveDataset(null);
+      return;
+    }
+    const storedId = localStorage.getItem("clay-os-active-dataset-id");
+    if (!storedId) {
+      setActiveDataset(null);
+      return;
+    }
+    fetchDataset(storedId)
+      .then((ds) => setActiveDataset(ds))
+      .catch(() => setActiveDataset(null));
+  }, [pathname]);
 
   useEffect(() => {
     const handleToggle = () => setMobileOpen((prev) => !prev);
@@ -163,14 +223,14 @@ export function Sidebar() {
         const accent = ACCENT_CLASSES[section.accentColor] || ACCENT_CLASSES["clay-500"];
 
         return (
-          <div key={section.id} className={sIdx > 0 ? "mt-4" : ""}>
+          <div key={section.id} className={sIdx > 0 ? "mt-3" : ""}>
             {/* Section header */}
             {!compact && (
-              <div className="flex items-center gap-2 px-3 mb-1.5">
+              <div className="flex items-center gap-2 px-3 mb-1">
                 {section.icon && (
-                  <section.icon className={cn("h-3.5 w-3.5", accent.text)} />
+                  <section.icon className={cn("h-3 w-3", accent.text)} />
                 )}
-                <span className="text-[11px] font-semibold text-clay-300 uppercase tracking-[0.1em]">
+                <span className="text-[10px] font-semibold text-clay-300 uppercase tracking-[0.1em]">
                   {section.label}
                 </span>
               </div>
@@ -190,7 +250,7 @@ export function Sidebar() {
                     variant="ghost"
                     asChild
                     className={cn(
-                      "h-9 transition-all duration-150 relative",
+                      "h-8 transition-all duration-150 relative",
                       compact ? "justify-center px-2" : "justify-start gap-3 px-3",
                       active
                         ? accent.active
@@ -201,14 +261,19 @@ export function Sidebar() {
                       {/* Active accent bar */}
                       {active && !compact && (
                         <span className={cn(
-                          "absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-5 rounded-full",
-                          section.accentColor === "kiln-indigo" ? "bg-kiln-indigo" : "bg-kiln-teal"
+                          "absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-full",
+                          section.accentColor === "kiln-indigo" ? "bg-kiln-indigo" : section.accentColor === "kiln-teal" ? "bg-kiln-teal" : "bg-clay-400"
                         )} />
                       )}
-                      <item.icon className="h-4.5 w-4.5 shrink-0" />
+                      <item.icon className="h-4 w-4 shrink-0" />
                       {!compact && (
                         <>
-                          <span className="flex-1 text-sm">{item.label}</span>
+                          <span className="flex-1 text-[13px] flex items-center gap-1.5">
+                            {item.label}
+                            {activeDataset && STAGE_NAV_MAP[item.href] && activeDataset.stages_completed.includes(STAGE_NAV_MAP[item.href]) && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-kiln-teal shrink-0" />
+                            )}
+                          </span>
                           {item.shortcut && (
                             <kbd className="retro-keycap hidden lg:inline-block">
                               {"\u2318"}{item.shortcut}
@@ -249,10 +314,10 @@ export function Sidebar() {
 
   // Mobile bottom nav — 5-item bar
   const mobileBottomItems: { href: string; label: string; icon: LucideIcon; matchPrefix?: string }[] = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/email-lab", label: "Email Lab", icon: Mail, matchPrefix: "/email-lab" },
-    { href: "/run", label: "Run", icon: FlaskConical },
-    { href: "/analyze", label: "Analyze", icon: Radar, matchPrefix: "/analyze" },
+    { href: "/pipeline", label: "Pipeline", icon: Workflow, matchPrefix: "/pipeline" },
+    { href: "/pipeline/enrich", label: "Find Email", icon: Mail },
+    { href: "/pipeline/email-lab", label: "Email Lab", icon: PenLine },
+    { href: "/pipeline/plays", label: "Plays", icon: Library },
     { href: "/settings", label: "More", icon: MoreHorizontal, matchPrefix: "/settings" },
   ];
 
@@ -261,7 +326,7 @@ export function Sidebar() {
       {/* Desktop sidebar: full width on lg, icon-only on md */}
       <aside className="relative z-10 hidden md:flex shrink-0 border-r border-clay-600 bg-clay-800 p-4 flex-col gap-1 lg:w-56 w-16">
         {/* Logo */}
-        <div className="mb-6 px-3 flex items-center gap-3">
+        <div className="mb-5 px-3 flex items-center gap-3">
           <Image
             src="/brand-assets/the-kiln-logo.avif"
             alt="The Kiln"
@@ -274,10 +339,21 @@ export function Sidebar() {
               Clay OS
             </h1>
             <p className="text-[10px] text-clay-300 tracking-[0.1em] uppercase font-mono">
-              Webhook Dashboard
+              Pipeline Dashboard
             </p>
           </div>
         </div>
+
+        {/* Active dataset indicator */}
+        {activeDataset && pathname.startsWith("/pipeline") && (
+          <div className="hidden lg:block px-3 mb-3">
+            <div className="text-[10px] text-clay-400 truncate">
+              <span className="text-kiln-teal">●</span>{" "}
+              {activeDataset.name}
+              <span className="text-clay-500 ml-1">({activeDataset.row_count})</span>
+            </div>
+          </div>
+        )}
 
         {/* Nav - compact on md, full on lg */}
         <div className="hidden lg:block flex-1 overflow-y-auto">{renderSectionNav(false)}</div>
@@ -289,7 +365,7 @@ export function Sidebar() {
         <SheetContent side="left" className="w-64 bg-clay-800 border-clay-600 p-4">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
-          <div className="mb-6 px-3 flex items-center gap-3">
+          <div className="mb-5 px-3 flex items-center gap-3">
             <Image
               src="/brand-assets/the-kiln-logo.avif"
               alt="The Kiln"
@@ -302,7 +378,7 @@ export function Sidebar() {
                 Clay OS
               </h1>
               <p className="text-[10px] text-clay-300 tracking-[0.1em] uppercase font-mono">
-                Webhook Dashboard
+                Pipeline Dashboard
               </p>
             </div>
           </div>

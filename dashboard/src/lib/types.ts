@@ -415,3 +415,63 @@ export interface WebhookResponse {
   error?: boolean;
   error_message?: string;
 }
+
+// Dataset types
+export interface DatasetColumn {
+  name: string;
+  source: string;
+  type: string;
+  added_at: number;
+}
+
+export interface DatasetSummary {
+  id: string;
+  name: string;
+  row_count: number;
+  column_count: number;
+  stages_completed: string[];
+  created_at: number;
+  updated_at: number;
+}
+
+export interface Dataset {
+  id: string;
+  name: string;
+  description: string;
+  client_slug: string | null;
+  columns: DatasetColumn[];
+  row_count: number;
+  stages_completed: string[];
+  created_at: number;
+  updated_at: number;
+}
+
+export type DatasetRow = Record<string, unknown> & { _row_id: string };
+
+export interface CreateDatasetRequest {
+  name: string;
+  description?: string;
+  client_slug?: string | null;
+}
+
+export interface RunStageRequest {
+  stage: string;
+  row_ids?: string[] | null;
+  provider?: string | null;
+  config?: Record<string, unknown>;
+}
+
+export interface StageStatus {
+  batch_id: string;
+  stage: string;
+  total: number;
+  completed: number;
+  failed: number;
+  status: "running" | "completed" | "failed";
+}
+
+export interface ProviderInfo {
+  name: string;
+  stage: string;
+  available: boolean;
+}

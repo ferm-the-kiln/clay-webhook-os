@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HubSpot Parent-Child Routing — Proposal</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1a1a2e;
+    background: #f8f9fa;
+    line-height: 1.6;
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+
+  .header {
+    text-align: center;
+    padding: 36px 24px 28px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: white;
+    border-radius: 14px;
+    margin-bottom: 28px;
+  }
+  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+  .header .subtitle { font-size: 15px; opacity: 0.8; }
+  .header .version { display: inline-block; margin-top: 10px; padding: 3px 12px; background: rgba(255,255,255,0.15); border-radius: 20px; font-size: 12px; }
+
+  .section {
+    background: white;
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: #1a1a2e;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 6px;
+  }
+  .section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 20px 0 8px;
+    color: #16213e;
+  }
+  .section p { margin-bottom: 10px; color: #495057; font-size: 14px; }
+
+  .callout {
+    padding: 14px 18px;
+    border-radius: 8px;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  .callout-problem { background: #fff5f5; border-left: 4px solid #e03131; color: #c92a2a; }
+  .callout-insight { background: #e7f5ff; border-left: 4px solid #1971c2; color: #1864ab; }
+  .callout-success { background: #ebfbee; border-left: 4px solid #2f9e44; color: #2b8a3e; }
+  .callout-neutral { background: #f8f9fa; border-left: 4px solid #868e96; color: #495057; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  th {
+    background: #f1f3f5;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+  }
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f1f3f5;
+    color: #495057;
+  }
+  tr:hover td { background: #f8f9fa; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-green { background: #d3f9d8; color: #2b8a3e; }
+  .badge-blue { background: #d0ebff; color: #1864ab; }
+  .badge-orange { background: #fff4e6; color: #e8590c; }
+
+  /* Profile cards */
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .profile-card {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 16px;
+    font-size: 13px;
+  }
+  .profile-card.parent { border-color: #1971c2; background: #f0f7ff; }
+  .profile-card.child { border-color: #2f9e44; background: #f0fff4; }
+  .profile-card h4 { font-size: 14px; margin-bottom: 2px; }
+  .profile-card .label { font-size: 11px; color: #868e96; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 10px; }
+  .profile-card .value { color: #1a1a2e; margin-top: 2px; }
+  .profile-card .value.highlight { font-weight: 600; }
+  .profile-card .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+
+  /* Before/After */
+  .before-after {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    align-items: center;
+    margin: 16px 0;
+  }
+  .before-after .arrow-center {
+    font-size: 24px;
+    color: #2f9e44;
+    font-weight: 700;
+  }
+  .ba-card {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .ba-card.before { border-color: #e03131; background: #fff5f5; }
+  .ba-card.after { border-color: #2f9e44; background: #ebfbee; }
+  .ba-card h4 { font-size: 13px; margin-bottom: 6px; }
+  .ba-card ul { padding-left: 16px; font-size: 12px; color: #495057; }
+  .ba-card li { margin-bottom: 3px; }
+
+  /* Diagram page */
+  .diagram-container {
+    position: relative;
+    background: #fafbfc;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .diagram-container.fullscreen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 9999;
+    margin: 0;
+    border-radius: 0;
+    background: white;
+    padding: 40px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .diagram-container.fullscreen svg {
+    flex: 1;
+    max-height: calc(100vh - 120px);
+    width: auto;
+    margin: 0 auto;
+  }
+  .fullscreen-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #868e96;
+    transition: all 0.15s;
+  }
+  .fullscreen-btn:hover { background: #f1f3f5; color: #495057; border-color: #adb5bd; }
+  .diagram-container.fullscreen .fullscreen-btn { top: 16px; right: 16px; width: 36px; height: 36px; }
+  .diagram-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #868e96;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+  .footer {
+    text-align: center;
+    padding: 20px;
+    color: #adb5bd;
+    font-size: 12px;
+  }
+
+  /* Rollout steps */
+  .rollout-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 14px 0;
+  }
+  .rollout-card {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 16px;
+    background: #f8f9fa;
+  }
+  .rollout-card .step-num {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    background: #1971c2;
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 24px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .rollout-card h4 { font-size: 14px; font-weight: 600; color: #1a1a2e; margin-bottom: 4px; }
+  .rollout-card p { font-size: 12px; color: #868e96; margin: 0; }
+
+  @media (max-width: 700px) {
+    .profile-grid, .before-after, .rollout-grid { grid-template-columns: 1fr; }
+    .before-after .arrow-center { text-align: center; }
+    .container { padding: 16px; }
+    .section { padding: 20px; }
+  }
+
+  @media print {
+    body { background: white; }
+    .container { padding: 0; }
+    .section { box-shadow: none; border: 1px solid #e9ecef; break-inside: avoid; }
+    .diagram-container { break-inside: avoid; }
+    .fullscreen-btn { display: none; }
+    .page-break { page-break-before: always; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<!-- ==================== PAGE 1: THE PROPOSAL ==================== -->
+
+<!-- Header -->
+<div class="header">
+  <h1>HubSpot Parent-Child Routing</h1>
+  <div class="subtitle">LinkedIn-first contact routing for parent-child company structures</div>
+  <div class="version">Proposal &mdash; March 2026</div>
+</div>
+
+<!-- Problem -->
+<div class="section">
+  <h2>The Problem</h2>
+  <div class="callout callout-problem">
+    <strong>HubSpot has no parent-child awareness.</strong> When a subsidiary employee's email uses the parent domain (@nfl.com), they get assigned to the parent record &mdash; even when their LinkedIn clearly shows they work at a child company.
+  </div>
+
+  <div class="before-after">
+    <div class="ba-card before">
+      <h4>Today</h4>
+      <ul>
+        <li>Email domain is the only signal</li>
+        <li>@nfl.com = NFL, always</li>
+        <li>Chiefs employees go to the NFL rep</li>
+      </ul>
+    </div>
+    <div class="arrow-center">&rarr;</div>
+    <div class="ba-card after">
+      <h4>With This</h4>
+      <ul>
+        <li><strong>LinkedIn Company URL</strong> is the routing signal</li>
+        <li>HubSpot parent-child records = source of truth</li>
+        <li>Every decision has a clear reason</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- The Key Insight -->
+<div class="section">
+  <h2>Why LinkedIn Is the Answer</h2>
+  <p>Same email domain. Only LinkedIn tells them apart:</p>
+
+  <div class="profile-grid">
+    <div class="profile-card parent">
+      <span class="tag" style="background:#d0ebff;color:#1864ab;">STAYS ON PARENT</span>
+      <h4>Sarah Kim</h4>
+      <div class="label">Email</div>
+      <div class="value">sarah@nfl.com</div>
+      <div class="label">LinkedIn Experience</div>
+      <div class="value highlight">National Football League</div>
+      <div class="label">LinkedIn Company URL</div>
+      <div class="value highlight">linkedin.com/company/nfl</div>
+      <div class="label" style="margin-top:12px;color:#1971c2;">Result</div>
+      <div class="value" style="color:#1864ab;font-weight:600;">Keep on NFL</div>
+    </div>
+    <div class="profile-card child">
+      <span class="tag" style="background:#d3f9d8;color:#2b8a3e;">ROUTES TO CHILD</span>
+      <h4>James Park</h4>
+      <div class="label">Email</div>
+      <div class="value">james@nfl.com</div>
+      <div class="label">LinkedIn Experience</div>
+      <div class="value highlight">Kansas City Chiefs</div>
+      <div class="label">LinkedIn Company URL</div>
+      <div class="value highlight">linkedin.com/company/kansas-city-chiefs</div>
+      <div class="label" style="margin-top:12px;color:#2f9e44;">Result</div>
+      <div class="value" style="color:#2b8a3e;font-weight:600;">Auto-associate to Chiefs</div>
+    </div>
+  </div>
+
+  <p><strong>Same email. Different LinkedIn Company URL. That's the whole play.</strong></p>
+</div>
+
+<!-- Routing Scenarios -->
+<div class="section">
+  <h2>Every Scenario, One Table</h2>
+  <p>Clay enriches the contact's LinkedIn profile and compares the Company URL against parent and child records in HubSpot. Every contact lands in one of four buckets:</p>
+
+  <table>
+    <thead>
+      <tr><th>LinkedIn URL</th><th>Known Child?</th><th>Decision</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Already on correct child</td>
+        <td>&mdash;</td>
+        <td><span class="badge" style="background:#e5dbff;color:#7048e8;">Skip</span> &mdash; already correct</td>
+      </tr>
+      <tr>
+        <td>&ne; parent (e.g. Chiefs)</td>
+        <td>Yes</td>
+        <td><span class="badge badge-green">Auto-associate to Chiefs</span></td>
+      </tr>
+      <tr>
+        <td>&ne; parent (unknown company)</td>
+        <td>No</td>
+        <td><span class="badge badge-orange">Flag for rep</span> &mdash; possible new subsidiary</td>
+      </tr>
+      <tr>
+        <td>= parent (NFL)</td>
+        <td>&mdash;</td>
+        <td><span class="badge badge-blue">Keep on NFL</span></td>
+      </tr>
+      <tr style="background:#f3f0ff;">
+        <td>= parent + title mentions child</td>
+        <td>&mdash;</td>
+        <td><span class="badge badge-orange">Flag for rep</span> &mdash; title suggests subsidiary</td>
+      </tr>
+      <tr>
+        <td><em>(missing)</em></td>
+        <td>&mdash;</td>
+        <td><span class="badge badge-orange">Flag for rep</span> &mdash; no LinkedIn data</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-neutral">
+    <strong>When in doubt, we flag for a human.</strong> This doesn't need to be perfect &mdash; it needs to be better than no parent-child awareness at all.
+  </div>
+</div>
+
+<!-- Rollout -->
+<div class="section">
+  <h2>Rollout</h2>
+  <div class="rollout-grid">
+    <div class="rollout-card">
+      <div class="step-num">1</div>
+      <h4>Discovery</h4>
+      <p>Claude analyzes existing HubSpot contacts, identifies parent-child relationships. Team reviews a spreadsheet and approves before anything changes. <strong>Claude's role ends here.</strong></p>
+    </div>
+    <div class="rollout-card">
+      <div class="step-num">2</div>
+      <h4>Automated Routing</h4>
+      <p>Build the routing logic in Clay. Clay already links companies to HubSpot IDs &mdash; we just make sure it picks the <em>right</em> company ID.</p>
+    </div>
+    <div class="rollout-card">
+      <div class="step-num">3</div>
+      <h4>Dedup Safety Net</h4>
+      <p>Check before creating, check after creating, scan weekly. Duplicates won't survive.</p>
+    </div>
+    <div class="rollout-card">
+      <div class="step-num">4</div>
+      <h4>Scale</h4>
+      <p>Roll out to all parent companies once the pilot validates. Add monitoring dashboard.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Next Steps -->
+<div class="section">
+  <h2>To Get Started, We Need</h2>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Question</th><th>Why</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td><strong>Confirm:</strong> Does Clay enrich the LinkedIn Company URL from the contact's <em>current experience</em>?</td><td>The entire routing logic depends on this field</td></tr>
+      <tr><td>2</td><td><strong>Pilot parent company</strong> &mdash; which parent-child group to test first?</td><td>We validate with real data before scaling</td></tr>
+      <tr><td>3</td><td><strong>Industry &rarr; Segment mapping</strong></td><td>Needed for owner assignment after routing</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ==================== PAGE 2: DIAGRAMS ==================== -->
+
+<div class="page-break"></div>
+
+<div class="section">
+  <h2>Appendix: Flow Diagrams</h2>
+  <p>Visual reference for the two workflows described in the proposal.</p>
+
+  <!-- Discovery Workflow -->
+  <div class="diagram-container">
+    <button class="fullscreen-btn" onclick="toggleFullscreen(this)" title="Toggle fullscreen">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path class="expand-icon" d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/>
+        <path class="collapse-icon" d="M6 2v4H2M10 2v4h4M14 10h-4v4M6 14v-4H2" style="display:none"/>
+      </svg>
+    </button>
+    <div class="diagram-title">Phase 1: Discovery Workflow</div>
+    <svg viewBox="0 0 900 310" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ag" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" fill="#adb5bd"/>
+        </marker>
+      </defs>
+
+      <rect x="20" y="110" width="130" height="70" rx="8" fill="#d0ebff" stroke="#1971c2" stroke-width="2"/>
+      <text x="85" y="138" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a2e">Parent Company</text>
+      <text x="85" y="156" text-anchor="middle" font-size="11" fill="#495057">Contacts from</text>
+      <text x="85" y="170" text-anchor="middle" font-size="11" fill="#495057">HubSpot</text>
+
+      <line x1="150" y1="145" x2="180" y2="145" stroke="#adb5bd" stroke-width="2" marker-end="url(#ag)"/>
+
+      <rect x="185" y="110" width="120" height="70" rx="8" fill="#d0ebff" stroke="#1971c2" stroke-width="2"/>
+      <text x="245" y="138" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a2e">Clay</text>
+      <text x="245" y="156" text-anchor="middle" font-size="11" fill="#495057">Enrich LinkedIn</text>
+      <text x="245" y="170" text-anchor="middle" font-size="11" fill="#495057">Company URLs</text>
+
+      <line x1="305" y1="145" x2="345" y2="145" stroke="#adb5bd" stroke-width="2" marker-end="url(#ag)"/>
+
+      <rect x="350" y="100" width="140" height="90" rx="8" fill="#e5dbff" stroke="#7048e8" stroke-width="2.5"/>
+      <text x="420" y="132" text-anchor="middle" font-size="13" font-weight="700" fill="#5f3dc4">Claude</text>
+      <text x="420" y="150" text-anchor="middle" font-size="11" fill="#495057">Cross-reference</text>
+      <text x="420" y="164" text-anchor="middle" font-size="11" fill="#495057">LI URLs, identify</text>
+      <text x="420" y="178" text-anchor="middle" font-size="11" fill="#495057">child companies</text>
+
+      <line x1="490" y1="145" x2="530" y2="145" stroke="#adb5bd" stroke-width="2" marker-end="url(#ag)"/>
+
+      <rect x="535" y="100" width="130" height="90" rx="8" fill="#fff9db" stroke="#f08c00" stroke-width="2"/>
+      <text x="600" y="130" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a2e">Review</text>
+      <text x="600" y="147" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a2e">Spreadsheet</text>
+      <text x="600" y="170" text-anchor="middle" font-size="10" fill="#868e96">Child companies,</text>
+      <text x="600" y="182" text-anchor="middle" font-size="10" fill="#868e96">contacts, actions</text>
+
+      <line x1="665" y1="145" x2="705" y2="145" stroke="#adb5bd" stroke-width="2" marker-end="url(#ag)"/>
+
+      <rect x="710" y="110" width="120" height="70" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+      <text x="770" y="138" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a2e">Team</text>
+      <text x="770" y="156" text-anchor="middle" font-size="11" fill="#495057">Reviews &amp;</text>
+      <text x="770" y="170" text-anchor="middle" font-size="11" fill="#495057">Approves</text>
+
+      <line x1="770" y1="180" x2="770" y2="220" stroke="#adb5bd" stroke-width="2" marker-end="url(#ag)"/>
+
+      <rect x="650" y="225" width="240" height="55" rx="8" fill="#d0ebff" stroke="#1971c2" stroke-width="2"/>
+      <text x="770" y="248" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a2e">Clay Automation</text>
+      <text x="770" y="264" text-anchor="middle" font-size="11" fill="#495057">Create child companies, re-associate contacts</text>
+
+      <rect x="330" y="15" width="220" height="30" rx="6" fill="#e5dbff" stroke="none"/>
+      <text x="440" y="35" text-anchor="middle" font-size="11" font-weight="600" fill="#7048e8">Claude's role ends at Phase 1</text>
+      <line x1="420" y1="45" x2="420" y2="98" stroke="#7048e8" stroke-width="1" stroke-dasharray="4,4"/>
+
+      <rect x="620" y="15" width="220" height="30" rx="6" fill="#d0ebff" stroke="none"/>
+      <text x="730" y="35" text-anchor="middle" font-size="11" font-weight="600" fill="#1971c2">After approval = pure automation</text>
+      <line x1="730" y1="45" x2="770" y2="98" stroke="#1971c2" stroke-width="1" stroke-dasharray="4,4"/>
+    </svg>
+  </div>
+
+  <!-- Routing Flow -->
+  <div class="diagram-container" style="margin-top:24px;">
+    <button class="fullscreen-btn" onclick="toggleFullscreen(this)" title="Toggle fullscreen">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path class="expand-icon" d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/>
+        <path class="collapse-icon" d="M6 2v4H2M10 2v4h4M14 10h-4v4M6 14v-4H2" style="display:none"/>
+      </svg>
+    </button>
+    <div class="diagram-title">Phase 2: Routing Flow &mdash; LinkedIn as Primary Gate</div>
+    <svg viewBox="0 0 920 620" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ad" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#495057"/></marker>
+        <marker id="agr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#2f9e44"/></marker>
+        <marker id="ao" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#e8590c"/></marker>
+        <marker id="ab" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#1971c2"/></marker>
+        <marker id="apu" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#7048e8"/></marker>
+      </defs>
+
+      <!-- Start -->
+      <rect x="350" y="15" width="200" height="45" rx="22" fill="#e9ecef" stroke="#495057" stroke-width="2"/>
+      <text x="450" y="43" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">New Contact Arrives</text>
+
+      <line x1="450" y1="60" x2="450" y2="90" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+
+      <!-- Decision 1: Already correctly associated? -->
+      <rect x="315" y="90" width="270" height="50" rx="8" fill="#e5dbff" stroke="#7048e8" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="450" y="112" text-anchor="middle" font-size="13" font-weight="600" fill="#7048e8">Already correctly associated?</text>
+      <text x="450" y="128" text-anchor="middle" font-size="11" fill="#868e96">current_company_li_url = experience_li_url</text>
+
+      <line x1="585" y1="115" x2="710" y2="115" stroke="#7048e8" stroke-width="2" marker-end="url(#apu)"/>
+      <text x="640" y="108" text-anchor="middle" font-size="11" font-weight="600" fill="#7048e8">YES</text>
+      <rect x="710" y="90" width="160" height="50" rx="8" fill="#e5dbff" stroke="#7048e8" stroke-width="2"/>
+      <text x="790" y="112" text-anchor="middle" font-size="12" font-weight="600" fill="#7048e8">Skip</text>
+      <text x="790" y="128" text-anchor="middle" font-size="10" fill="#868e96">Already correct</text>
+
+      <line x1="450" y1="140" x2="450" y2="180" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+      <text x="470" y="165" font-size="11" font-weight="600" fill="#2f9e44">NO</text>
+
+      <!-- Decision 2: LinkedIn available? -->
+      <rect x="320" y="180" width="260" height="50" rx="8" fill="#f1f3f5" stroke="#868e96" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="450" y="202" text-anchor="middle" font-size="13" font-weight="600" fill="#495057">LinkedIn experience URL available?</text>
+
+      <line x1="580" y1="205" x2="710" y2="205" stroke="#e8590c" stroke-width="2" marker-end="url(#ao)"/>
+      <text x="640" y="198" text-anchor="middle" font-size="11" font-weight="600" fill="#e8590c">NO</text>
+      <rect x="710" y="180" width="160" height="50" rx="8" fill="#fff4e6" stroke="#e8590c" stroke-width="2"/>
+      <text x="790" y="200" text-anchor="middle" font-size="12" font-weight="600" fill="#e8590c">Flag for Rep</text>
+      <text x="790" y="216" text-anchor="middle" font-size="10" fill="#868e96">No LinkedIn data</text>
+
+      <line x1="450" y1="230" x2="450" y2="270" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+      <text x="470" y="255" font-size="11" font-weight="600" fill="#2f9e44">YES</text>
+
+      <!-- Decision 3: LinkedIn ≠ parent? -->
+      <rect x="305" y="270" width="290" height="50" rx="8" fill="#f1f3f5" stroke="#868e96" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="450" y="292" text-anchor="middle" font-size="13" font-weight="600" fill="#495057">LinkedIn URL &ne; parent URL?</text>
+      <text x="450" y="308" text-anchor="middle" font-size="11" fill="#868e96">Compare experience_li_url vs parent_li_url</text>
+
+      <!-- YES (different) → left to mapping table -->
+      <line x1="305" y1="295" x2="250" y2="295" stroke="#2f9e44" stroke-width="2"/>
+      <line x1="250" y1="295" x2="250" y2="375" stroke="#2f9e44" stroke-width="2" marker-end="url(#agr)"/>
+      <text x="265" y="288" font-size="11" font-weight="600" fill="#2f9e44">YES (different)</text>
+
+      <!-- In mapping table? -->
+      <rect x="140" y="375" width="220" height="50" rx="8" fill="#f1f3f5" stroke="#868e96" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="250" y="397" text-anchor="middle" font-size="13" font-weight="600" fill="#495057">Known child in HubSpot?</text>
+      <text x="250" y="413" text-anchor="middle" font-size="11" fill="#868e96">LI URL matches a child company record</text>
+
+      <!-- Yes → Auto-associate -->
+      <line x1="140" y1="400" x2="95" y2="400" stroke="#2f9e44" stroke-width="2"/>
+      <line x1="95" y1="400" x2="95" y2="465" stroke="#2f9e44" stroke-width="2" marker-end="url(#agr)"/>
+      <text x="112" y="393" font-size="11" font-weight="600" fill="#2f9e44">YES</text>
+      <rect x="20" y="465" width="150" height="55" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2.5"/>
+      <text x="95" y="488" text-anchor="middle" font-size="13" font-weight="700" fill="#2b8a3e">Auto-Associate</text>
+      <text x="95" y="505" text-anchor="middle" font-size="11" fill="#495057">to Child Company</text>
+
+      <!-- No → flag unknown -->
+      <line x1="250" y1="425" x2="250" y2="465" stroke="#e8590c" stroke-width="2" marker-end="url(#ao)"/>
+      <text x="270" y="450" font-size="11" font-weight="600" fill="#e8590c">NO</text>
+      <rect x="160" y="465" width="180" height="55" rx="8" fill="#fff4e6" stroke="#e8590c" stroke-width="2"/>
+      <text x="250" y="488" text-anchor="middle" font-size="12" font-weight="600" fill="#e8590c">Flag for Rep</text>
+      <text x="250" y="505" text-anchor="middle" font-size="10" fill="#868e96">Possible new subsidiary</text>
+
+      <!-- NO (matches parent) → down to job title check -->
+      <line x1="450" y1="320" x2="450" y2="375" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+      <text x="470" y="352" font-size="11" font-weight="600" fill="#1971c2">NO (matches parent)</text>
+
+      <!-- Decision 4: Job title mentions child? -->
+      <rect x="370" y="375" width="280" height="50" rx="8" fill="#e5dbff" stroke="#7048e8" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="510" y="397" text-anchor="middle" font-size="13" font-weight="600" fill="#7048e8">Job title mentions child company?</text>
+      <text x="510" y="413" text-anchor="middle" font-size="11" fill="#868e96">CONTAINS check vs child company names</text>
+
+      <!-- Title mentions child → flag -->
+      <line x1="650" y1="400" x2="710" y2="400" stroke="#e8590c" stroke-width="2" marker-end="url(#ao)"/>
+      <text x="675" y="393" text-anchor="middle" font-size="11" font-weight="600" fill="#e8590c">YES</text>
+      <rect x="710" y="375" width="175" height="50" rx="8" fill="#fff4e6" stroke="#e8590c" stroke-width="2"/>
+      <text x="797" y="395" text-anchor="middle" font-size="12" font-weight="600" fill="#e8590c">Flag for Rep</text>
+      <text x="797" y="411" text-anchor="middle" font-size="10" fill="#868e96">Title suggests subsidiary</text>
+
+      <!-- No title match → keep on parent -->
+      <line x1="510" y1="425" x2="510" y2="475" stroke="#495057" stroke-width="2" marker-end="url(#ad)"/>
+      <text x="530" y="455" font-size="11" font-weight="600" fill="#1971c2">NO</text>
+      <rect x="420" y="475" width="180" height="50" rx="8" fill="#d0ebff" stroke="#1971c2" stroke-width="2.5"/>
+      <text x="510" y="495" text-anchor="middle" font-size="13" font-weight="700" fill="#1864ab">Keep on Parent</text>
+      <text x="510" y="512" text-anchor="middle" font-size="11" fill="#495057">LinkedIn confirms parent</text>
+
+      <!-- Legend -->
+      <line x1="60" y1="550" x2="880" y2="550" stroke="#e9ecef" stroke-width="1"/>
+      <rect x="100" y="565" width="14" height="14" rx="3" fill="#d3f9d8" stroke="#2f9e44" stroke-width="1.5"/>
+      <text x="120" y="577" font-size="11" font-weight="600" fill="#495057">Auto-Associate</text>
+      <rect x="250" y="565" width="14" height="14" rx="3" fill="#d0ebff" stroke="#1971c2" stroke-width="1.5"/>
+      <text x="270" y="577" font-size="11" font-weight="600" fill="#495057">Keep on Parent</text>
+      <rect x="410" y="565" width="14" height="14" rx="3" fill="#fff4e6" stroke="#e8590c" stroke-width="1.5"/>
+      <text x="430" y="577" font-size="11" font-weight="600" fill="#495057">Flag for Rep</text>
+      <rect x="550" y="565" width="14" height="14" rx="3" fill="#e5dbff" stroke="#7048e8" stroke-width="1.5"/>
+      <text x="570" y="577" font-size="11" font-weight="600" fill="#495057">Skip</text>
+      <rect x="650" y="565" width="14" height="14" rx="3" fill="#f1f3f5" stroke="#868e96" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <text x="670" y="577" font-size="11" font-weight="600" fill="#495057">Decision Point</text>
+    </svg>
+  </div>
+</div>
+
+<div class="footer">
+  Clay Webhook OS &bull; HubSpot Parent-Child Routing &bull; March 2026
+</div>
+
+</div>
+
+<script>
+function toggleFullscreen(btn) {
+  var container = btn.closest('.diagram-container');
+  var isFullscreen = container.classList.toggle('fullscreen');
+  btn.querySelector('.expand-icon').style.display = isFullscreen ? 'none' : '';
+  btn.querySelector('.collapse-icon').style.display = isFullscreen ? '' : 'none';
+  document.body.style.overflow = isFullscreen ? 'hidden' : '';
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var el = document.querySelector('.diagram-container.fullscreen');
+    if (el) el.querySelector('.fullscreen-btn').click();
+  }
+});
+</script>
+</body>
+</html>

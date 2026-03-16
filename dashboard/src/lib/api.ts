@@ -4,6 +4,10 @@ import type {
   ClayConfig,
   ClientProfile,
   ClientSummary,
+  CreateDatasetRequest,
+  Dataset,
+  DatasetRow,
+  DatasetSummary,
   Destination,
   Experiment,
   FeedbackEntry,
@@ -19,7 +23,9 @@ import type {
   PromptPreview,
   PushResult,
   QualityAlert,
+  RunStageRequest,
   ScheduledBatch,
+  StageStatus,
   Stats,
   UsageHealth,
   UsageSummary,
@@ -126,6 +132,20 @@ export function runBatch(body: {
 
 export function fetchBatchStatus(batchId: string): Promise<BatchStatus> {
   return apiFetch(`/batch/${batchId}`);
+}
+
+export interface BatchSummary {
+  batch_id: string;
+  skill: string;
+  total_rows: number;
+  completed: number;
+  failed: number;
+  done: boolean;
+  created_at: number;
+}
+
+export function fetchBatches(): Promise<{ batches: BatchSummary[] }> {
+  return apiFetch("/batches");
 }
 
 export function fetchScheduledBatches(): Promise<{
@@ -657,4 +677,82 @@ export function createJobStream(
     onEvent("job_updated", JSON.parse(e.data));
   });
   return es;
+}
+
+// Datasets
+export function fetchDatasets(): Promise<{ datasets: DatasetSummary[] }> {
+  return apiFetch("/datasets");
+}
+
+export function fetchDataset(id: string): Promise<Dataset> {
+  return apiFetch(`/datasets/${id}`);
+}
+
+export function createDataset(body: CreateDatasetRequest): Promise<Dataset> {
+  return apiFetch("/datasets", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteDataset(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/datasets/${id}`, { method: "DELETE" });
+}
+
+export function importDatasetCsv(
+  id: string,
+  formData: FormData
+): Promise<{ rows_added: number }> {
+  return apiFetch(`/datasets/${id}/import`, {
+    method: "POST",
+    body: formData,
+    headers: { "X-API-Key": API_KEY },
+  });
+}
+
+export function importDatasetJson(
+  id: string,
+  rows: Record<string, unknown>[]
+): Promise<{ rows_added: number }> {
+  return apiFetch(`/datasets/${id}/import-json`, {
+    method: "POST",
+    body: JSON.stringify({ rows }),
+  });
+}
+
+export function fetchDatasetRows(
+  id: string,
+  params?: { offset?: number; limit?: number }
+): Promise<{ rows: DatasetRow[]; total: number; offset: number; limit: number }> {
+  const qs = new URLSearchParams();
+  if (params?.offset) qs.set("offset", String(params.offset));
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const q = qs.toString();
+  return apiFetch(`/datasets/${id}/rows${q ? `?${q}` : ""}`);
+}
+
+export function runDatasetStage(
+  id: string,
+  body: RunStageRequest
+): Promise<{ batch_id: string; total_rows: number; stage: string }> {
+  return apiFetch(`/datasets/${id}/run-stage`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchStageStatus(
+  id: string,
+  batchId: string
+): Promise<StageStatus> {
+  return apiFetch(`/datasets/${id}/stage-status/${batchId}`);
+}
+
+export async function exportDataset(id: string): Promise<Blob> {
+  const res = await fetch(`${API_URL}/datasets/${id}/export`, {
+    method: "POST",
+    headers: { "X-API-Key": API_KEY },
+  });
+  if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+  return res.blob();
 }

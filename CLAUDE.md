@@ -100,6 +100,18 @@ cd dashboard && npx vercel --prod --yes
 - **Vercel needs manual deploy**: Dashboard does not auto-deploy from GitHub.
 - **Context filtering**: Every skill declares exactly which client profile sections it needs in `SKILL_CLIENT_SECTIONS` (`app/core/context_filter.py`). No shared baseline — if a section isn't listed, it doesn't load. When adding a new skill that loads a client profile, you MUST add its entry to `SKILL_CLIENT_SECTIONS`.
 
+## Architecture Graph
+
+`architecture-graph.json` at project root is a machine-readable knowledge graph of the entire system: 129 nodes, 230 edges, 4 request lifecycle flows, and cluster indices.
+
+**When to load it:**
+- Cross-module impact analysis ("what breaks if I change X?")
+- Planning multi-layer changes (router + core + model + frontend)
+- Understanding request lifecycles (follow the `flows` section)
+- Orienting in the codebase (use `clusters` for layer grouping)
+
+**Maintenance:** Update the graph when adding new routers, core modules, stores, skills, pipelines, or dashboard pages.
+
 ## Reference Docs
 
 - `docs/api-reference.md` — All API endpoints

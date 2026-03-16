@@ -25,9 +25,10 @@ from app.core.play_store import PlayStore
 from app.core.usage_store import UsageStore
 from app.core.experiment_store import ExperimentStore
 from app.core.cleanup_worker import DataCleanupWorker
+from app.core.dataset_store import DatasetStore
 from app.core.retry_worker import RetryWorker
 from app.core.subscription_monitor import SubscriptionMonitor
-from app.routers import batch, context, destinations, experiments, feedback, health, pipeline, pipelines, plays, usage, webhook
+from app.routers import batch, context, datasets, destinations, enrichment, experiments, feedback, health, pipeline, pipelines, plays, usage, webhook
 
 logging.basicConfig(
     level=logging.INFO,
@@ -67,6 +68,8 @@ app.include_router(pipelines.router)
 app.include_router(experiments.router)
 app.include_router(plays.router)
 app.include_router(usage.router)
+app.include_router(enrichment.router)
+app.include_router(datasets.router)
 
 
 @app.on_event("startup")
@@ -120,6 +123,10 @@ async def startup():
     app.state.context_index.build()
     app.state.job_queue._context_index = app.state.context_index
 
+    # Dataset store
+    app.state.dataset_store = DatasetStore(data_dir=settings.data_dir)
+    app.state.dataset_store.load()
+
     # Log research API availability
     if settings.parallel_api_key:
         logger.info("  Parallel.ai research: enabled")
@@ -129,6 +136,10 @@ async def startup():
         logger.info("  Sumble research: enabled")
     else:
         logger.info("  Sumble research: disabled (no SUMBLE_API_KEY)")
+    if settings.findymail_api_key:
+        logger.info("  Findymail enrichment: enabled")
+    else:
+        logger.info("  Findymail enrichment: disabled (no FINDYMAIL_API_KEY)")
 
     # Retry worker
     app.state.retry_worker = RetryWorker(

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clay Enrichment Request Process — SOP v2</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1a1a2e;
+    background: #f8f9fa;
+    line-height: 1.7;
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+
+  .header {
+    text-align: center;
+    padding: 36px 24px 28px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: white;
+    border-radius: 14px;
+    margin-bottom: 28px;
+  }
+  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+  .header .subtitle { font-size: 15px; opacity: 0.8; }
+  .header .meta { display: flex; justify-content: center; gap: 24px; margin-top: 14px; font-size: 13px; opacity: 0.7; }
+  .header .meta span { display: inline-block; }
+  .header .version { display: inline-block; margin-top: 10px; padding: 3px 12px; background: rgba(255,255,255,0.15); border-radius: 20px; font-size: 12px; }
+
+  .section {
+    background: white;
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: #1a1a2e;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 6px;
+  }
+  .section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 20px 0 8px;
+    color: #16213e;
+  }
+  .section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 14px 0 6px;
+    color: #495057;
+  }
+  .section p { margin-bottom: 10px; color: #495057; font-size: 14px; }
+  .section ul, .section ol { margin: 8px 0 14px 20px; font-size: 14px; color: #495057; }
+  .section li { margin-bottom: 6px; }
+  .section li ul { margin-top: 4px; margin-bottom: 4px; }
+
+  .callout {
+    padding: 14px 18px;
+    border-radius: 8px;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  .callout-problem { background: #fff5f5; border-left: 4px solid #e03131; color: #c92a2a; }
+  .callout-insight { background: #e7f5ff; border-left: 4px solid #1971c2; color: #1864ab; }
+  .callout-success { background: #ebfbee; border-left: 4px solid #2f9e44; color: #2b8a3e; }
+  .callout-neutral { background: #f8f9fa; border-left: 4px solid #868e96; color: #495057; }
+  .callout-purple { background: #f3f0ff; border-left: 4px solid #7048e8; color: #5f3dc4; }
+  .callout strong { font-weight: 700; }
+
+  .new-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #d3f9d8;
+    color: #2b8a3e;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  th {
+    background: #f1f3f5;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+  }
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f1f3f5;
+    color: #495057;
+  }
+  tr:hover td { background: #f8f9fa; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-green { background: #d3f9d8; color: #2b8a3e; }
+  .badge-blue { background: #d0ebff; color: #1864ab; }
+  .badge-orange { background: #fff4e6; color: #e8590c; }
+  .badge-red { background: #ffe3e3; color: #c92a2a; }
+  .badge-gray { background: #f1f3f5; color: #868e96; }
+
+  .flowchart {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 14px 0;
+    font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+    color: #495057;
+  }
+
+  .divider {
+    border: none;
+    height: 2px;
+    background: linear-gradient(to right, transparent, #dee2e6, transparent);
+    margin: 28px 0;
+  }
+
+  @media print {
+    body { background: white; }
+    .container { padding: 0; }
+    .section { box-shadow: none; border: 1px solid #e9ecef; break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- HEADER -->
+<div class="header">
+  <h1>Clay Enrichment Request Process</h1>
+  <div class="subtitle">Standard Operating Procedure for Data Enrichment Requests</div>
+  <div class="meta">
+    <span>12 Labs / Sean Graham</span>
+    <span>March 2026</span>
+  </div>
+  <div class="version">SOP v2 — Updated with Parent-Child Routing</div>
+</div>
+
+<!-- SECTION 1: PURPOSE -->
+<div class="section">
+  <h2>1. Purpose</h2>
+  <p>This document defines the standard process for submitting, scoping, executing, and delivering data enrichment requests through Clay. It ensures every request is:</p>
+  <ul>
+    <li>Properly scoped with clear deliverables</li>
+    <li>Enriched using the right data sources and workflows</li>
+    <li>Delivered back to the CRM in a clean, actionable format</li>
+    <li>Correctly routed to the right company — including parent-child structures <span class="new-badge">New</span></li>
+  </ul>
+</div>
+
+<hr class="divider">
+
+<!-- SECTION 2: ACCEPTED INPUT FORMATS -->
+<div class="section">
+  <h2>2. Accepted Input Formats</h2>
+  <p>Enrichment requests can be submitted in any of the following formats:</p>
+  <ul>
+    <li><strong>CSV / Excel file</strong> — uploaded directly to the shared drive or sent via Slack</li>
+    <li><strong>HubSpot list</strong> — a saved list of contacts or companies in HubSpot (provide the list name or URL)</li>
+    <li><strong>Clay table</strong> — an existing Clay table that needs additional enrichment columns</li>
+    <li><strong>Manual request</strong> — a Slack message or email describing the target audience (e.g., "All VP+ contacts at companies with 500+ employees in fintech")</li>
+  </ul>
+  <div class="callout callout-neutral">
+    <strong>Preferred format:</strong> HubSpot list or CSV with at least name + company + email or LinkedIn URL. The more structured the input, the faster the turnaround.
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- SECTION 3: REQUIRED FIELDS -->
+<div class="section">
+  <h2>3. Required Fields</h2>
+
+  <h3>Contact Enrichment</h3>
+  <h4>Required</h4>
+  <ul>
+    <li><strong>Full Name</strong> (first + last)</li>
+    <li><strong>Company Name</strong></li>
+  </ul>
+  <h4>Strongly Recommended</h4>
+  <ul>
+    <li><strong>Work Email</strong></li>
+    <li><strong>LinkedIn Profile URL</strong></li>
+    <li><strong>LinkedIn Company URL</strong></li>
+    <li><strong>Job Title</strong></li>
+  </ul>
+  <div class="callout callout-insight">
+    <strong>Parent-Child Note:</strong> LinkedIn Company URL becomes critical for routing when contacts belong to parent-child structures. Without it, contacts who use a parent company email domain (e.g., @nfl.com) cannot be reliably routed to the correct child company (e.g., Kansas City Chiefs). <strong>Always include LinkedIn Company URL when enriching contacts under known parent-child relationships.</strong> <span class="new-badge">New</span>
+  </div>
+
+  <h3>Company Enrichment</h3>
+  <h4>Required</h4>
+  <ul>
+    <li><strong>Company Name</strong></li>
+  </ul>
+  <h4>Strongly Recommended</h4>
+  <ul>
+    <li><strong>Company Domain</strong></li>
+    <li><strong>LinkedIn Company URL</strong></li>
+    <li><strong>HubSpot Company ID</strong> (if updating existing records)</li>
+  </ul>
+  <div class="callout callout-insight">
+    <strong>Parent-Child Note:</strong> LinkedIn Company URL is the #1 signal for correct child company association. When enriching companies that may be part of a parent-child structure, LinkedIn URL determines whether the company maps to an existing child in our mapping table or needs to be flagged as a new child entity. <strong>This field should be treated as required for any request involving known parent companies.</strong> <span class="new-badge">New</span>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- SECTION 4: ENRICHMENT SCOPE -->
+<div class="section">
+  <h2>4. Enrichment Scope</h2>
+  <p>Every enrichment request must specify which actions are needed. Check all that apply:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Enrichment Action</th>
+        <th>Yes / No</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Contact data enrichment</strong> (email, phone, title, LinkedIn)</td>
+        <td></td>
+        <td>Standard Clay enrichment waterfall</td>
+      </tr>
+      <tr>
+        <td><strong>Company data enrichment</strong> (revenue, headcount, industry, tech stack)</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>Lead scoring / ICP fit</strong></td>
+        <td></td>
+        <td>Requires ICP definition on file</td>
+      </tr>
+      <tr>
+        <td><strong>CRM push</strong> (create/update contacts or companies in HubSpot)</td>
+        <td></td>
+        <td>Specify create vs. update</td>
+      </tr>
+      <tr>
+        <td><strong>List segmentation</strong></td>
+        <td></td>
+        <td>Specify segmentation criteria</td>
+      </tr>
+      <tr>
+        <td><strong>Parent-child company routing</strong></td>
+        <td></td>
+        <td><strong>Must be explicit.</strong> If yes: contacts routed using LinkedIn-first logic. If no: standard email-domain association. <span class="new-badge">New</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-purple">
+    <strong>When to check "Yes" for parent-child routing:</strong> Any enrichment request where target contacts may belong to subsidiaries, divisions, or child companies under a known parent. When in doubt, ask: "Does this parent company have child entities in HubSpot?" If yes, parent-child routing is required. <span class="new-badge">New</span>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- SECTION 5: CRM HANDLING & ROUTING -->
+<div class="section">
+  <h2>5. CRM Handling &amp; Routing</h2>
+
+  <h3>Contact Creation Rules</h3>
+  <ul>
+    <li><strong>Duplicate check:</strong> Before creating a new contact in HubSpot, Clay checks by email address. If a match exists, the record is updated — not duplicated.</li>
+    <li><strong>Owner assignment:</strong> Contacts are assigned based on the company's existing owner. If no owner exists on the company, the contact goes to the default rep for that segment.</li>
+    <li><strong>Lifecycle stage:</strong> New contacts are created as "Lead" unless the request specifies otherwise.</li>
+  </ul>
+
+  <h3>Deal &amp; Company Rules</h3>
+  <ul>
+    <li><strong>Existing deals:</strong> If a contact is associated with an open deal, enrichment updates the contact but does not change deal ownership or stage.</li>
+    <li><strong>Company association:</strong> Contacts are associated to companies by email domain match, unless parent-child routing overrides this (see below).</li>
+    <li><strong>No auto-create companies:</strong> Unless the request explicitly asks for company creation, Clay only updates existing company records.</li>
+  </ul>
+
+  <h3>Parent-Child Routing <span class="new-badge">New</span></h3>
+  <p>When an enrichment request includes parent-child routing (Section 4), the standard email-domain association is replaced with a multi-signal routing approach.</p>
+
+  <h4>Routing Priority</h4>
+  <table>
+    <thead>
+      <tr>
+        <th>Priority</th>
+        <th>Signal</th>
+        <th>Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-green">1st</span></td>
+        <td><strong>LinkedIn Company URL</strong></td>
+        <td>Exact match against the parent-child mapping table. Most reliable — no fuzzy matching needed.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-blue">2nd</span></td>
+        <td><strong>LinkedIn Company Name</strong></td>
+        <td>If the URL doesn't match a known child, check the company name. Catches subsidiaries not yet in the mapping table.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-orange">Fallback</span></td>
+        <td><strong>Work Email Domain</strong></td>
+        <td>Only used when LinkedIn data is missing or inconclusive. This is the old default behavior — now intentionally last.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4>Ownership Conflict Rule</h4>
+  <p>When two reps own contacts that route to the same child company, the enrichment request <strong>must specify who gets ownership</strong>. Options:</p>
+  <ul>
+    <li><strong>First-in wins:</strong> The rep who already owns the most contacts on the child keeps ownership</li>
+    <li><strong>Submitter decides:</strong> The person submitting the enrichment request designates the owner</li>
+    <li><strong>Flag for review:</strong> Ownership conflicts are flagged and resolved manually before processing</li>
+  </ul>
+
+  <h4>Personal Email Handling</h4>
+  <div class="callout callout-problem">
+    <strong>Rule:</strong> Contacts with personal email addresses (@gmail.com, @yahoo.com, @outlook.com, etc.) are <strong>never auto-routed</strong> to a child company. They are flagged for manual review, regardless of LinkedIn data.
+  </div>
+
+  <h4>Edge Cases</h4>
+  <ul>
+    <li><strong>Title says child, LinkedIn says parent:</strong> If a contact's job title mentions a child company (e.g., "Director, Kansas City Chiefs") but their LinkedIn Company URL points to the parent (NFL) — the contact is <strong>flagged for rep review</strong>, not auto-routed.</li>
+    <li><strong>No LinkedIn data + parent email domain:</strong> Contact stays on the parent. Cannot differentiate without additional signals.</li>
+    <li><strong>LinkedIn URL matches child but email matches a different child:</strong> LinkedIn URL wins. Flagged as a potential data quality issue.</li>
+  </ul>
+</div>
+
+<hr class="divider">
+
+<!-- SECTION 6: LEAD CREATION RULES -->
+<div class="section">
+  <h2>6. Lead Creation Rules</h2>
+  <ul>
+    <li><strong>Naming convention:</strong> Leads are named using the format: <code>[Client Name] [Campaign Name] [Year]</code> (e.g., "NAB Outreach 2026")</li>
+    <li><strong>Source tracking:</strong> All leads created through Clay are tagged with <code>Lead Source = Clay Enrichment</code></li>
+    <li><strong>Campaign association:</strong> If the enrichment request is tied to a specific campaign, leads are associated to that campaign in HubSpot</li>
+    <li><strong>Batch tagging:</strong> Each enrichment batch gets a unique batch ID for tracking and rollback</li>
+    <li><strong>Child company leads:</strong> If a child company is created during enrichment, the lead is created under the child — not the parent. Lead naming includes the child company for clarity. <span class="new-badge">New</span>
+      <ul>
+        <li>Example: <code>NAB Outreach 2026 — Kansas City Chiefs</code></li>
+      </ul>
+    </li>
+  </ul>
+</div>
+
+<hr class="divider">
+
+<!-- SECTION 7: DEFAULT RULES -->
+<div class="section">
+  <h2>7. Default Rules</h2>
+  <p>These defaults apply unless the enrichment request explicitly overrides them:</p>
+  <ul>
+    <li><strong>Duplicates:</strong> Update existing records, never create duplicates</li>
+    <li><strong>Missing data:</strong> Leave blank fields empty — do not populate with placeholder values</li>
+    <li><strong>Phone numbers:</strong> Only enrich with direct dials, not company switchboard numbers</li>
+    <li><strong>Email validation:</strong> All emails are verified before CRM push — invalid/catch-all emails are flagged, not pushed</li>
+    <li><strong>Data freshness:</strong> Enrichment data must be &lt;90 days old. Older data triggers a re-enrichment</li>
+    <li><strong>No outreach without review:</strong> Enriched data is delivered for review before any automated outreach is triggered</li>
+    <li><strong>Parent-child routing (LinkedIn-first):</strong> Contacts under parent-child structures are routed via LinkedIn Company URL first, with email domain as fallback <span class="new-badge">New</span></li>
+    <li><strong>Low-confidence matches stay on parent:</strong> When routing confidence is low (no LinkedIn data, ambiguous signals), contacts remain on the parent company — never auto-routed to a child on weak evidence <span class="new-badge">New</span></li>
+    <li><strong>Personal emails flagged:</strong> Contacts with personal email addresses (@gmail, @yahoo, etc.) under parent-child structures are always flagged for manual review — never auto-routed <span class="new-badge">New</span></li>
+    <li><strong>Existing associations respected:</strong> Existing parent-child company associations in HubSpot are respected unless the enrichment request explicitly requests re-evaluation <span class="new-badge">New</span></li>
+  </ul>
+</div>
+
+<hr class="divider">
+
+<!-- SECTION 8: DELIVERY -->
+<div class="section">
+  <h2>8. Delivery</h2>
+  <p>Every enrichment request is delivered with the following:</p>
+
+  <h3>Standard Delivery</h3>
+  <ul>
+    <li><strong>Enriched Clay table</strong> — the completed table with all enrichment columns populated</li>
+    <li><strong>Summary report</strong> — total records processed, match rates per data point, records skipped (with reasons)</li>
+    <li><strong>CRM push confirmation</strong> — list of records created/updated in HubSpot with record IDs</li>
+    <li><strong>Flagged records</strong> — any records that need manual review (bad data, duplicates, missing required fields)</li>
+  </ul>
+
+  <h3>Parent-Child Routing Segment <span class="new-badge">New</span></h3>
+  <p>For requests with parent-child routing enabled, delivery includes an additional routing segment:</p>
+  <ul>
+    <li><strong>Auto-routed:</strong> Contacts automatically associated to the correct child company (count + list)</li>
+    <li><strong>Kept on parent:</strong> Contacts that stayed on the parent — all signals agreed they belong there (count + list)</li>
+    <li><strong>Flagged for review:</strong> Contacts that need rep attention — ownership conflicts, personal emails, ambiguous signals (count + list)</li>
+  </ul>
+
+  <h4>Routing Confidence per Record</h4>
+  <table>
+    <thead>
+      <tr>
+        <th>Confidence</th>
+        <th>Meaning</th>
+        <th>Action Taken</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-green">High</span></td>
+        <td>LinkedIn URL matched a known child in the mapping table</td>
+        <td>Auto-routed to child</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-blue">Medium</span></td>
+        <td>LinkedIn company name matched, or email domain matched a child domain</td>
+        <td>Auto-routed with flag for spot-check</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-orange">Low</span></td>
+        <td>Signals conflicted, or only job title suggested a child</td>
+        <td>Kept on parent, flagged for rep review</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- SECTION 9: REVIEW & TURNAROUND -->
+<div class="section">
+  <h2>9. Review &amp; Turnaround</h2>
+
+  <h3>Turnaround Times</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Request Size</th>
+        <th>Standard Turnaround</th>
+        <th>Rush (if available)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Small (&lt;500 records)</td>
+        <td>1-2 business days</td>
+        <td>Same day</td>
+      </tr>
+      <tr>
+        <td>Medium (500-5,000 records)</td>
+        <td>2-3 business days</td>
+        <td>1 business day</td>
+      </tr>
+      <tr>
+        <td>Large (5,000+ records)</td>
+        <td>3-5 business days</td>
+        <td>2 business days</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Review Process</h3>
+  <ul>
+    <li><strong>Spot-check:</strong> A random sample (5-10%) of enriched records is manually reviewed before delivery</li>
+    <li><strong>Requester sign-off:</strong> The person who submitted the request reviews the summary report and flags any issues before CRM push</li>
+    <li><strong>Rollback window:</strong> All CRM pushes can be rolled back within 48 hours using the batch ID</li>
+  </ul>
+</div>
+
+<hr class="divider">
+
+<!-- SECTION 10: PARENT-CHILD ROUTING REFERENCE -->
+<div class="section" style="border-left: 4px solid #7048e8;">
+  <h2>10. Parent-Child Routing Reference <span class="new-badge">New</span></h2>
+  <p>Consolidated reference for all parent-child routing logic. Use this section when submitting or processing enrichment requests that involve parent-child company structures.</p>
+
+  <h3>Routing Decision Flowchart</h3>
+  <div class="flowchart">New contact enters enrichment
+  |
+  |-- Has LinkedIn Company URL?
+  |     |-- Matches a known child in mapping table?
+  |     |     YES --> Associate to that child company    [HIGH confidence]
+  |     |     NO  --> Check LinkedIn company name...
+  |     |
+  |     |-- LinkedIn company name matches a known child?
+  |           YES --> Associate to that child company    [MEDIUM confidence]
+  |           NO  --> Check work email domain (fallback)
+  |
+  |-- No LinkedIn data?
+  |     |-- Has work email?
+  |     |     |-- Email domain matches a known child domain?
+  |     |           YES --> Associate to that child      [MEDIUM confidence]
+  |     |           NO  --> Keep on parent               [LOW confidence]
+  |     |
+  |     |-- No work email either?
+  |           --> Flag for manual review
+  |
+  |-- Personal email (@gmail, @yahoo, etc.)?
+  |     --> Flag for rep review (never auto-route)
+  |
+  |-- Confidence too low on any match?
+        --> Flag for rep review (task created in HubSpot)</div>
+
+  <h3>Scenario Matrix</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>LinkedIn</th>
+        <th>Email</th>
+        <th>Outcome</th>
+        <th>Confidence</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Points to Chiefs (URL match)</td>
+        <td>@chiefs.com</td>
+        <td>Auto-route to Chiefs</td>
+        <td><span class="badge badge-green">High</span></td>
+      </tr>
+      <tr>
+        <td>Points to Chiefs (URL match)</td>
+        <td>@nfl.com</td>
+        <td>Auto-route to Chiefs (LinkedIn wins)</td>
+        <td><span class="badge badge-green">High</span></td>
+      </tr>
+      <tr>
+        <td>Points to Chiefs (name match)</td>
+        <td>@nfl.com</td>
+        <td>Auto-route to Chiefs</td>
+        <td><span class="badge badge-blue">Medium</span></td>
+      </tr>
+      <tr>
+        <td>Points to NFL</td>
+        <td>@chiefs.com</td>
+        <td>Auto-route to Chiefs (email differentiates)</td>
+        <td><span class="badge badge-blue">Medium</span></td>
+      </tr>
+      <tr>
+        <td>Points to NFL</td>
+        <td>@nfl.com</td>
+        <td>Keep on NFL (both agree — they work at HQ)</td>
+        <td><span class="badge badge-green">High</span></td>
+      </tr>
+      <tr>
+        <td>Points to NFL + title says "Chiefs"</td>
+        <td>@nfl.com</td>
+        <td>Flag for rep review</td>
+        <td><span class="badge badge-orange">Low</span></td>
+      </tr>
+      <tr>
+        <td>Missing</td>
+        <td>@chiefs.com</td>
+        <td>Auto-route to Chiefs (email fallback)</td>
+        <td><span class="badge badge-blue">Medium</span></td>
+      </tr>
+      <tr>
+        <td>Missing</td>
+        <td>@nfl.com</td>
+        <td>Keep on parent (can't differentiate)</td>
+        <td><span class="badge badge-orange">Low</span></td>
+      </tr>
+      <tr>
+        <td>Missing</td>
+        <td>@gmail.com</td>
+        <td>Flag for rep review (personal email)</td>
+        <td><span class="badge badge-red">None</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>What Submitters Must Include for Parent-Child Requests</h3>
+  <p>When submitting an enrichment request that involves parent-child company structures, include:</p>
+  <ol>
+    <li><strong>Parent company name(s)</strong> — which parent companies are involved in this request</li>
+    <li><strong>Known child companies</strong> — list any child companies you're already aware of (even if incomplete)</li>
+    <li><strong>LinkedIn Company URLs</strong> — for both parent and child companies (critical for mapping table)</li>
+    <li><strong>Ownership rules</strong> — how to handle conflicts when two reps own contacts routing to the same child (see Section 5)</li>
+    <li><strong>New child handling</strong> — should Clay create new child companies in HubSpot if discovered, or flag them for team review first?</li>
+  </ol>
+
+  <h3>How New Child Companies Get Added to the Mapping Table</h3>
+  <p>The parent-child mapping table is the source of truth for routing. New entries are added through:</p>
+  <ol>
+    <li><strong>Migration discovery (Proposal 1):</strong> Claude analyzes existing HubSpot data, identifies child companies, and the team approves them via Google Sheet review. Approved children are added to the mapping table.</li>
+    <li><strong>Enrichment discovery:</strong> During enrichment processing, if a contact's LinkedIn Company URL points to a company not in the mapping table but clearly a subsidiary — it's flagged as a potential new child. The team reviews and approves before it's added.</li>
+    <li><strong>Manual addition:</strong> A rep or manager identifies a new child company and requests it be added. Requires the child company's LinkedIn URL and the parent company it belongs under.</li>
+    <li><strong>Mismatch alert:</strong> The weekly re-association audit (automated) surfaces contacts whose company association was manually changed by a rep — indicating the routing may need a new child entry.</li>
+  </ol>
+
+  <div class="callout callout-success">
+    <strong>Key principle:</strong> The mapping table grows over time. Every enrichment request is an opportunity to catch new child companies. The system gets smarter with every batch processed.
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align: center; padding: 20px 0 40px; font-size: 12px; color: #adb5bd;">
+  Clay Enrichment Request Process — SOP v2 | March 2026 | Confidential
+</div>
+
+</div>
+</body>
+</html>
