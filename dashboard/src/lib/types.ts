@@ -475,3 +475,21 @@ export interface ProviderInfo {
   stage: string;
   available: boolean;
 }
+
+// Workbench types
+export type WorkbenchPhase = "source" | "research" | "enrich";
+
+export interface GenerateLeadsRequest {
+  query: string;
+  job_titles?: string[];
+  limit?: number;
+  company_domains?: string[];
+}
+
+export interface LeadListResult {
+  request_id: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  leads?: Record<string, unknown>[];
+  total?: number;
+  error?: string;
+}

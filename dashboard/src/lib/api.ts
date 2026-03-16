@@ -12,10 +12,12 @@ import type {
   Experiment,
   FeedbackEntry,
   FeedbackSummary,
+  GenerateLeadsRequest,
   HealthResponse,
   Job,
   JobListItem,
   KnowledgeBaseFile,
+  LeadListResult,
   PipelineDefinition,
   PipelineStepConfig,
   PipelineTestResult,
@@ -46,10 +48,11 @@ export class NetworkError extends Error {
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
+    const isFormData = init?.body instanceof FormData;
     res = await fetch(`${API_URL}${path}`, {
       ...init,
       headers: {
-        "Content-Type": "application/json",
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
         "X-API-Key": API_KEY,
         ...init?.headers,
       },
@@ -755,4 +758,22 @@ export async function exportDataset(id: string): Promise<Blob> {
   });
   if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
   return res.blob();
+}
+
+// Lead generation (Findymail)
+export function generateLeads(
+  datasetId: string,
+  body: GenerateLeadsRequest
+): Promise<{ request_id: string; status: string }> {
+  return apiFetch(`/datasets/${datasetId}/generate-leads`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getLeadResults(
+  datasetId: string,
+  requestId: string
+): Promise<LeadListResult> {
+  return apiFetch(`/datasets/${datasetId}/lead-results/${requestId}`);
 }

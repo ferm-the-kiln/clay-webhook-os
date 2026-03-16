@@ -22,16 +22,11 @@ import {
   Activity,
   FolderTree,
   PenLine,
-  Search,
-  Target,
   MoreHorizontal,
   Mail,
   ListOrdered,
-  Workflow,
   UserSearch,
   Send,
-  Database as DatabaseIcon,
-  GitBranch,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -59,32 +54,12 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    id: "pipeline",
-    label: "Pipeline",
-    icon: Workflow,
-    accentColor: "kiln-teal",
-    items: [
-      { href: "/pipeline", label: "Pipeline Home", icon: Workflow, shortcut: "1" },
-    ],
-  },
-  {
-    id: "source",
-    label: "Source",
+    id: "prospect",
+    label: "Prospect",
     icon: UserSearch,
     accentColor: "kiln-teal",
     items: [
-      { href: "/pipeline/find", label: "Find Contacts", icon: UserSearch, shortcut: "2" },
-    ],
-  },
-  {
-    id: "enrich",
-    label: "Enrich",
-    icon: Search,
-    accentColor: "kiln-teal",
-    items: [
-      { href: "/pipeline/research", label: "Research", icon: Search, shortcut: "3" },
-      { href: "/pipeline/score", label: "Score", icon: Target, shortcut: "4" },
-      { href: "/pipeline/enrich", label: "Find Email", icon: Mail, shortcut: "5" },
+      { href: "/prospect", label: "Workbench", icon: UserSearch, shortcut: "1" },
     ],
   },
   {
@@ -93,8 +68,8 @@ const NAV_SECTIONS: NavSection[] = [
     icon: PenLine,
     accentColor: "kiln-indigo",
     items: [
-      { href: "/pipeline/email-lab", label: "Email Lab", icon: Mail, shortcut: "6" },
-      { href: "/pipeline/sequence-lab", label: "Sequence Lab", icon: ListOrdered, shortcut: "7" },
+      { href: "/pipeline/email-lab", label: "Email Lab", icon: Mail, shortcut: "2" },
+      { href: "/pipeline/sequence-lab", label: "Sequence Lab", icon: ListOrdered, shortcut: "3" },
     ],
   },
   {
@@ -103,17 +78,8 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Send,
     accentColor: "kiln-indigo",
     items: [
-      { href: "/pipeline/send", label: "Send", icon: Send, shortcut: "8" },
-      { href: "/pipeline/crm", label: "CRM Sync", icon: GitBranch },
-    ],
-  },
-  {
-    id: "orchestrate",
-    label: "Orchestrate",
-    icon: Library,
-    accentColor: "kiln-indigo",
-    items: [
-      { href: "/pipeline/plays", label: "Plays", icon: Library, shortcut: "9" },
+      { href: "/pipeline/send", label: "Send", icon: Send, shortcut: "4" },
+      { href: "/pipeline/plays", label: "Plays", icon: Library, shortcut: "5" },
     ],
   },
   {
@@ -157,9 +123,6 @@ const ACCENT_CLASSES: Record<string, { active: string; text: string }> = {
 
 // Map nav items to pipeline stages for completion dots
 const STAGE_NAV_MAP: Record<string, string> = {
-  "/pipeline/enrich": "find-email",
-  "/pipeline/research": "research",
-  "/pipeline/score": "classify",
   "/pipeline/email-lab": "email-gen",
   "/pipeline/send": "send",
 };
@@ -179,7 +142,7 @@ export function Sidebar() {
 
   // Fetch active dataset for sidebar indicator (outside DatasetProvider)
   useEffect(() => {
-    if (!pathname.startsWith("/pipeline")) {
+    if (!pathname.startsWith("/pipeline") && !pathname.startsWith("/prospect")) {
       setActiveDataset(null);
       return;
     }
@@ -314,9 +277,9 @@ export function Sidebar() {
 
   // Mobile bottom nav — 5-item bar
   const mobileBottomItems: { href: string; label: string; icon: LucideIcon; matchPrefix?: string }[] = [
-    { href: "/pipeline", label: "Pipeline", icon: Workflow, matchPrefix: "/pipeline" },
-    { href: "/pipeline/enrich", label: "Find Email", icon: Mail },
+    { href: "/prospect", label: "Prospect", icon: UserSearch, matchPrefix: "/prospect" },
     { href: "/pipeline/email-lab", label: "Email Lab", icon: PenLine },
+    { href: "/pipeline/send", label: "Send", icon: Send },
     { href: "/pipeline/plays", label: "Plays", icon: Library },
     { href: "/settings", label: "More", icon: MoreHorizontal, matchPrefix: "/settings" },
   ];
@@ -345,7 +308,7 @@ export function Sidebar() {
         </div>
 
         {/* Active dataset indicator */}
-        {activeDataset && pathname.startsWith("/pipeline") && (
+        {activeDataset && (pathname.startsWith("/pipeline") || pathname.startsWith("/prospect")) && (
           <div className="hidden lg:block px-3 mb-3">
             <div className="text-[10px] text-clay-400 truncate">
               <span className="text-kiln-teal">●</span>{" "}
