@@ -94,8 +94,8 @@ export default function FunctionsPage() {
       await deleteFunction(id);
       toast.success("Function deleted");
       load();
-    } catch {
-      toast.error("Failed to delete function");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete function");
     }
   };
 
@@ -133,8 +133,8 @@ export default function FunctionsPage() {
         await moveFunction(draggedFunc, folderName);
         toast.success(`Moved to ${folderName}`);
         load();
-      } catch {
-        toast.error("Failed to move function");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to move function");
       }
     }
     setDraggedFunc(null);
@@ -149,8 +149,8 @@ export default function FunctionsPage() {
       setNewFolderName("");
       setShowNewFolderInput(false);
       load();
-    } catch {
-      toast.error("Failed to create folder");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create folder");
     }
   };
 
@@ -164,8 +164,8 @@ export default function FunctionsPage() {
       await deleteFolder(name);
       toast.success(`Folder "${name}" deleted`);
       load();
-    } catch {
-      toast.error("Failed to delete folder");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete folder");
     }
   };
 
@@ -399,7 +399,7 @@ function FunctionBuilderPanel({
       toast.success(`Function "${name}" created`);
       onCreated();
     } catch (e) {
-      toast.error("Failed to create function");
+      toast.error(e instanceof Error ? e.message : "Failed to create function");
     } finally {
       setSaving(false);
     }

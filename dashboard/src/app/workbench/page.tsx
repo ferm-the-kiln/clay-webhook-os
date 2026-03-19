@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   fetchFunctions,
   fetchFunction,
+  runFunction,
 } from "@/lib/api";
 import type { FunctionDefinition } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -205,21 +206,11 @@ function WorkbenchPage() {
       setResults([...newResults]);
 
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
-        const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
-        const res = await fetch(`${API_URL}/webhook`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
-          body: JSON.stringify({
-            function: selectedFunction.id,
-            data: input,
-          }),
-        });
-        const result = await res.json();
+        const result = await runFunction(selectedFunction.id, input);
 
         if (result.error) {
           newResults[i].status = "error";
-          newResults[i].error = result.error_message || "Unknown error";
+          newResults[i].error = String(result.error_message || "Unknown error");
         } else {
           newResults[i].status = "done";
           newResults[i].output = result;
@@ -255,20 +246,10 @@ function WorkbenchPage() {
       setResults([...newResults]);
 
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
-        const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
-        const res = await fetch(`${API_URL}/webhook`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
-          body: JSON.stringify({
-            function: selectedFunction.id,
-            data: input,
-          }),
-        });
-        const result = await res.json();
+        const result = await runFunction(selectedFunction.id, input);
         if (result.error) {
           newResults[i].status = "error";
-          newResults[i].error = result.error_message || "Unknown error";
+          newResults[i].error = String(result.error_message || "Unknown error");
         } else {
           newResults[i].status = "done";
           newResults[i].output = result;

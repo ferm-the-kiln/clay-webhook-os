@@ -908,6 +908,17 @@ export function fetchToolCategories(): Promise<{ categories: ToolCategory[] }> {
   return apiFetch("/tools/categories");
 }
 
+// Run function via webhook
+export function runFunction(
+  functionId: string,
+  data: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  return apiFetch("/webhook", {
+    method: "POST",
+    body: JSON.stringify({ function: functionId, data }),
+  });
+}
+
 // AI Function Assembly
 export function assembleFunction(body: {
   description: string;

@@ -72,8 +72,8 @@ export default function FunctionDetailPage() {
       setInputs(f.inputs);
       setOutputs(f.outputs);
       setSteps(f.steps);
-    } catch {
-      toast.error("Function not found");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Function not found");
       router.push("/");
     } finally {
       setLoading(false);
@@ -99,8 +99,8 @@ export default function FunctionDetailPage() {
       setFunc(updated);
       setEditing(false);
       toast.success("Function saved");
-    } catch {
-      toast.error("Failed to save");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSaving(false);
     }
@@ -112,8 +112,8 @@ export default function FunctionDetailPage() {
       await deleteFunction(funcId);
       toast.success("Function deleted");
       router.push("/");
-    } catch {
-      toast.error("Failed to delete");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete");
     }
   };
 
@@ -139,8 +139,8 @@ export default function FunctionDetailPage() {
       setClayConfig(config);
       setClayWizardStep(0);
       setClayWizardOpen(true);
-    } catch {
-      toast.error("Failed to generate Clay config");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to generate Clay config");
     }
   };
 

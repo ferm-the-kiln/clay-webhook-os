@@ -9,7 +9,7 @@ from app.config import settings
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
     PUBLIC_PATHS = {"/", "/health", "/docs", "/openapi.json", "/redoc"}
-    PUBLIC_GET_PREFIXES = ("/skills",)
+    PUBLIC_GET_PREFIXES = ("/skills", "/functions", "/tools")
 
     async def dispatch(self, request: Request, call_next):
         # Skip auth if no key configured
