@@ -328,7 +328,6 @@ class TestLoop:
             pass
 
         intervals = []
-        original_sleep = asyncio.sleep
 
         async def capture_sleep(seconds):
             intervals.append(seconds)

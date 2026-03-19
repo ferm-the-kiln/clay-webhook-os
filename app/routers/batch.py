@@ -1,7 +1,7 @@
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Request
 

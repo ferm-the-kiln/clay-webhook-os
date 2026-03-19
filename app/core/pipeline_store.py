@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from app.models.pipelines import PipelineDefinition, PipelineStepConfig, CreatePipelineRequest, UpdatePipelineRequest
+from app.models.pipelines import CreatePipelineRequest, PipelineDefinition, PipelineStepConfig, UpdatePipelineRequest
 
 logger = logging.getLogger("clay-webhook-os")
 

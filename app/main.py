@@ -5,31 +5,52 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.core.cache import ResultCache
+from app.core.circuit_breaker import CircuitBreaker
+from app.core.cleanup_worker import DataCleanupWorker
+from app.core.context_index import ContextIndex
+from app.core.context_store import ContextStore
+from app.core.dataset_store import DatasetStore
+from app.core.dedup import RequestDeduplicator
+from app.core.destination_store import DestinationStore
 from app.core.event_bus import EventBus
+from app.core.experiment_store import ExperimentStore
+from app.core.feedback_loop import FeedbackLoop
+from app.core.feedback_store import FeedbackStore
+from app.core.function_store import FunctionStore
 from app.core.job_queue import JobQueue
+from app.core.learning_engine import LearningEngine
+from app.core.memory_store import MemoryStore
+from app.core.pipeline_store import PipelineStore
+from app.core.play_store import PlayStore
+from app.core.prompt_cache import PromptCache
+from app.core.retry_worker import RetryWorker
 from app.core.scheduler import BatchScheduler
 from app.core.skill_loader import list_skills
+from app.core.skill_version_store import SkillVersionStore
+from app.core.subscription_monitor import SubscriptionMonitor
+from app.core.usage_store import UsageStore
 from app.core.worker_pool import WorkerPool
 from app.middleware.auth import ApiKeyMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
 from app.middleware.rate_limiter import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
-from app.core.context_index import ContextIndex
-from app.core.context_store import ContextStore
-from app.core.destination_store import DestinationStore
-from app.core.feedback_store import FeedbackStore
-from app.core.learning_engine import LearningEngine
-from app.core.memory_store import MemoryStore
-from app.core.pipeline_store import PipelineStore
-from app.core.play_store import PlayStore
-from app.core.usage_store import UsageStore
-from app.core.experiment_store import ExperimentStore
-from app.core.cleanup_worker import DataCleanupWorker
-from app.core.dataset_store import DatasetStore
-from app.core.function_store import FunctionStore
-from app.core.retry_worker import RetryWorker
-from app.core.subscription_monitor import SubscriptionMonitor
-from app.routers import batch, context, datasets, destinations, enrichment, experiments, feedback, functions, health, pipeline, pipelines, plays, usage, webhook
+from app.routers import (
+    batch,
+    context,
+    datasets,
+    destinations,
+    enrichment,
+    evals,
+    experiments,
+    feedback,
+    functions,
+    health,
+    pipeline,
+    pipelines,
+    plays,
+    usage,
+    webhook,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -72,6 +93,7 @@ app.include_router(usage.router)
 app.include_router(enrichment.router)
 app.include_router(datasets.router)
 app.include_router(functions.router)
+app.include_router(evals.router)
 
 
 @app.on_event("startup")
@@ -132,6 +154,28 @@ async def startup():
     # Function store
     app.state.function_store = FunctionStore(functions_dir=settings.functions_dir)
     app.state.function_store.load()
+
+    # Skill version store
+    app.state.skill_version_store = SkillVersionStore(
+        data_dir=settings.data_dir, skills_dir=settings.skills_dir
+    )
+    app.state.skill_version_store.load()
+
+    # Request deduplication (60s window)
+    app.state.dedup = RequestDeduplicator(window_seconds=60)
+
+    # Circuit breaker (per-model, trips after 3 failures, 60s recovery)
+    app.state.circuit_breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=60)
+
+    # Prompt cache (5 min TTL for static prompt portions)
+    app.state.prompt_cache = PromptCache(ttl=300)
+
+    # Feedback loop (automated re-runs with learnings)
+    app.state.feedback_loop = FeedbackLoop()
+
+    # Pattern miner (cross-client feedback analysis)
+    from app.core.pattern_miner import PatternMiner
+    app.state.pattern_miner = PatternMiner(knowledge_dir=settings.knowledge_dir)
 
     # Log research API availability
     if settings.parallel_api_key:
@@ -198,4 +242,4 @@ async def startup():
     logger.info("  Cache TTL: %ds", settings.cache_ttl)
     logger.info("  Smart routing: %s", "enabled" if settings.enable_smart_routing else "disabled")
     logger.info("  Context index: %d documents", app.state.context_index.doc_count)
-    logger.info("  Features: smart-pipelines, feedback-loops, retry, SSE, model-router, sub-monitor, cleanup, memory, semantic-context, parallel-pipelines, learning-engine")
+    logger.info("  Features: smart-pipelines, feedback-loops, retry, SSE, model-router, sub-monitor, cleanup, memory, semantic-context, parallel-pipelines, learning-engine, dedup, circuit-breaker")

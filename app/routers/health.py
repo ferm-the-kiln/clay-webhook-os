@@ -6,7 +6,6 @@ from fastapi.responses import StreamingResponse
 
 from app.config import settings
 from app.core.skill_loader import list_skills
-from app.core.token_estimator import estimate_cost
 
 router = APIRouter()
 
@@ -57,6 +56,21 @@ async def health(request: Request, deep: bool = False):
             "last_run_at": report.timestamp,
             "last_duration_ms": report.duration_ms,
         }
+
+    # Circuit breaker status
+    circuit_breaker = getattr(request.app.state, "circuit_breaker", None)
+    if circuit_breaker:
+        result["circuit_breaker"] = circuit_breaker.get_status()
+
+    # Dedup stats
+    dedup = getattr(request.app.state, "dedup", None)
+    if dedup:
+        result["dedup"] = dedup.get_stats()
+
+    # Prompt cache stats
+    prompt_cache = getattr(request.app.state, "prompt_cache", None)
+    if prompt_cache:
+        result["prompt_cache"] = prompt_cache.get_stats()
 
     if deep:
         from app.core.claude_executor import ClaudeExecutor

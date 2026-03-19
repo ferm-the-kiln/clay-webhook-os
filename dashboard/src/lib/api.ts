@@ -930,6 +930,104 @@ export function assembleFunction(body: {
   });
 }
 
+// ── Pattern Mining ──────────────────────────────────────
+
+export function minePatterns(): Promise<{
+  patterns: Array<{
+    skill: string;
+    total_feedback: number;
+    approval_rate: number;
+    thumbs_up: number;
+    thumbs_down: number;
+    client_count: number;
+    common_issues: string[];
+  }>;
+  total_feedback: number;
+  skills_analyzed: number;
+}> {
+  return apiFetch("/feedback/patterns/mine", { method: "POST" });
+}
+
+export function fetchPatterns(): Promise<{
+  patterns: Array<{
+    skill: string;
+    total_feedback: number;
+    approval_rate: number;
+    common_issues: string[];
+  }>;
+  last_run: number;
+}> {
+  return apiFetch("/feedback/patterns/latest");
+}
+
+// ── Skill Generation ────────────────────────────────────
+
+export function generateSkill(description: string, name?: string): Promise<{
+  ok?: boolean;
+  suggested_name: string;
+  content: string;
+  model_used: string;
+  error?: boolean;
+  error_message?: string;
+}> {
+  return apiFetch("/skills/generate", {
+    method: "POST",
+    body: JSON.stringify({ description, name }),
+  });
+}
+
+export function confirmGeneratedSkill(name: string, content: string): Promise<{
+  ok?: boolean;
+  error?: boolean;
+  error_message?: string;
+}> {
+  return apiFetch("/skills/generate/confirm", {
+    method: "POST",
+    body: JSON.stringify({ name, content }),
+  });
+}
+
+// ── Skill Versions ──────────────────────────────────────
+
+export function fetchSkillVersions(name: string): Promise<{
+  name: string;
+  versions: Array<{ version: number; timestamp: string; size_bytes: number }>;
+}> {
+  return apiFetch(`/skills/${name}/versions`);
+}
+
+export function fetchSkillVersion(name: string, version: number): Promise<{
+  name: string;
+  version: number;
+  content: string;
+}> {
+  return apiFetch(`/skills/${name}/versions/${version}`);
+}
+
+export function rollbackSkillVersion(name: string, version: number): Promise<{
+  ok?: boolean;
+  error?: boolean;
+}> {
+  return apiFetch(`/skills/${name}/rollback/${version}`, { method: "POST" });
+}
+
+// ── Evals ───────────────────────────────────────────────
+
+export function runEval(skill: string): Promise<Record<string, unknown>> {
+  return apiFetch(`/evals/run/${skill}`, { method: "POST" });
+}
+
+export function fetchEvalResults(skill: string): Promise<Record<string, unknown>> {
+  return apiFetch(`/evals/results/${skill}`);
+}
+
+export function fetchEvalHistory(skill: string): Promise<{
+  skill: string;
+  runs: string[];
+}> {
+  return apiFetch(`/evals/results/${skill}/history`);
+}
+
 // Clay Config Generation
 export function generateFunctionClayConfig(
   funcId: string,

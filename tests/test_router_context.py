@@ -10,7 +10,6 @@ from app.models.context import (
     CompanyInfo,
     KnowledgeBaseFile,
     PromptPreviewResponse,
-    TonePreferences,
 )
 from app.routers.context import router
 

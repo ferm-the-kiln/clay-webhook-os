@@ -1,6 +1,6 @@
 import textwrap
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -11,7 +11,6 @@ from app.models.context import (
     TonePreferences,
     UpdateClientRequest,
 )
-
 
 SAMPLE_CLIENT_MD = textwrap.dedent("""\
     # Acme Corp
@@ -335,7 +334,7 @@ class TestMarkdownParsing:
             proven_responses="Template X works",
             active_campaigns="Spring 2026",
         )
-        profile = store.create_client(req)
+        store.create_client(req)
         reloaded = store.get_client("full")
         assert reloaded.what_they_sell == "Everything"
         assert reloaded.competitive_landscape == "Lots of competition"
@@ -793,7 +792,7 @@ class TestContextUsageMapEdges:
     @patch("app.core.context_store.list_skills", return_value=["lonely"])
     def test_none_context_falls_through(self, mock_ls, mock_refs, mock_load, mock_cfg, store):
         """context: None in config should fall through to parse_context_refs."""
-        usage = store.get_context_usage_map()
+        store.get_context_usage_map()
         mock_refs.assert_called_once()
 
     @patch("app.core.context_store.load_skill_config", return_value={"context": []})
@@ -1042,7 +1041,7 @@ class TestCreateClientDeeper:
             proven_responses="Response 1",
             active_campaigns="Campaign 1",
         )
-        profile = store.create_client(req)
+        store.create_client(req)
         md = (tmp_path / "clients" / "full" / "profile.md").read_text()
         for section in [
             "## What They Sell", "## Target ICP", "## Competitive Landscape",

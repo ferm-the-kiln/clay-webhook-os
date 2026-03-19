@@ -1,9 +1,12 @@
+import json
 import logging
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from starlette.responses import StreamingResponse
 
 from app.config import settings
+from app.core.chain_parser import chain_to_skill_list
 from app.core.claude_executor import SubscriptionLimitError
 from app.core.context_assembler import build_agent_prompts, build_prompt
 from app.core.model_router import resolve_model
@@ -82,7 +85,7 @@ async def _maybe_fetch_research(skill: str, data: dict) -> None:
 
 
 @router.post("/webhook")
-async def webhook(body: WebhookRequest, request: Request):
+async def webhook(body: WebhookRequest, request: Request, debug: bool = False):
     pool = request.app.state.pool
     cache = request.app.state.cache
 
@@ -98,8 +101,13 @@ async def webhook(body: WebhookRequest, request: Request):
     if body.function:
         return await _run_function(body, request)
 
-    # Resolve skill chain
-    skill_chain = body.skills or [body.skill]
+    # Resolve skill chain — support DSL syntax via `chain` field
+    if body.chain:
+        skill_chain = chain_to_skill_list(body.chain)
+        if not skill_chain:
+            return _error(f"Could not parse chain: '{body.chain}'", "chain")
+    else:
+        skill_chain = body.skills or [body.skill]
     primary_skill = skill_chain[0]
 
     config = load_skill_config(primary_skill)
@@ -140,6 +148,14 @@ async def webhook(body: WebhookRequest, request: Request):
         )
 
     # --- Sync mode: process and return result ---
+
+    # Request deduplication (60s window)
+    dedup = getattr(request.app.state, "dedup", None)
+    if dedup is not None:
+        deduped = dedup.check(primary_skill, body.data, body.instructions)
+        if deduped is not None:
+            meta = deduped.get("_meta", {})
+            return {**deduped, "_meta": {**meta, "deduplicated": True}}
 
     # Skill chain sync mode
     if is_chain:
@@ -239,6 +255,14 @@ async def webhook(body: WebhookRequest, request: Request):
         len(prompt),
     )
 
+    # Circuit breaker check — reject early if model circuit is open
+    circuit_breaker = getattr(request.app.state, "circuit_breaker", None)
+    if circuit_breaker is not None and not circuit_breaker.can_execute(model):
+        return JSONResponse(
+            status_code=503,
+            content=_error(f"Circuit breaker open for model '{model}'. Retrying in ~60s.", primary_skill),
+        )
+
     # Execute via worker pool (raw_mode for non-JSON output formats)
     use_raw_mode = output_format != "json" and executor_type != "agent"
     try:
@@ -250,9 +274,13 @@ async def webhook(body: WebhookRequest, request: Request):
             raw_mode=use_raw_mode,
         )
     except TimeoutError:
+        if circuit_breaker:
+            circuit_breaker.record_failure(model)
         return _error(f"Request timed out after {agent_timeout}s", primary_skill)
     except SubscriptionLimitError as e:
         logger.error("[%s] Subscription limit: %s", primary_skill, e)
+        if circuit_breaker:
+            circuit_breaker.record_failure(model)
         usage_store = getattr(request.app.state, "usage_store", None)
         if usage_store:
             usage_store.record_error("subscription_limit", str(e))
@@ -262,7 +290,13 @@ async def webhook(body: WebhookRequest, request: Request):
         )
     except Exception as e:
         logger.error("[%s] Execution error: %s", primary_skill, e)
+        if circuit_breaker:
+            circuit_breaker.record_failure(model)
         return _error(f"Execution error: {e}", primary_skill)
+
+    # Record success with circuit breaker
+    if circuit_breaker:
+        circuit_breaker.record_success(model)
 
     # For non-JSON formats, the raw text is the result
     if output_format != "json":
@@ -325,6 +359,22 @@ async def webhook(body: WebhookRequest, request: Request):
     # Cache result
     cache.put(primary_skill, body.data, body.instructions, parsed, model)
 
+    # Record for deduplication
+    if dedup is not None:
+        final_result = {
+            **parsed,
+            "_meta": {
+                "skill": primary_skill,
+                "model": model,
+                "duration_ms": result["duration_ms"],
+                "cached": False,
+                "input_tokens_est": input_tokens,
+                "output_tokens_est": output_tokens,
+                "cost_est_usd": cost_usd,
+            },
+        }
+        dedup.record(primary_skill, body.data, body.instructions, final_result)
+
     # Store memory for this entity
     if memory_store is not None:
         try:
@@ -332,7 +382,7 @@ async def webhook(body: WebhookRequest, request: Request):
         except Exception:
             pass  # Non-critical
 
-    return {
+    response = {
         **parsed,
         "_meta": {
             "skill": primary_skill,
@@ -344,6 +394,65 @@ async def webhook(body: WebhookRequest, request: Request):
             "cost_est_usd": cost_usd,
         },
     }
+
+    # Debug metadata — include prompt assembly details when ?debug=true
+    if debug:
+        circuit_status = circuit_breaker.get_model_state(model) if circuit_breaker else "unknown"
+        response["_debug"] = {
+            "context_files_loaded": [str(f) if not isinstance(f, str) else f for f in context_files],
+            "context_files_count": len(context_files),
+            "prompt_size_chars": len(prompt),
+            "prompt_size_tokens_est": input_tokens,
+            "model_routing": {
+                "requested": body.model,
+                "resolved": model,
+                "skill_tier": config.get("model_tier"),
+                "skill_model": config.get("model"),
+            },
+            "executor_type": executor_type,
+            "circuit_breaker_state": circuit_status,
+            "dedup_cache_size": dedup.get_stats()["cached_entries"] if dedup else 0,
+        }
+
+    return response
+
+
+@router.post("/webhook/stream")
+async def webhook_stream(body: WebhookRequest, request: Request):
+    """Stream skill execution via Server-Sent Events."""
+    from app.core.claude_executor import ClaudeExecutor
+
+    primary_skill = body.skill
+
+    skill_content = load_skill(primary_skill)
+    if skill_content is None:
+        return JSONResponse(status_code=404, content=_error(f"Skill '{primary_skill}' not found", primary_skill))
+
+    config = load_skill_config(primary_skill)
+    model = resolve_model(request_model=body.model, skill_config=config)
+
+    # Build prompt
+    context_files = load_context_files(skill_content, body.data, skill_name=primary_skill)
+    memory_store = getattr(request.app.state, "memory_store", None)
+    context_index = getattr(request.app.state, "context_index", None)
+    learning_engine = getattr(request.app.state, "learning_engine", None)
+
+    await _maybe_fetch_research(primary_skill, body.data)
+
+    prompt = build_prompt(
+        skill_content, context_files, body.data, body.instructions,
+        memory_store=memory_store, context_index=context_index,
+        learning_engine=learning_engine,
+    )
+
+    timeout = config.get("timeout", settings.request_timeout)
+
+    async def event_stream():
+        executor = ClaudeExecutor()
+        async for chunk in executor.stream_execute(prompt, model=model, timeout=timeout):
+            yield f"data: {json.dumps(chunk)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.post("/webhook/functions/{function_id}")
@@ -418,7 +527,7 @@ async def _run_function(body: WebhookRequest, request: Request) -> dict:
             step_result = await webhook(sub_body, request)
             if isinstance(step_result, dict):
                 # Remove _meta from accumulated, keep for final
-                step_meta = step_result.pop("_meta", None)
+                step_result.pop("_meta", None)
                 accumulated_output.update(step_result)
         elif tool_id == "call_ai":
             # AI processing step — run as a generic skill call

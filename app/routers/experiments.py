@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.models.experiments import (
-    CreateVariantRequest,
     CreateExperimentRequest,
-    RunExperimentRequest,
-    PromoteVariantRequest,
+    CreateVariantRequest,
     ExperimentStatus,
+    PromoteVariantRequest,
+    RunExperimentRequest,
 )
 
 router = APIRouter(tags=["experiments"])

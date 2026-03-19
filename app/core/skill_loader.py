@@ -5,7 +5,6 @@ import yaml
 from app.config import settings
 from app.core.context_filter import filter_client_profile, filter_signal_sections
 
-
 _skill_cache: dict[str, tuple[float, dict, str]] = {}
 
 

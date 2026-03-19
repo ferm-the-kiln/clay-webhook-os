@@ -113,6 +113,70 @@ class ClaudeExecutor:
             "usage": None,
         }
 
+    async def stream_execute(
+        self, prompt: str, model: str = "opus", timeout: int = 120,
+    ):
+        """Yield chunks from claude stdout as they arrive."""
+        start = time.monotonic()
+
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("CLAUDECODE", "ANTHROPIC_API_KEY")
+        }
+
+        resolved_model = self.MODEL_MAP.get(model, model)
+        args = [
+            "claude", "--print", "--output-format", "text",
+            "--model", resolved_model, "--max-turns", "1",
+            "--dangerously-skip-permissions", "-",
+        ]
+
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+
+        # Write prompt and close stdin
+        proc.stdin.write(prompt.encode())
+        await proc.stdin.drain()
+        proc.stdin.close()
+
+        # Stream stdout chunks
+        full_output = []
+        try:
+            while True:
+                chunk = await asyncio.wait_for(proc.stdout.read(1024), timeout=timeout)
+                if not chunk:
+                    break
+                text = chunk.decode()
+                full_output.append(text)
+                yield {"chunk": text, "done": False}
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            yield {"error": f"Timed out after {timeout}s", "done": True}
+            return
+
+        await proc.wait()
+        duration_ms = int((time.monotonic() - start) * 1000)
+        raw = "".join(full_output).strip()
+
+        if proc.returncode != 0:
+            stderr = (await proc.stderr.read()).decode().strip()
+            yield {"error": f"Exit code {proc.returncode}: {stderr}", "done": True}
+            return
+
+        # Final result with parsed JSON
+        try:
+            parsed = self._parse_json(raw)
+            yield {"result": parsed, "duration_ms": duration_ms, "done": True}
+        except ValueError:
+            yield {"result": raw, "duration_ms": duration_ms, "done": True}
+
     @staticmethod
     def _parse_json(content: str) -> dict:
         # Try direct parse first (ideal case: Claude returned clean JSON)

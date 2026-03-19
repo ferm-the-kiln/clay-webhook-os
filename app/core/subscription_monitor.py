@@ -96,7 +96,7 @@ class SubscriptionMonitor:
         elif status == "exhausted":
             self._pause(f"Subscription exhausted (errors: {health.get('today_errors', 0)})")
         elif status == "critical":
-            self._pause(f"Subscription critical — recent rate limit errors")
+            self._pause("Subscription critical — recent rate limit errors")
         else:
             self._last_healthy = time.time()
 
@@ -127,7 +127,7 @@ class SubscriptionMonitor:
 
         executor = ClaudeExecutor()
         try:
-            result = await executor.execute(
+            await executor.execute(
                 'Respond with exactly: {"ok":true}',
                 model="haiku",
                 timeout=30,

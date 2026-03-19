@@ -498,7 +498,7 @@ class TestBuildAgentPrompts:
         memory_store = MagicMock()
         memory_store.query.return_value = []
 
-        prompt = build_agent_prompts(
+        build_agent_prompts(
             skill_content="Skill",
             context_files=[],
             data={},
@@ -607,7 +607,7 @@ class TestGetRoleEdges:
         assert _get_role("knowledge_base/frameworks/sub/deep/file.md") == "Methodology & frameworks"
 
 
-class TestBuildAgentPrompts:
+class TestBuildAgentPromptsExtended:
     @patch("app.core.context_assembler.settings")
     def test_default_researcher_role(self, mock_settings):
         """Uses autonomous researcher role."""

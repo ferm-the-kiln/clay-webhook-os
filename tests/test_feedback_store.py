@@ -605,7 +605,7 @@ class TestFileIO:
         entries_file = tmp_path / "feedback" / "entries.jsonl"
         lines = entries_file.read_text().strip().splitlines()
         assert len(lines) == 2
-        ids = {json.loads(l)["id"] for l in lines}
+        ids = {json.loads(line)["id"] for line in lines}
         assert ids == {entries[1].id, entries[3].id}
 
     def test_summary_file_has_by_skill_and_by_client(self, store, tmp_path):

@@ -4,9 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.core.job_queue import Job, JobQueue, JobStatus, PRIORITY_WEIGHTS
 from app.core.claude_executor import SubscriptionLimitError
-
+from app.core.job_queue import PRIORITY_WEIGHTS, Job, JobQueue, JobStatus
 
 # ---------------------------------------------------------------------------
 # Job dataclass
@@ -130,8 +129,8 @@ class TestJobQueueEnqueue:
 
     @pytest.mark.asyncio
     async def test_get_jobs_sorted_newest_first(self, queue):
-        id1 = await queue.enqueue(skill="first", data={}, instructions=None,
-                                  model="opus", callback_url="", row_id=None)
+        await queue.enqueue(skill="first", data={}, instructions=None,
+                           model="opus", callback_url="", row_id=None)
         id2 = await queue.enqueue(skill="second", data={}, instructions=None,
                                   model="opus", callback_url="", row_id=None)
         jobs = queue.get_jobs()
@@ -569,7 +568,7 @@ class TestGetJobsMultiSkill:
     @pytest.mark.asyncio
     async def test_get_jobs_shows_first_skill_for_chain(self):
         queue = JobQueue(pool=MagicMock())
-        job_id = await queue.enqueue(
+        await queue.enqueue(
             skill="chain", data={}, instructions=None, model="opus",
             callback_url="", row_id=None, skills=["enrich", "score", "email"],
         )

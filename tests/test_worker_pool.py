@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -202,7 +202,7 @@ class TestWorkerPoolSubmit:
         pool._executor = MagicMock()
         pool._executor.execute = track_execute
 
-        results = await asyncio.gather(
+        await asyncio.gather(
             pool.submit("ok"), pool.submit("fail"),
             return_exceptions=True,
         )
@@ -369,8 +369,8 @@ class TestWorkerPoolAgentExecutor:
 class TestWorkerPoolInit:
     def test_creates_both_executors(self):
         pool = WorkerPool()
-        from app.core.claude_executor import ClaudeExecutor
         from app.core.agent_executor import AgentExecutor
+        from app.core.claude_executor import ClaudeExecutor
         assert isinstance(pool._executor, ClaudeExecutor)
         assert isinstance(pool._agent_executor, AgentExecutor)
 

@@ -166,7 +166,7 @@ async def get_skill_content(name: str):
 
 
 @router.put("/skills/{name}/content")
-async def update_skill_content(name: str, body: UpdateSkillRequest):
+async def update_skill_content(name: str, body: UpdateSkillRequest, request: Request):
     from app.core.skill_loader import save_skill
 
     result = save_skill(name, body.content)
@@ -174,6 +174,12 @@ async def update_skill_content(name: str, body: UpdateSkillRequest):
         return {"error": True, "error_message": f"Skill '{name}' not found"}
     if isinstance(result, str):
         return {"error": True, "error_message": result}
+
+    # Auto-version on save
+    version_store = getattr(request.app.state, "skill_version_store", None)
+    if version_store:
+        version_store.save_version(name, body.content)
+
     logger.info("[context] Updated skill: %s", name)
     return {"name": name, "content": body.content}
 
@@ -199,6 +205,142 @@ async def delete_skill_endpoint(name: str):
         return {"error": True, "error_message": f"Skill '{name}' not found"}
     logger.info("[context] Deleted skill: %s", name)
     return {"ok": True}
+
+
+# ── Skill Versions ─────────────────────────────────────────
+
+
+@router.get("/skills/{name}/versions")
+async def list_skill_versions(name: str, request: Request):
+    version_store = getattr(request.app.state, "skill_version_store", None)
+    if not version_store:
+        return {"error": True, "error_message": "Skill version store not initialized"}
+    versions = version_store.get_versions(name)
+    return {"name": name, "versions": versions}
+
+
+@router.get("/skills/{name}/versions/{version_number}")
+async def get_skill_version(name: str, version_number: int, request: Request):
+    version_store = getattr(request.app.state, "skill_version_store", None)
+    if not version_store:
+        return {"error": True, "error_message": "Skill version store not initialized"}
+    content = version_store.get_version(name, version_number)
+    if content is None:
+        return {"error": True, "error_message": f"Version {version_number} of skill '{name}' not found"}
+    return {"name": name, "version": version_number, "content": content}
+
+
+@router.post("/skills/{name}/rollback/{version_number}")
+async def rollback_skill_version(name: str, version_number: int, request: Request):
+    version_store = getattr(request.app.state, "skill_version_store", None)
+    if not version_store:
+        return {"error": True, "error_message": "Skill version store not initialized"}
+    if not version_store.rollback(name, version_number):
+        return {"error": True, "error_message": f"Rollback failed: version {version_number} of skill '{name}' not found or skill directory missing"}
+    logger.info("[context] Rolled back skill '%s' to version %d", name, version_number)
+    return {"ok": True, "name": name, "rolled_back_to": version_number}
+
+
+# ── Dynamic Skill Generation ──────────────────────────────
+
+
+class GenerateSkillRequest(BaseModel):
+    description: str = Field(..., description="Natural language description of what the skill should do")
+    name: str | None = Field(None, description="Suggested skill name (auto-generated if omitted)")
+    model: str = Field("sonnet", description="Model to use for generation")
+
+
+@router.post("/skills/generate")
+async def generate_skill(body: GenerateSkillRequest, request: Request):
+    """Generate a new skill.md from a natural language description."""
+    pool = request.app.state.pool
+
+    prompt = f"""You are an expert at creating skill definitions for an AI webhook system.
+Given a user description, generate a complete skill.md file following this exact template:
+
+# [Skill Name] — [Short Description]
+
+## Role
+Who the AI acts as for this skill.
+
+## Context Files to Load
+- knowledge_base/voice/default-writing-style.md
+- clients/{{{{client_slug}}}}.md
+
+## Output Format
+Return ONLY valid JSON. Exact keys:
+{{
+  "key1": "description of key1",
+  "key2": "description of key2",
+  "confidence_score": 0.0-1.0
+}}
+
+## Data Fields
+- **field_name** (required): Description
+- **optional_field** (optional): Description
+
+## Rules
+1. Specific constraint
+2. Another constraint
+
+## Examples
+
+### Input:
+{{"field_name": "example value"}}
+
+### Output:
+{{"key1": "example output", "confidence_score": 0.85}}
+
+---
+
+USER DESCRIPTION: {body.description}
+
+Generate the complete skill.md content. Return ONLY the markdown content, no explanation."""
+
+    try:
+        result = await pool.submit(prompt, body.model or "sonnet", raw_mode=True)
+        generated_content = result.get("raw_output") or result.get("result", "")
+
+        # Suggest a name if not provided
+        suggested_name = body.name
+        if not suggested_name:
+            # Extract from first heading
+            for line in str(generated_content).split("\n"):
+                if line.startswith("# "):
+                    suggested_name = line[2:].split("—")[0].strip().lower().replace(" ", "-")
+                    break
+            if not suggested_name:
+                suggested_name = "custom-skill"
+
+        return {
+            "ok": True,
+            "suggested_name": suggested_name,
+            "content": generated_content,
+            "model_used": body.model or "sonnet",
+        }
+    except Exception as e:
+        logger.error("[context] Skill generation failed: %s", e)
+        return {"error": True, "error_message": f"Generation failed: {e}"}
+
+
+@router.post("/skills/generate/confirm")
+async def confirm_generated_skill(body: CreateSkillRequest, request: Request):
+    """Save a generated skill after user review."""
+    from app.core.skill_loader import create_skill
+
+    result = create_skill(body.name, body.content)
+    if result is False:
+        return {"error": True, "error_message": f"Skill '{body.name}' already exists"}
+    if isinstance(result, str):
+        return {"error": True, "error_message": result}
+
+    # Auto-version the new skill
+    version_store = getattr(request.app.state, "skill_version_store", None)
+    if version_store:
+        version_store.save_version(body.name, body.content)
+
+    logger.info("[context] Created generated skill: %s", body.name)
+    return {"ok": True, "name": body.name}
 
 
 # ── Knowledge Base Move ─────────────────────────────────────
@@ -339,7 +481,6 @@ async def nl_update_context(body: NLUpdateRequest, request: Request):
     elif target.startswith("kb:"):
         parts = target[3:].split("/", 1)
         category, filename = parts
-        from app.models.context import UpdateKnowledgeBaseRequest
         store.update_knowledge_file(category, filename, updated_content)
 
     elif target.startswith("skill:"):

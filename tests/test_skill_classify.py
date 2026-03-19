@@ -7,7 +7,7 @@ with skill_loader and model_router.
 from pathlib import Path
 
 from app.core.model_router import resolve_model
-from app.core.skill_loader import list_skills, load_skill_config, parse_frontmatter
+from app.core.skill_loader import list_skills, parse_frontmatter
 
 # Resolve the real skill file relative to the test directory
 SKILL_FILE = Path(__file__).parent.parent / "skills" / "classify" / "skill.md"

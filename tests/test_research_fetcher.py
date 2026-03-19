@@ -1,8 +1,9 @@
 """Tests for app.core.research_fetcher — thin async research functions."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import httpx
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class _FakeExtractResult:
@@ -166,7 +167,7 @@ class TestFetchCompanyProfile:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            result = await fetch_company_profile(
+            await fetch_company_profile(
                 "acme.com", {"tech_stack": "python,react"}, "key",
             )
 

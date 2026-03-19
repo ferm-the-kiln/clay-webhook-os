@@ -4,7 +4,6 @@ from pydantic import ValidationError
 from app.models.requests import BatchRequest, PipelineRequest, PipelineStep, WebhookRequest
 from app.models.responses import ErrorResponse, HealthResponse, Meta, PipelineResponse, PipelineStepResult
 
-
 # ---------------------------------------------------------------------------
 # WebhookRequest
 # ---------------------------------------------------------------------------

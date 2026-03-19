@@ -3,7 +3,6 @@ import re
 import shutil
 from pathlib import Path
 
-from app.config import settings
 from app.core.context_assembler import build_prompt
 from app.core.skill_loader import list_skills, load_context_files, load_skill, load_skill_config, parse_context_refs
 from app.models.context import (

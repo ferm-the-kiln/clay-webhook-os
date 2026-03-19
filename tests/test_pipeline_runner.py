@@ -1,8 +1,7 @@
-import yaml
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import yaml
 
 from app.core.pipeline_runner import (
     _deep_merge,
@@ -18,7 +17,6 @@ from app.core.pipeline_runner import (
     run_pipeline_from_plan,
     run_skill_chain,
 )
-
 
 # ---------------------------------------------------------------------------
 # evaluate_condition
@@ -1074,7 +1072,7 @@ class TestRunSkillChainDeeper:
             {"result": {"enriched": True}, "duration_ms": 50},
             {"result": {"email": "Hi"}, "duration_ms": 50},
         ]
-        result = await run_skill_chain(["enrich", "email"], {"name": "Alice"}, None, "opus", pool)
+        await run_skill_chain(["enrich", "email"], {"name": "Alice"}, None, "opus", pool)
         # Second call to build_prompt should include enriched data
         second_call_data = mock_prompt.call_args_list[1][0][2]  # 3rd positional arg = data
         assert second_call_data.get("enriched") is True

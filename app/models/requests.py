@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 class WebhookRequest(BaseModel):
     skill: str | None = Field(None, description="Skill name (e.g. 'email-gen')")
     skills: list[str] | None = Field(None, description="Skill chain (e.g. ['account-researcher', 'qualifier'])")
+    chain: str | None = Field(None, description="Skill chain DSL (e.g. 'email-gen → quality-gate')")
     function: str | None = Field(None, description="Function ID — loads function YAML, validates inputs, runs steps")
     data: dict = Field(..., description="Row data from Clay")
     instructions: str | None = Field(None, description="Optional campaign instructions")
@@ -19,8 +20,8 @@ class WebhookRequest(BaseModel):
         # function parameter is an alternative to skill/skills
         if self.function:
             return self
-        if not self.skill and not self.skills:
-            raise ValueError("Either 'skill', 'skills', or 'function' must be provided")
+        if not self.skill and not self.skills and not self.chain:
+            raise ValueError("Either 'skill', 'skills', 'chain', or 'function' must be provided")
         if self.skill and self.skills:
             # Allow skill="auto" alongside skills list (skills is ignored in auto mode)
             if self.skill != "auto":

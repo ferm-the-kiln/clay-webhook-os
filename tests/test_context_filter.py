@@ -4,13 +4,12 @@ import pytest
 
 from app.core.context_filter import (
     SKILL_CLIENT_SECTIONS,
+    _extract_signal_playbook_row,
     filter_client_profile,
     filter_signal_sections,
     match_persona_subsection,
     split_markdown_sections,
-    _extract_signal_playbook_row,
 )
-
 
 # ── Fixtures ────────────────────────────────────────────────────
 

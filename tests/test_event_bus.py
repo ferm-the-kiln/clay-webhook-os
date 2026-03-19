@@ -1,8 +1,6 @@
 import asyncio
 import json
 
-import pytest
-
 from app.core.event_bus import EventBus
 
 

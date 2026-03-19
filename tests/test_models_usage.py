@@ -3,12 +3,6 @@
 import pytest
 from pydantic import ValidationError
 
-from app.models.usage import (
-    DailyUsage,
-    UsageEntry,
-    UsageError,
-    UsageSummary,
-)
 from app.models.responses import (
     ErrorResponse,
     HealthResponse,
@@ -16,7 +10,12 @@ from app.models.responses import (
     PipelineResponse,
     PipelineStepResult,
 )
-
+from app.models.usage import (
+    DailyUsage,
+    UsageEntry,
+    UsageError,
+    UsageSummary,
+)
 
 # ---------------------------------------------------------------------------
 # UsageEntry

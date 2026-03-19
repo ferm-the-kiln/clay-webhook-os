@@ -1,8 +1,7 @@
-import time
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
-from app.models.pipelines import CreatePipelineRequest, UpdatePipelineRequest, PipelineTestRequest
+from app.models.pipelines import CreatePipelineRequest, PipelineTestRequest, UpdatePipelineRequest
 
 router = APIRouter(prefix="/pipelines", tags=["pipelines"])
 

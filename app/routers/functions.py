@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from app.core.tool_catalog import get_tool_catalog, get_tool_categories
 from app.models.functions import (
     AssembleFunctionRequest,
     CreateFolderRequest,
@@ -11,7 +12,6 @@ from app.models.functions import (
     RenameFolderRequest,
     UpdateFunctionRequest,
 )
-from app.core.tool_catalog import get_tool_catalog, get_tool_categories
 
 logger = logging.getLogger("clay-webhook-os")
 router = APIRouter(tags=["functions"])

@@ -5,7 +5,6 @@ from pydantic import ValidationError
 
 from app.models.signals import BuyingSignal, SignalResearchResult
 
-
 # ---------------------------------------------------------------------------
 # BuyingSignal
 # ---------------------------------------------------------------------------

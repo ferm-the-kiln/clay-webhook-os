@@ -172,7 +172,7 @@ class TestCompact:
         store.compact(cutoff=time.time() - 500)
         # Rewritten file should have only 1 entry
         f = tmp_path / "usage" / "entries.jsonl"
-        lines = [l for l in f.read_text().strip().splitlines() if l.strip()]
+        lines = [line for line in f.read_text().strip().splitlines() if line.strip()]
         assert len(lines) == 1
 
     def test_compact_no_rewrite_when_nothing_removed(self, store, tmp_path):
@@ -547,7 +547,7 @@ class TestCompactDeeper:
         store.record_error("new", "new msg")
         store.compact(cutoff=time.time() - 500)
         f = tmp_path / "usage" / "errors.jsonl"
-        lines = [l for l in f.read_text().strip().splitlines() if l.strip()]
+        lines = [line for line in f.read_text().strip().splitlines() if line.strip()]
         assert len(lines) == 1
         parsed = json.loads(lines[0])
         assert parsed["error_type"] == "new"

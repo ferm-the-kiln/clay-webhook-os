@@ -1,4 +1,3 @@
-import pytest
 
 from app.core.destination_store import validate_callback_url
 

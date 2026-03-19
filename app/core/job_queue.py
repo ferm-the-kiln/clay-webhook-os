@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING
 import httpx
 
 from app.config import settings
+from app.core.claude_executor import SubscriptionLimitError
 from app.core.context_assembler import build_agent_prompts, build_prompt
 from app.core.model_router import resolve_model
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config, load_skill_variant
 from app.core.token_estimator import estimate_cost, estimate_tokens
-from app.core.claude_executor import SubscriptionLimitError
 from app.core.worker_pool import WorkerPool
 
 if TYPE_CHECKING:
@@ -368,7 +368,6 @@ class JobQueue:
                 # Update experiment results if this job is part of an experiment
                 if job.experiment_id and job.variant_id and job.status == JobStatus.completed:
                     try:
-                        from app.core.experiment_store import ExperimentStore
                         # Access store via import — it's set on app.state but we don't have app ref here
                         # Instead we'll use a reference stored on the queue
                         if hasattr(self, '_experiment_store') and self._experiment_store:

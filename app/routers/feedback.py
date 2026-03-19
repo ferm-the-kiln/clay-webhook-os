@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.models.feedback import FeedbackEntry, SubmitFeedbackRequest
 
@@ -98,7 +98,6 @@ async def rerun_with_feedback(job_id: str, request: Request):
     queue = request.app.state.job_queue
     store = request.app.state.feedback_store
     pool = request.app.state.pool
-    cache = request.app.state.cache
 
     job = queue.get_job(job_id)
     if job is None:
@@ -186,6 +185,29 @@ async def get_learnings(
         return {"client_slug": client_slug, "learnings": []}
     entries = engine.get_learnings(client_slug=client_slug, skill=skill, limit=limit)
     return {"client_slug": client_slug, "learnings": entries}
+
+
+# ── Pattern Mining (Cross-Client Analysis) ─────────────────
+
+
+@router.post("/patterns/mine")
+async def mine_patterns(request: Request):
+    """Run cross-client pattern mining on all feedback."""
+    miner = getattr(request.app.state, "pattern_miner", None)
+    if not miner:
+        raise HTTPException(status_code=503, detail="Pattern miner not initialized")
+    store = request.app.state.feedback_store
+    result = miner.mine(store)
+    return result
+
+
+@router.get("/patterns/latest")
+async def get_latest_patterns(request: Request):
+    """Get the most recent pattern mining results."""
+    miner = getattr(request.app.state, "pattern_miner", None)
+    if not miner:
+        return {"patterns": [], "last_run": 0}
+    return miner.get_latest()
 
 
 @router.get("/learnings/{client_slug}/digest")

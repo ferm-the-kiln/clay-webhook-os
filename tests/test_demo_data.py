@@ -1,10 +1,7 @@
 """Tests for synthetic demo CSV data quality and structure."""
 
 import csv
-import os
 from pathlib import Path
-
-import pytest
 
 CSV_PATH = Path(__file__).parent.parent / "data" / "demo" / "synthetic-50.csv"
 

@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 import httpx
 
@@ -34,10 +35,17 @@ class RetryItem:
 class RetryWorker:
     """Durable retry with exponential backoff for failed webhook deliveries."""
 
-    def __init__(self, data_dir: Path, event_bus: "EventBus | None" = None, check_interval: int = 10):
+    def __init__(
+        self,
+        data_dir: Path,
+        event_bus: "EventBus | None" = None,
+        check_interval: int = 10,
+        max_concurrent_per_host: int = 5,
+    ):
         self._data_dir = data_dir
         self._event_bus = event_bus
         self._check_interval = check_interval
+        self._max_concurrent_per_host = max_concurrent_per_host
         self._queue_file = data_dir / "retry_queue.json"
         self._dead_file = data_dir / "dead_letters.json"
         self._pending: list[RetryItem] = []
@@ -46,6 +54,7 @@ class RetryWorker:
         self._total_retried: int = 0
         self._total_succeeded: int = 0
         self._total_dead: int = 0
+        self._host_semaphores: dict[str, asyncio.Semaphore] = {}
 
     def load(self) -> None:
         self._data_dir.mkdir(parents=True, exist_ok=True)
@@ -135,8 +144,20 @@ class RetryWorker:
                 logger.error("[retry-worker] Loop error: %s", e)
             await asyncio.sleep(self._check_interval)
 
+    def _get_host_semaphore(self, url: str) -> asyncio.Semaphore:
+        """Get or create a per-host semaphore for rate limiting deliveries."""
+        host = urlparse(url).netloc
+        if host not in self._host_semaphores:
+            self._host_semaphores[host] = asyncio.Semaphore(self._max_concurrent_per_host)
+        return self._host_semaphores[host]
+
     async def _attempt_delivery(self, item: RetryItem) -> None:
         self._total_retried += 1
+        semaphore = self._get_host_semaphore(item.url)
+        async with semaphore:
+            await self._deliver(item)
+
+    async def _deliver(self, item: RetryItem) -> None:
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(item.url, json=item.payload, headers=item.headers)

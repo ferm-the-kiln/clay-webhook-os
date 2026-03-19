@@ -13,7 +13,6 @@ from app.core.job_queue import Job, JobStatus
 from app.models.destinations import (
     CreateDestinationRequest,
     Destination,
-    DestinationType,
     PushResult,
     UpdateDestinationRequest,
 )

@@ -17,6 +17,7 @@ import {
   FlaskConical,
   Send,
   FolderTree,
+  ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -50,6 +51,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/workbench", label: "Workbench", icon: FlaskConical, shortcut: "2" },
       { href: "/outbound", label: "Outbound", icon: Send, shortcut: "3" },
       { href: "/context", label: "Context", icon: FolderTree, shortcut: "4" },
+      { href: "/quality", label: "Quality", icon: ShieldCheck, shortcut: "5" },
     ],
   },
 ];
@@ -184,6 +186,8 @@ export function Sidebar() {
     { href: "/workbench", label: "Workbench", icon: FlaskConical },
     { href: "/outbound", label: "Outbound", icon: Send },
     { href: "/context", label: "Context", icon: FolderTree },
+    { href: "/quality", label: "Quality", icon: ShieldCheck },
+    { href: "/debugger", label: "Debugger", icon: Bug },
   ];
 
   return (
@@ -192,13 +196,15 @@ export function Sidebar() {
       <aside className="relative z-10 hidden md:flex shrink-0 border-r border-clay-600 bg-clay-800 p-4 flex-col gap-1 lg:w-56 w-16">
         {/* Logo */}
         <div className="mb-5 px-3 flex items-center gap-3">
-          <Image
-            src="/brand-assets/the-kiln-logo.png"
-            alt="The Kiln"
-            width={36}
-            height={36}
-            className="rounded-md invert"
-          />
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-clay-700 border border-clay-500">
+            <Image
+              src="/brand-assets/the-kiln-logo.png"
+              alt="The Kiln"
+              width={24}
+              height={24}
+              className="invert"
+            />
+          </div>
           <h1 className="hidden lg:block text-lg font-bold text-clay-100 font-[family-name:var(--font-sans)] tracking-tight">
             Clay OS
           </h1>
@@ -215,13 +221,15 @@ export function Sidebar() {
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
           <div className="mb-5 px-3 flex items-center gap-3">
-            <Image
-              src="/brand-assets/the-kiln-logo.png"
-              alt="The Kiln"
-              width={36}
-              height={36}
-              className="rounded-md invert"
-            />
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-clay-700 border border-clay-500">
+              <Image
+                src="/brand-assets/the-kiln-logo.png"
+                alt="The Kiln"
+                width={24}
+                height={24}
+                className="invert"
+              />
+            </div>
             <h1 className="text-lg font-bold text-clay-100 font-[family-name:var(--font-sans)] tracking-tight">
               Clay OS
             </h1>

@@ -1,14 +1,12 @@
 """Tests for app/core/agent_executor.py — multi-turn agent executor with tool calls."""
 
 import asyncio
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.core.agent_executor import AgentExecutor
 from app.core.claude_executor import SubscriptionLimitError
-
 
 # ---------------------------------------------------------------------------
 # Helper to build a mock subprocess

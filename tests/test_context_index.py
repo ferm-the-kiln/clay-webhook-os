@@ -1,12 +1,10 @@
 """Tests for app/core/context_index.py — TF-IDF semantic index over markdown files."""
 
 import math
-from pathlib import Path
 
 import pytest
 
-from app.core.context_index import ContextIndex, _tokenize, _STOP_WORDS
-
+from app.core.context_index import _STOP_WORDS, ContextIndex, _tokenize
 
 # ---------------------------------------------------------------------------
 # _tokenize

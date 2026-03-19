@@ -1,7 +1,7 @@
-import yaml
 from pathlib import Path
 
 import pytest
+import yaml
 
 from app.core.play_store import PlayStore
 from app.models.plays import (

@@ -4,11 +4,18 @@ import logging
 import time
 import uuid
 
-from fastapi import APIRouter, Request, UploadFile, File
+from fastapi import APIRouter, File, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.models.datasets import AnalysisRequest, AnalysisResult, ComputeColumnRequest, CreateDatasetRequest, RunStageRequest, StageStatus
-from app.core.dataset_analyzer import DatasetAnalyzer, ANALYSIS_TYPES
+from app.core.dataset_analyzer import ANALYSIS_TYPES, DatasetAnalyzer
+from app.models.datasets import (
+    AnalysisRequest,
+    AnalysisResult,
+    ComputeColumnRequest,
+    CreateDatasetRequest,
+    RunStageRequest,
+    StageStatus,
+)
 
 router = APIRouter(tags=["datasets"])
 logger = logging.getLogger("clay-webhook-os")
@@ -378,7 +385,6 @@ async def _run_classify(
     """Run classify skill on rows to normalize seniority + industry."""
     import asyncio
     import json as json_mod
-    import subprocess
 
     updates: dict[str, dict] = {}
     for row in rows:
@@ -622,7 +628,6 @@ async def _run_analysis(
 
 def _save_analysis(store, dataset_id: str, result: AnalysisResult):
     """Save analysis result to disk."""
-    import json as json_mod
     analyses_dir = store.base_dir / dataset_id / "analyses"
     analyses_dir.mkdir(parents=True, exist_ok=True)
     path = analyses_dir / f"{result.analysis_id}.json"

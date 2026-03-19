@@ -1,0 +1,86 @@
+[
+  {
+    "input": {
+      "skill": "email-gen",
+      "data": {
+        "first_name": "Sarah",
+        "company_name": "Acme Corp",
+        "company_domain": "acme.com",
+        "title": "VP of Engineering",
+        "industry": "SaaS",
+        "signal_type": "hiring",
+        "signal_detail": "Acme is hiring 5 senior backend engineers",
+        "client_slug": "demo"
+      }
+    },
+    "expected_fields": [
+      "email_subject",
+      "email_body",
+      "personalization_hook",
+      "angle_used",
+      "angle_reasoning",
+      "framework_notes",
+      "confidence_score"
+    ],
+    "quality_criteria": {
+      "confidence_score_min": 0.5,
+      "max_field_lengths": {
+        "email_subject": 60
+      }
+    }
+  },
+  {
+    "input": {
+      "skill": "email-gen",
+      "data": {
+        "first_name": "Mike",
+        "company_name": "Globex Inc",
+        "title": "CTO",
+        "client_slug": "demo"
+      }
+    },
+    "expected_fields": [
+      "email_subject",
+      "email_body",
+      "confidence_score"
+    ],
+    "quality_criteria": {
+      "confidence_score_min": 0.3,
+      "max_field_lengths": {
+        "email_subject": 60
+      }
+    }
+  },
+  {
+    "input": {
+      "skill": "email-gen",
+      "data": {
+        "first_name": "Lisa",
+        "company_name": "TechFlow",
+        "company_domain": "techflow.io",
+        "title": "Head of Sales",
+        "industry": "B2B SaaS",
+        "signal_type": "funding",
+        "signal_detail": "TechFlow raised $15M Series A led by Sequoia",
+        "tech_stack": "Salesforce, HubSpot, Outreach",
+        "employee_count": "120",
+        "client_slug": "demo"
+      }
+    },
+    "expected_fields": [
+      "email_subject",
+      "email_body",
+      "personalization_hook",
+      "angle_used",
+      "angle_reasoning",
+      "framework_notes",
+      "confidence_score"
+    ],
+    "quality_criteria": {
+      "confidence_score_min": 0.7,
+      "max_field_lengths": {
+        "email_subject": 60
+      }
+    }
+  }
+]

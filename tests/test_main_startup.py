@@ -1,10 +1,6 @@
 """Tests for app/main.py — verify app setup, middleware, routers, and startup lifecycle."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
-import pytest
-
-from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Helper for startup tests — creates mock constructors
@@ -192,7 +188,7 @@ class TestStartup:
         skills_patch = patch("app.main.list_skills", return_value=["email-gen"])
 
         with skills_patch:
-            ctxs = {name: p.start() for name, p in patches.items()}
+            {name: p.start() for name, p in patches.items()}
             try:
                 await main_module.startup()
 

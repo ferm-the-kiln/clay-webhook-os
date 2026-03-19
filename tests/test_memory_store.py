@@ -3,9 +3,6 @@
 import json
 import time
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 from app.core.memory_store import (
     DEFAULT_TTL,
@@ -15,7 +12,6 @@ from app.core.memory_store import (
     _extract_entity_key,
     _slugify,
 )
-
 
 # ---------------------------------------------------------------------------
 # _slugify
