@@ -193,20 +193,15 @@ export function Sidebar() {
         {/* Logo */}
         <div className="mb-5 px-3 flex items-center gap-3">
           <Image
-            src="/brand-assets/the-kiln-logo.avif"
+            src="/brand-assets/the-kiln-logo.png"
             alt="The Kiln"
-            width={32}
-            height={32}
-            className="rounded-md"
+            width={36}
+            height={36}
+            className="rounded-md invert"
           />
-          <div className="hidden lg:block">
-            <h1 className="text-lg font-bold text-clay-100 font-[family-name:var(--font-sans)] tracking-tight">
-              Clay OS
-            </h1>
-            <p className="text-[10px] text-clay-300 tracking-[0.1em] uppercase font-mono">
-              Functions Platform
-            </p>
-          </div>
+          <h1 className="hidden lg:block text-lg font-bold text-clay-100 font-[family-name:var(--font-sans)] tracking-tight">
+            Clay OS
+          </h1>
         </div>
 
         {/* Nav - compact on md, full on lg */}
@@ -221,20 +216,15 @@ export function Sidebar() {
           <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
           <div className="mb-5 px-3 flex items-center gap-3">
             <Image
-              src="/brand-assets/the-kiln-logo.avif"
+              src="/brand-assets/the-kiln-logo.png"
               alt="The Kiln"
-              width={32}
-              height={32}
-              className="rounded-md"
+              width={36}
+              height={36}
+              className="rounded-md invert"
             />
-            <div>
-              <h1 className="text-lg font-bold text-clay-100 font-[family-name:var(--font-sans)] tracking-tight">
-                Clay OS
-              </h1>
-              <p className="text-[10px] text-clay-300 tracking-[0.1em] uppercase font-mono">
-                Functions Platform
-              </p>
-            </div>
+            <h1 className="text-lg font-bold text-clay-100 font-[family-name:var(--font-sans)] tracking-tight">
+              Clay OS
+            </h1>
           </div>
           {renderSectionNav(false, () => setMobileOpen(false))}
         </SheetContent>
