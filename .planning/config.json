@@ -1,11 +1,11 @@
 {
   "mode": "yolo",
-  "granularity": "coarse",
+  "granularity": "standard",
   "parallelization": true,
   "commit_docs": true,
   "model_profile": "quality",
   "workflow": {
-    "research": true,
+    "research": false,
     "plan_check": true,
     "verifier": true,
     "nyquist_validation": true
