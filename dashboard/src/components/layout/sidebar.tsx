@@ -207,7 +207,7 @@ export function Sidebar() {
             />
           </div>
           <h1 className="hidden lg:block text-lg font-bold text-clay-100 font-[family-name:var(--font-sans)] tracking-tight">
-            Clay OS
+            Webhook OS
           </h1>
         </div>
 
@@ -232,7 +232,7 @@ export function Sidebar() {
               />
             </div>
             <h1 className="text-lg font-bold text-clay-100 font-[family-name:var(--font-sans)] tracking-tight">
-              Clay OS
+              Webhook OS
             </h1>
           </div>
           {renderSectionNav(false, () => setMobileOpen(false))}

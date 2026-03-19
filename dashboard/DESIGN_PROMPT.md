@@ -122,7 +122,7 @@ Every card should feel like a **classic Mac window**:
 - Active item: `--accent-primary` text, `--accent-primary-glow` background, left accent bar (2px, `--accent-primary`)
 - Section headers: uppercase, `--text-tertiary`, 11px, tracked +0.1em
 - Keyboard shortcut badges: `--bg-inset` background, `--text-tertiary`, monospace, 10px — look like tiny keycaps
-- Logo area: minimal — "Clay OS" in the retro accent style, or a small monochrome apple-era-inspired icon
+- Logo area: minimal — "Webhook OS" in the retro accent style, or a small monochrome apple-era-inspired icon
 
 ### Tables
 - No zebra striping — too modern

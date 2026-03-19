@@ -6,8 +6,8 @@ import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog"
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Clay OS — Webhook Dashboard",
-  description: "Dashboard for Clay Webhook OS",
+  title: "Webhook OS — Dashboard",
+  description: "Dashboard for Webhook OS",
 };
 
 export default function RootLayout({
