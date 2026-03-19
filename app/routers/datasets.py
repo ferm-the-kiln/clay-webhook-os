@@ -7,7 +7,8 @@ import uuid
 from fastapi import APIRouter, Request, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.models.datasets import ComputeColumnRequest, CreateDatasetRequest, RunStageRequest, StageStatus
+from app.models.datasets import AnalysisRequest, AnalysisResult, ComputeColumnRequest, CreateDatasetRequest, RunStageRequest, StageStatus
+from app.core.dataset_analyzer import DatasetAnalyzer, ANALYSIS_TYPES
 
 router = APIRouter(tags=["datasets"])
 logger = logging.getLogger("clay-webhook-os")
@@ -199,6 +200,79 @@ async def compute_column(dataset_id: str, body: ComputeColumnRequest, request: R
         "rows_computed": len(updates),
         "errors": errors,
     }
+
+
+@router.post("/datasets/{dataset_id}/analyze")
+async def analyze_dataset(dataset_id: str, body: AnalysisRequest, request: Request):
+    """Run a whole-dataset analysis using Python pre-processing + claude."""
+    store = request.app.state.dataset_store
+    ds = store.get(dataset_id)
+    if not ds:
+        return JSONResponse({"error": True, "error_message": "Dataset not found"}, status_code=404)
+
+    if body.analysis_type not in ANALYSIS_TYPES:
+        return JSONResponse(
+            {"error": True, "error_message": f"Invalid analysis type. Must be one of: {', '.join(sorted(ANALYSIS_TYPES))}"},
+            status_code=400,
+        )
+
+    all_rows, total = store.get_rows(dataset_id, offset=0, limit=999999)
+    if not all_rows:
+        return JSONResponse({"error": True, "error_message": "Dataset has no rows"}, status_code=400)
+
+    analysis_id = uuid.uuid4().hex[:12]
+    now = time.time()
+    result = AnalysisResult(
+        analysis_id=analysis_id,
+        dataset_id=dataset_id,
+        analysis_type=body.analysis_type,
+        status="processing",
+        business_context=body.business_context,
+        outcome_column=body.outcome_column,
+        segment_columns=body.segment_columns,
+        created_at=now,
+    )
+
+    # Save initial status
+    _save_analysis(store, dataset_id, result)
+
+    # Run async
+    import asyncio
+    asyncio.create_task(_run_analysis(
+        request=request,
+        dataset_id=dataset_id,
+        analysis_id=analysis_id,
+        rows=all_rows,
+        body=body,
+    ))
+
+    return {"analysis_id": analysis_id, "status": "processing", "analysis_type": body.analysis_type}
+
+
+@router.get("/datasets/{dataset_id}/analyses")
+async def list_analyses(dataset_id: str, request: Request):
+    """List all analyses for a dataset."""
+    store = request.app.state.dataset_store
+    ds = store.get(dataset_id)
+    if not ds:
+        return JSONResponse({"error": True, "error_message": "Dataset not found"}, status_code=404)
+
+    analyses = _load_analyses(store, dataset_id)
+    return {"analyses": [a.model_dump() for a in analyses]}
+
+
+@router.get("/datasets/{dataset_id}/analyses/{analysis_id}")
+async def get_analysis(dataset_id: str, analysis_id: str, request: Request):
+    """Get a specific analysis result."""
+    store = request.app.state.dataset_store
+    ds = store.get(dataset_id)
+    if not ds:
+        return JSONResponse({"error": True, "error_message": "Dataset not found"}, status_code=404)
+
+    analysis = _load_analysis(store, dataset_id, analysis_id)
+    if not analysis:
+        return JSONResponse({"error": True, "error_message": "Analysis not found"}, status_code=404)
+    return analysis.model_dump()
 
 
 @router.delete("/datasets/{dataset_id}")
@@ -467,3 +541,112 @@ async def _run_skill_stage(
             else:
                 col_types[key] = "string"
         store.add_stage_columns(dataset_id, stage, col_types)
+
+
+# --- Analysis execution ---
+
+async def _run_analysis(
+    request: Request,
+    dataset_id: str,
+    analysis_id: str,
+    rows: list[dict],
+    body: AnalysisRequest,
+):
+    """Run the full analysis pipeline: preprocess → prompt → claude."""
+    store = request.app.state.dataset_store
+    pool = request.app.state.pool
+    analyzer = DatasetAnalyzer()
+
+    try:
+        # Step 1: Python pre-processing
+        preprocessed = analyzer.preprocess(
+            rows=rows,
+            analysis_type=body.analysis_type,
+            outcome_column=body.outcome_column,
+            segment_columns=body.segment_columns,
+        )
+
+        # Update with preprocessed summary
+        result = _load_analysis(store, dataset_id, analysis_id)
+        if result:
+            result.preprocessed_summary = {
+                "row_count": preprocessed["row_count"],
+                "column_count": len(preprocessed["columns"]),
+                "cross_tab_count": len(preprocessed.get("cross_tabs", {})),
+                "sample_row_count": len(preprocessed.get("sample_rows", [])),
+            }
+            _save_analysis(store, dataset_id, result)
+
+        # Step 2: Build prompt
+        prompt = analyzer.build_analysis_prompt(
+            preprocessed=preprocessed,
+            analysis_type=body.analysis_type,
+            business_context=body.business_context,
+        )
+
+        # Step 3: Run claude (opus for deep reasoning)
+        result_text = await pool.submit(prompt, model="opus", timeout=180)
+
+        # Step 4: Parse result
+        import json as json_mod
+        try:
+            analysis_result = json_mod.loads(result_text)
+        except (json_mod.JSONDecodeError, TypeError):
+            # Try to extract JSON from response
+            if "{" in str(result_text) and "}" in str(result_text):
+                text = str(result_text)
+                start = text.index("{")
+                end = text.rindex("}") + 1
+                analysis_result = json_mod.loads(text[start:end])
+            else:
+                raise ValueError(f"Claude returned non-JSON: {str(result_text)[:200]}")
+
+        # Save completed result
+        result = _load_analysis(store, dataset_id, analysis_id)
+        if result:
+            result.status = "completed"
+            result.results = analysis_result
+            result.completed_at = time.time()
+            _save_analysis(store, dataset_id, result)
+            logger.info("[datasets] Analysis %s completed for dataset %s", analysis_id, dataset_id)
+
+    except Exception as e:
+        logger.error("[datasets] Analysis %s failed: %s", analysis_id, str(e)[:300])
+        result = _load_analysis(store, dataset_id, analysis_id)
+        if result:
+            result.status = "failed"
+            result.error_message = str(e)[:500]
+            result.completed_at = time.time()
+            _save_analysis(store, dataset_id, result)
+
+
+def _save_analysis(store, dataset_id: str, result: AnalysisResult):
+    """Save analysis result to disk."""
+    import json as json_mod
+    analyses_dir = store.base_dir / dataset_id / "analyses"
+    analyses_dir.mkdir(parents=True, exist_ok=True)
+    path = analyses_dir / f"{result.analysis_id}.json"
+    path.write_text(result.model_dump_json(indent=2))
+
+
+def _load_analysis(store, dataset_id: str, analysis_id: str) -> AnalysisResult | None:
+    """Load a single analysis result."""
+    path = store.base_dir / dataset_id / "analyses" / f"{analysis_id}.json"
+    if not path.exists():
+        return None
+    return AnalysisResult.model_validate_json(path.read_text())
+
+
+def _load_analyses(store, dataset_id: str) -> list[AnalysisResult]:
+    """Load all analyses for a dataset."""
+    analyses_dir = store.base_dir / dataset_id / "analyses"
+    if not analyses_dir.exists():
+        return []
+    results = []
+    for path in sorted(analyses_dir.iterdir()):
+        if path.suffix == ".json":
+            try:
+                results.append(AnalysisResult.model_validate_json(path.read_text()))
+            except Exception:
+                continue
+    return sorted(results, key=lambda r: r.created_at, reverse=True)

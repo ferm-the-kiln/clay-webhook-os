@@ -57,3 +57,25 @@ class StageStatus(BaseModel):
     completed: int = 0
     failed: int = 0
     status: str = Field("running", description="running, completed, or failed")
+
+
+class AnalysisRequest(BaseModel):
+    analysis_type: str = Field(..., description="Type: icp, win-loss, churn, usage, sequence-performance, expansion")
+    business_context: str = Field("", description="What does your company sell, who is your ICP")
+    outcome_column: str | None = Field(None, description="Column name for won/lost/churned outcome")
+    segment_columns: list[str] | None = Field(None, description="Columns to segment by")
+
+
+class AnalysisResult(BaseModel):
+    analysis_id: str
+    dataset_id: str
+    analysis_type: str
+    status: str = Field("processing", description="processing, completed, or failed")
+    business_context: str = ""
+    outcome_column: str | None = None
+    segment_columns: list[str] | None = None
+    preprocessed_summary: dict | None = None
+    results: dict | None = None
+    error_message: str | None = None
+    created_at: float
+    completed_at: float | None = None

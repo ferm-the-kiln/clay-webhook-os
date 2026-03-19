@@ -1,0 +1,25 @@
+name: account-plan
+description: >
+  Full account intelligence package — research company, assess ICP fit,
+  counter competitor (if known), generate personalized email, QA.
+  Minimum input: company_name + company_domain + client_slug.
+steps:
+  - skill: company-research
+    confidence_field: confidence_score
+
+  - skill: account-researcher
+    confidence_field: confidence_score
+
+  - skill: competitive-response
+    condition: "competitor_mentioned != ''"
+    confidence_field: confidence_score
+
+  - skill: email-gen
+    condition: "confidence_score >= 0.4"
+    confidence_field: confidence_score
+
+  - skill: quality-gate
+    condition: "confidence_score >= 0.4"
+    confidence_field: confidence_score
+
+confidence_threshold: 0.6
