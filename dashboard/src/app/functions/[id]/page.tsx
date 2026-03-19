@@ -191,12 +191,6 @@ export default function FunctionDetailPage() {
         return;
       }
 
-      // Cmd+Shift+C — copy Clay config
-      if (e.key === "c" && e.shiftKey) {
-        e.preventDefault();
-        handleCopyClayConfig();
-        return;
-      }
 
       // Cmd+Enter — run quick test (when test panel open)
       if (e.key === "Enter" && testOpen && !testing) {
@@ -417,20 +411,6 @@ export default function FunctionDetailPage() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent><kbd className="text-[10px]">{"\u2318"}+Enter</kbd> to run</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={openClayWizard}
-                    className="border-clay-600 text-clay-300"
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Copy to Clay
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><kbd className="text-[10px]">{"\u2318"}+Shift+C</kbd></TooltipContent>
               </Tooltip>
               <Button
                 variant="outline"
