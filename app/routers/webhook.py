@@ -94,6 +94,10 @@ async def webhook(body: WebhookRequest, request: Request):
             content={"error": True, "error_message": "Service temporarily paused due to subscription limits", "retry_after": 120},
         )
 
+    # --- Function routing (CLAY-01) ---
+    if body.function:
+        return await _run_function(body, request)
+
     # Resolve skill chain
     skill_chain = body.skills or [body.skill]
     primary_skill = skill_chain[0]
@@ -338,5 +342,99 @@ async def webhook(body: WebhookRequest, request: Request):
             "input_tokens_est": input_tokens,
             "output_tokens_est": output_tokens,
             "cost_est_usd": cost_usd,
+        },
+    }
+
+
+async def _run_function(body: WebhookRequest, request: Request) -> dict:
+    """Execute a function by ID — validate inputs, run steps, filter outputs."""
+    import time
+
+    function_store = getattr(request.app.state, "function_store", None)
+    if function_store is None:
+        return _error("Function store not initialized", body.function or "unknown")
+
+    func = function_store.get(body.function)
+    if func is None:
+        return _error(f"Function '{body.function}' not found", body.function or "unknown")
+
+    # Validate required inputs
+    for inp in func.inputs:
+        if inp.required and inp.name not in body.data:
+            return _error(
+                f"Missing required input '{inp.name}' for function '{func.name}'",
+                body.function or "unknown",
+            )
+
+    start_time = time.time()
+    accumulated_output: dict = {}
+
+    # Run each step sequentially
+    for step_idx, step in enumerate(func.steps):
+        tool_id = step.tool
+
+        # Resolve params — substitute {{input_name}} with actual values
+        resolved_params = {}
+        for key, val in step.params.items():
+            resolved = val
+            for inp_name, inp_val in {**body.data, **accumulated_output}.items():
+                resolved = resolved.replace("{{" + str(inp_name) + "}}", str(inp_val))
+            resolved_params[key] = resolved
+
+        # Route to skill or pass through (Deepline tools are future execution)
+        if tool_id.startswith("skill:"):
+            skill_name = tool_id.removeprefix("skill:")
+            # Execute skill via the existing webhook path
+            sub_body = WebhookRequest(
+                skill=skill_name,
+                data={**body.data, **accumulated_output, **resolved_params},
+                instructions=body.instructions,
+                model=body.model,
+            )
+            step_result = await webhook(sub_body, request)
+            if isinstance(step_result, dict):
+                # Remove _meta from accumulated, keep for final
+                step_meta = step_result.pop("_meta", None)
+                accumulated_output.update(step_result)
+        elif tool_id == "call_ai":
+            # AI processing step — run as a generic skill call
+            sub_body = WebhookRequest(
+                skill="quality-gate" if not resolved_params.get("skill") else resolved_params["skill"],
+                data={**body.data, **accumulated_output, **resolved_params},
+                instructions=resolved_params.get("prompt", body.instructions),
+                model=body.model,
+            )
+            step_result = await webhook(sub_body, request)
+            if isinstance(step_result, dict):
+                step_result.pop("_meta", None)
+                accumulated_output.update(step_result)
+        else:
+            # Deepline tool — store as placeholder (actual execution requires Deepline CLI integration)
+            accumulated_output[f"_step_{step_idx}_tool"] = tool_id
+            accumulated_output[f"_step_{step_idx}_params"] = resolved_params
+
+    duration_ms = int((time.time() - start_time) * 1000)
+
+    # Filter output to declared outputs only
+    final_output: dict = {}
+    for out in func.outputs:
+        if out.key in accumulated_output:
+            final_output[out.key] = accumulated_output[out.key]
+        else:
+            # Try to find in nested results
+            final_output[out.key] = accumulated_output.get(out.key)
+
+    # If no outputs declared, return everything
+    if not func.outputs:
+        final_output = accumulated_output
+
+    return {
+        **final_output,
+        "_meta": {
+            "function": func.id,
+            "function_name": func.name,
+            "steps": len(func.steps),
+            "duration_ms": duration_ms,
+            "cached": False,
         },
     }

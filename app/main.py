@@ -26,9 +26,10 @@ from app.core.usage_store import UsageStore
 from app.core.experiment_store import ExperimentStore
 from app.core.cleanup_worker import DataCleanupWorker
 from app.core.dataset_store import DatasetStore
+from app.core.function_store import FunctionStore
 from app.core.retry_worker import RetryWorker
 from app.core.subscription_monitor import SubscriptionMonitor
-from app.routers import batch, context, datasets, destinations, enrichment, experiments, feedback, health, pipeline, pipelines, plays, usage, webhook
+from app.routers import batch, context, datasets, destinations, enrichment, experiments, feedback, functions, health, pipeline, pipelines, plays, usage, webhook
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,6 +71,7 @@ app.include_router(plays.router)
 app.include_router(usage.router)
 app.include_router(enrichment.router)
 app.include_router(datasets.router)
+app.include_router(functions.router)
 
 
 @app.on_event("startup")
@@ -126,6 +128,10 @@ async def startup():
     # Dataset store
     app.state.dataset_store = DatasetStore(data_dir=settings.data_dir)
     app.state.dataset_store.load()
+
+    # Function store
+    app.state.function_store = FunctionStore(functions_dir=settings.functions_dir)
+    app.state.function_store.load()
 
     # Log research API availability
     if settings.parallel_api_key:

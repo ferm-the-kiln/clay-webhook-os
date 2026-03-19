@@ -1,4 +1,6 @@
 import type {
+  AnalysisRequest,
+  AnalysisResult,
   BatchResponse,
   BatchStatus,
   ClayConfig,
@@ -12,6 +14,12 @@ import type {
   Experiment,
   FeedbackEntry,
   FeedbackSummary,
+  FolderDefinition,
+  FunctionDefinition,
+  FunctionInput,
+  FunctionOutput,
+  FunctionStep,
+  FunctionClayConfig,
   GenerateLeadsRequest,
   HealthResponse,
   Job,
@@ -29,6 +37,8 @@ import type {
   ScheduledBatch,
   StageStatus,
   Stats,
+  ToolCategory,
+  ToolDefinition,
   UsageHealth,
   UsageSummary,
   VariantDef,
@@ -776,4 +786,146 @@ export function getLeadResults(
   requestId: string
 ): Promise<LeadListResult> {
   return apiFetch(`/datasets/${datasetId}/lead-results/${requestId}`);
+}
+
+// Dataset Analysis
+export function analyzeDataset(
+  id: string,
+  body: AnalysisRequest
+): Promise<{ analysis_id: string; status: string; analysis_type: string }> {
+  return apiFetch(`/datasets/${id}/analyze`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchAnalyses(
+  id: string
+): Promise<{ analyses: AnalysisResult[] }> {
+  return apiFetch(`/datasets/${id}/analyses`);
+}
+
+export function fetchAnalysis(
+  id: string,
+  analysisId: string
+): Promise<AnalysisResult> {
+  return apiFetch(`/datasets/${id}/analyses/${analysisId}`);
+}
+
+// Functions
+export function fetchFunctions(params?: {
+  folder?: string;
+  q?: string;
+}): Promise<{ functions: FunctionDefinition[]; by_folder: Record<string, FunctionDefinition[]>; total: number }> {
+  const qs = new URLSearchParams();
+  if (params?.folder) qs.set("folder", params.folder);
+  if (params?.q) qs.set("q", params.q);
+  const q = qs.toString();
+  return apiFetch(`/functions${q ? `?${q}` : ""}`);
+}
+
+export function fetchFunction(id: string): Promise<FunctionDefinition> {
+  return apiFetch(`/functions/${id}`);
+}
+
+export function createFunction(body: {
+  name: string;
+  description?: string;
+  folder?: string;
+  inputs?: FunctionInput[];
+  outputs?: FunctionOutput[];
+  steps?: FunctionStep[];
+  clay_config?: FunctionClayConfig | null;
+}): Promise<FunctionDefinition> {
+  return apiFetch("/functions", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateFunction(
+  id: string,
+  body: Partial<Omit<FunctionDefinition, "id" | "created_at" | "updated_at">>
+): Promise<FunctionDefinition> {
+  return apiFetch(`/functions/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteFunction(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/functions/${id}`, { method: "DELETE" });
+}
+
+export function moveFunction(
+  id: string,
+  folder: string
+): Promise<FunctionDefinition> {
+  return apiFetch(`/functions/${id}/move`, {
+    method: "POST",
+    body: JSON.stringify({ folder }),
+  });
+}
+
+// Folders
+export function fetchFolders(): Promise<{ folders: FolderDefinition[] }> {
+  return apiFetch("/functions/folders/list");
+}
+
+export function createFolder(body: {
+  name: string;
+  description?: string;
+}): Promise<FolderDefinition> {
+  return apiFetch("/functions/folders", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function renameFolder(
+  name: string,
+  newName: string
+): Promise<FolderDefinition> {
+  return apiFetch(`/functions/folders/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    body: JSON.stringify({ new_name: newName }),
+  });
+}
+
+export function deleteFolder(name: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/functions/folders/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+}
+
+// Tool Catalog
+export function fetchTools(category?: string): Promise<{ tools: ToolDefinition[]; total: number }> {
+  const qs = category ? `?category=${encodeURIComponent(category)}` : "";
+  return apiFetch(`/tools${qs}`);
+}
+
+export function fetchToolCategories(): Promise<{ categories: ToolCategory[] }> {
+  return apiFetch("/tools/categories");
+}
+
+// AI Function Assembly
+export function assembleFunction(body: {
+  description: string;
+  context?: string;
+}): Promise<{ suggestion: Record<string, unknown>; raw: string; duration_ms: number }> {
+  return apiFetch("/functions/assemble", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// Clay Config Generation
+export function generateFunctionClayConfig(
+  funcId: string,
+  body?: { api_url?: string; api_key?: string }
+): Promise<Record<string, unknown>> {
+  return apiFetch(`/functions/${funcId}/clay-config`, {
+    method: "POST",
+    body: JSON.stringify(body || {}),
+  });
 }

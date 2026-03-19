@@ -493,3 +493,96 @@ export interface LeadListResult {
   total?: number;
   error?: string;
 }
+
+// Analysis types
+// Function types
+export interface FunctionInput {
+  name: string;
+  type: string;
+  required: boolean;
+  description: string;
+}
+
+export interface FunctionOutput {
+  key: string;
+  type: string;
+  description: string;
+}
+
+export interface FunctionStep {
+  tool: string;
+  params: Record<string, string>;
+}
+
+export interface FunctionClayConfig {
+  webhook_path: string;
+  method: string;
+  headers: Record<string, string>;
+  body_template: Record<string, string>;
+}
+
+export interface FunctionDefinition {
+  id: string;
+  name: string;
+  description: string;
+  folder: string;
+  inputs: FunctionInput[];
+  outputs: FunctionOutput[];
+  steps: FunctionStep[];
+  clay_config: FunctionClayConfig | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface FolderDefinition {
+  name: string;
+  description: string;
+  order: number;
+  function_count?: number;
+}
+
+export interface ToolDefinition {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  source: "deepline" | "skill";
+  inputs: { name: string; type: string }[];
+  outputs: { key: string; type: string }[];
+  model_tier?: string;
+}
+
+export interface ToolCategory {
+  category: string;
+  tools: ToolDefinition[];
+}
+
+// Analysis types
+export type AnalysisType = "icp" | "win-loss" | "churn" | "usage" | "sequence-performance" | "expansion";
+
+export interface AnalysisRequest {
+  analysis_type: AnalysisType;
+  business_context?: string;
+  outcome_column?: string | null;
+  segment_columns?: string[] | null;
+}
+
+export interface AnalysisResult {
+  analysis_id: string;
+  dataset_id: string;
+  analysis_type: AnalysisType;
+  status: "processing" | "completed" | "failed";
+  business_context: string;
+  outcome_column: string | null;
+  segment_columns: string[] | null;
+  preprocessed_summary: {
+    row_count: number;
+    column_count: number;
+    cross_tab_count: number;
+    sample_row_count: number;
+  } | null;
+  results: Record<string, unknown> | null;
+  error_message: string | null;
+  created_at: number;
+  completed_at: number | null;
+}

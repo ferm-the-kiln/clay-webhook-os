@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     clients_dir: Path = base_dir / "clients"
     pipelines_dir: Path = base_dir / "pipelines"
     plays_dir: Path = base_dir / "plays"
+    functions_dir: Path = base_dir / "functions"
     data_dir: Path = base_dir / "data"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}

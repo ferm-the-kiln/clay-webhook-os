@@ -21,7 +21,7 @@ class TestWebhookRequest:
         assert r.skills == ["enrich", "score"]
 
     def test_neither_skill_nor_skills_raises(self):
-        with pytest.raises(ValidationError, match="Either 'skill' or 'skills'"):
+        with pytest.raises(ValidationError, match="Either 'skill'"):
             WebhookRequest(data={})
 
     def test_both_skill_and_skills_raises(self):
@@ -263,10 +263,10 @@ class TestPipelineRequestEdges:
 class TestWebhookRequestFalsyEdges:
     def test_empty_string_skill_raises(self):
         """Empty string skill is falsy, so validator treats as missing."""
-        with pytest.raises(ValidationError, match="Either 'skill' or 'skills'"):
+        with pytest.raises(ValidationError, match="Either 'skill'"):
             WebhookRequest(skill="", data={})
 
     def test_empty_skills_list_raises(self):
         """Empty list is falsy, so validator treats as missing."""
-        with pytest.raises(ValidationError, match="Either 'skill' or 'skills'"):
+        with pytest.raises(ValidationError, match="Either 'skill'"):
             WebhookRequest(skills=[], data={})

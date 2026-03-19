@@ -13,20 +13,10 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import {
-  LayoutDashboard,
+  Blocks,
   FlaskConical,
-  Table2,
-  TestTubes,
-  Library,
-  Settings,
-  Activity,
-  FolderTree,
-  PenLine,
-  MoreHorizontal,
-  Mail,
-  ListOrdered,
-  UserSearch,
   Send,
+  FolderTree,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -34,8 +24,6 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { fetchDataset } from "@/lib/api";
-import type { Dataset } from "@/lib/types";
 
 interface NavItem {
   href: string;
@@ -54,46 +42,14 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    id: "prospect",
-    label: "Prospect",
-    icon: UserSearch,
+    id: "main",
+    label: "Platform",
     accentColor: "kiln-teal",
     items: [
-      { href: "/prospect", label: "Workbench", icon: UserSearch, shortcut: "1" },
-    ],
-  },
-  {
-    id: "generate",
-    label: "Generate",
-    icon: PenLine,
-    accentColor: "kiln-indigo",
-    items: [
-      { href: "/pipeline/email-lab", label: "Email Lab", icon: Mail, shortcut: "2" },
-      { href: "/pipeline/sequence-lab", label: "Sequence Lab", icon: ListOrdered, shortcut: "3" },
-    ],
-  },
-  {
-    id: "deliver",
-    label: "Deliver",
-    icon: Send,
-    accentColor: "kiln-indigo",
-    items: [
-      { href: "/pipeline/send", label: "Send", icon: Send, shortcut: "4" },
-      { href: "/pipeline/plays", label: "Plays", icon: Library, shortcut: "5" },
-    ],
-  },
-  {
-    id: "platform",
-    label: "Platform",
-    accentColor: "clay-500",
-    items: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/run", label: "Run", icon: FlaskConical },
-      { href: "/batch-results", label: "Batch Results", icon: Table2 },
-      { href: "/context", label: "Context", icon: FolderTree },
-      { href: "/lab", label: "Skills Lab", icon: TestTubes },
-      { href: "/status", label: "Status", icon: Activity },
-      { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/", label: "Functions", icon: Blocks, shortcut: "1" },
+      { href: "/workbench", label: "Workbench", icon: FlaskConical, shortcut: "2" },
+      { href: "/outbound", label: "Outbound", icon: Send, shortcut: "3" },
+      { href: "/context", label: "Context", icon: FolderTree, shortcut: "4" },
     ],
   },
 ];
@@ -107,10 +63,6 @@ const SHORTCUT_MAP = ALL_NAV_ITEMS.reduce<Record<string, string>>((acc, item) =>
 
 // Accent color classes per section
 const ACCENT_CLASSES: Record<string, { active: string; text: string }> = {
-  "clay-500": {
-    active: "bg-clay-500/10 text-clay-200 hover:bg-clay-500/15 hover:text-clay-200",
-    text: "text-clay-300",
-  },
   "kiln-teal": {
     active: "bg-kiln-teal/10 text-kiln-teal hover:bg-kiln-teal/15 hover:text-kiln-teal",
     text: "text-kiln-teal",
@@ -119,42 +71,15 @@ const ACCENT_CLASSES: Record<string, { active: string; text: string }> = {
     active: "bg-kiln-indigo/10 text-kiln-indigo hover:bg-kiln-indigo/15 hover:text-kiln-indigo",
     text: "text-kiln-indigo",
   },
+  "clay-500": {
+    active: "bg-clay-500/10 text-clay-200 hover:bg-clay-500/15 hover:text-clay-200",
+    text: "text-clay-300",
+  },
 };
-
-// Map nav items to pipeline stages for completion dots
-const STAGE_NAV_MAP: Record<string, string> = {
-  "/pipeline/email-lab": "email-gen",
-  "/pipeline/send": "send",
-};
-
-function getSectionForPath(pathname: string): NavSection | undefined {
-  return NAV_SECTIONS.find((s) =>
-    s.items.some((item) =>
-      item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
-    )
-  );
-}
 
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeDataset, setActiveDataset] = useState<Dataset | null>(null);
-
-  // Fetch active dataset for sidebar indicator (outside DatasetProvider)
-  useEffect(() => {
-    if (!pathname.startsWith("/pipeline") && !pathname.startsWith("/prospect")) {
-      setActiveDataset(null);
-      return;
-    }
-    const storedId = localStorage.getItem("clay-os-active-dataset-id");
-    if (!storedId) {
-      setActiveDataset(null);
-      return;
-    }
-    fetchDataset(storedId)
-      .then((ds) => setActiveDataset(ds))
-      .catch(() => setActiveDataset(null));
-  }, [pathname]);
 
   useEffect(() => {
     const handleToggle = () => setMobileOpen((prev) => !prev);
@@ -181,28 +106,12 @@ export function Sidebar() {
   };
 
   const renderSectionNav = (compact: boolean, onNavigate?: () => void) => (
-    <nav className="flex flex-col gap-0.5">
-      {NAV_SECTIONS.map((section, sIdx) => {
-        const accent = ACCENT_CLASSES[section.accentColor] || ACCENT_CLASSES["clay-500"];
+    <nav className="flex flex-col gap-1">
+      {NAV_SECTIONS.map((section) => {
+        const accent = ACCENT_CLASSES[section.accentColor] || ACCENT_CLASSES["kiln-teal"];
 
         return (
-          <div key={section.id} className={sIdx > 0 ? "mt-3" : ""}>
-            {/* Section header */}
-            {!compact && (
-              <div className="flex items-center gap-2 px-3 mb-1">
-                {section.icon && (
-                  <section.icon className={cn("h-3 w-3", accent.text)} />
-                )}
-                <span className="text-[10px] font-semibold text-clay-300 uppercase tracking-[0.1em]">
-                  {section.label}
-                </span>
-              </div>
-            )}
-
-            {compact && sIdx > 0 && (
-              <div className="mx-2 mb-2 border-t border-clay-600" />
-            )}
-
+          <div key={section.id}>
             {/* Section items */}
             <div className="flex flex-col gap-0.5">
               {section.items.map((item) => {
@@ -213,7 +122,7 @@ export function Sidebar() {
                     variant="ghost"
                     asChild
                     className={cn(
-                      "h-8 transition-all duration-150 relative",
+                      "h-9 transition-all duration-150 relative",
                       compact ? "justify-center px-2" : "justify-start gap-3 px-3",
                       active
                         ? accent.active
@@ -223,19 +132,13 @@ export function Sidebar() {
                     <Link href={item.href} onClick={onNavigate}>
                       {/* Active accent bar */}
                       {active && !compact && (
-                        <span className={cn(
-                          "absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-full",
-                          section.accentColor === "kiln-indigo" ? "bg-kiln-indigo" : section.accentColor === "kiln-teal" ? "bg-kiln-teal" : "bg-clay-400"
-                        )} />
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-full bg-kiln-teal" />
                       )}
                       <item.icon className="h-4 w-4 shrink-0" />
                       {!compact && (
                         <>
-                          <span className="flex-1 text-[13px] flex items-center gap-1.5">
+                          <span className="flex-1 text-[13px]">
                             {item.label}
-                            {activeDataset && STAGE_NAV_MAP[item.href] && activeDataset.stages_completed.includes(STAGE_NAV_MAP[item.href]) && (
-                              <span className="h-1.5 w-1.5 rounded-full bg-kiln-teal shrink-0" />
-                            )}
                           </span>
                           {item.shortcut && (
                             <kbd className="retro-keycap hidden lg:inline-block">
@@ -275,13 +178,12 @@ export function Sidebar() {
     </nav>
   );
 
-  // Mobile bottom nav — 5-item bar
-  const mobileBottomItems: { href: string; label: string; icon: LucideIcon; matchPrefix?: string }[] = [
-    { href: "/prospect", label: "Prospect", icon: UserSearch, matchPrefix: "/prospect" },
-    { href: "/pipeline/email-lab", label: "Email Lab", icon: PenLine },
-    { href: "/pipeline/send", label: "Send", icon: Send },
-    { href: "/pipeline/plays", label: "Plays", icon: Library },
-    { href: "/settings", label: "More", icon: MoreHorizontal, matchPrefix: "/settings" },
+  // Mobile bottom nav — 4-item bar
+  const mobileBottomItems: { href: string; label: string; icon: LucideIcon }[] = [
+    { href: "/", label: "Functions", icon: Blocks },
+    { href: "/workbench", label: "Workbench", icon: FlaskConical },
+    { href: "/outbound", label: "Outbound", icon: Send },
+    { href: "/context", label: "Context", icon: FolderTree },
   ];
 
   return (
@@ -302,21 +204,10 @@ export function Sidebar() {
               Clay OS
             </h1>
             <p className="text-[10px] text-clay-300 tracking-[0.1em] uppercase font-mono">
-              Pipeline Dashboard
+              Functions Platform
             </p>
           </div>
         </div>
-
-        {/* Active dataset indicator */}
-        {activeDataset && (pathname.startsWith("/pipeline") || pathname.startsWith("/prospect")) && (
-          <div className="hidden lg:block px-3 mb-3">
-            <div className="text-[10px] text-clay-400 truncate">
-              <span className="text-kiln-teal">●</span>{" "}
-              {activeDataset.name}
-              <span className="text-clay-500 ml-1">({activeDataset.row_count})</span>
-            </div>
-          </div>
-        )}
 
         {/* Nav - compact on md, full on lg */}
         <div className="hidden lg:block flex-1 overflow-y-auto">{renderSectionNav(false)}</div>
@@ -341,7 +232,7 @@ export function Sidebar() {
                 Clay OS
               </h1>
               <p className="text-[10px] text-clay-300 tracking-[0.1em] uppercase font-mono">
-                Pipeline Dashboard
+                Functions Platform
               </p>
             </div>
           </div>
@@ -349,22 +240,13 @@ export function Sidebar() {
         </SheetContent>
       </Sheet>
 
-      {/* Mobile bottom nav — 5-item */}
+      {/* Mobile bottom nav — 4-item */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-clay-600 bg-clay-800/95 backdrop-blur-sm">
         <nav className="flex items-center justify-around py-2">
           {mobileBottomItems.map((item) => {
-            const active = item.matchPrefix
-              ? pathname.startsWith(item.matchPrefix)
-              : pathname === item.href;
-            const section = getSectionForPath(item.href);
-            const colorClass = active
-              ? section?.accentColor === "kiln-indigo"
-                ? "text-kiln-indigo"
-                : "text-kiln-teal"
-              : "text-clay-300";
-            const dotColor = section?.accentColor === "kiln-indigo"
-              ? "bg-kiln-indigo shadow-[0_0_6px_rgba(67,56,202,0.5)]"
-              : "bg-kiln-teal shadow-[0_0_6px_rgba(74,158,173,0.5)]";
+            const active = item.href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(item.href);
 
             return (
               <Link
@@ -372,12 +254,12 @@ export function Sidebar() {
                 href={item.href}
                 className={cn(
                   "flex flex-col items-center gap-0.5 px-3 py-1 transition-colors duration-150",
-                  colorClass
+                  active ? "text-kiln-teal" : "text-clay-300"
                 )}
               >
                 <item.icon className="h-5 w-5" />
                 <span className="text-[10px]">{item.label}</span>
-                {active && <span className={cn("h-1 w-1 rounded-full", dotColor)} />}
+                {active && <span className="h-1 w-1 rounded-full bg-kiln-teal shadow-[0_0_6px_rgba(74,158,173,0.5)]" />}
               </Link>
             );
           })}
