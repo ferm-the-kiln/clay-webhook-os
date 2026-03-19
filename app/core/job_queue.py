@@ -358,8 +358,8 @@ class JobQueue:
                     if hasattr(self, '_memory_store') and self._memory_store:
                         try:
                             self._memory_store.store_from_data(job.data, job.skill, parsed)
-                        except Exception:
-                            pass  # Non-critical
+                        except Exception as e:
+                            logger.warning("[queue] Job %s memory_store failed: %s", job.id, e)
 
                     if self._event_bus:
                         self._event_bus.publish("job_updated", {"job_id": job.id, "status": "completed"})
@@ -377,8 +377,8 @@ class JobQueue:
                                 job.duration_ms,
                                 job.input_tokens_est + job.output_tokens_est,
                             )
-                    except Exception:
-                        pass  # Non-critical
+                    except Exception as e:
+                        logger.warning("[queue] Job %s experiment_store update failed: %s", job.id, e)
 
             except SubscriptionLimitError as e:
                 # Subscription exhausted — no point retrying, dead-letter immediately

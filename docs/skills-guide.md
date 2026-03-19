@@ -26,6 +26,21 @@ Skills are organized into two pillars:
 | campaign-brief | Generate campaign brief with sequence |
 | multi-thread-mapper | Buying committee mapping & outreach |
 
+### Research
+
+| Skill | What It Does |
+|-------|-------------|
+| company-research | Company intelligence via external APIs |
+| people-research | Contact enrichment and email discovery |
+| competitor-research | Competitive landscape analysis |
+
+### Data Processing
+
+| Skill | What It Does |
+|-------|-------------|
+| classify | Normalize seniority and industry labels |
+| first-party-analyzer | Analyze first-party engagement data |
+
 ### Archived
 
 The following skills have been retired to `skills/_archived/`:

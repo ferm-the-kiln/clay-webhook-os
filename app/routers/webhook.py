@@ -97,6 +97,11 @@ async def webhook(body: WebhookRequest, request: Request, debug: bool = False):
             content={"error": True, "error_message": "Service temporarily paused due to subscription limits", "retry_after": 120},
         )
 
+    # --- Model validation ---
+    VALID_MODELS = {"opus", "sonnet", "haiku", None}
+    if body.model not in VALID_MODELS:
+        return _error(f"Invalid model '{body.model}'. Must be one of: opus, sonnet, haiku", "webhook")
+
     # --- Function routing (CLAY-01) ---
     if body.function:
         return await _run_function(body, request)
@@ -564,14 +569,17 @@ async def _run_function(body: WebhookRequest, request: Request) -> dict:
                 f"Description: {tool_meta['description']}\n\n"
                 f"Given these inputs:\n"
                 + "\n".join(f"- {k}: {v}" for k, v in resolved_params.items())
-                + f"\n\nReturn a JSON object with these keys: {expected_outputs}\n"
-                f"Research thoroughly and return accurate data. "
+                + f"\n\nReturn a JSON object with ONLY these keys: {expected_outputs}\n"
+                f"Use your knowledge to return the most accurate data possible. "
+                f"For domain lookups, return the company's primary website domain (e.g. 'salesforce.com'). "
+                f"For LinkedIn URLs, return the company LinkedIn page URL. "
+                f"If you are not confident, still return your best guess rather than null. "
                 f"Return ONLY valid JSON, no explanation."
             )
 
             pool = request.app.state.pool
             try:
-                ai_result = await pool.submit(ai_prompt, "haiku", 30)
+                ai_result = await pool.submit(ai_prompt, "sonnet", 30)
                 parsed = ai_result.get("result", {})
                 if isinstance(parsed, dict):
                     accumulated_output.update(parsed)

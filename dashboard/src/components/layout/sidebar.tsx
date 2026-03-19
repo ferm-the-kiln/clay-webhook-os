@@ -53,6 +53,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/outbound", label: "Outbound", icon: Send, shortcut: "3" },
       { href: "/context", label: "Context", icon: FolderTree, shortcut: "4" },
       { href: "/quality", label: "Quality", icon: ShieldCheck, shortcut: "5" },
+      { href: "/debugger", label: "Debugger", icon: Bug, shortcut: "6" },
     ],
   },
 ];

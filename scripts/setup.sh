@@ -55,7 +55,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
+User=clay
+# NOTE: Create the 'clay' user on VPS before deploying:
+#   useradd -r -s /bin/bash -d /opt/clay-webhook-os clay
+#   chown -R clay:clay /opt/clay-webhook-os
 WorkingDirectory=/opt/clay-webhook-os
 ExecStart=/opt/clay-webhook-os/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always

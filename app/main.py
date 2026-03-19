@@ -234,12 +234,31 @@ async def startup():
 
     skills = list_skills()
     logger.info("Clay Webhook OS v3.0 started — Autopilot Mode")
-    logger.info("  Engine: claude --print (Max subscription)")
-    logger.info("  Workers: %d", settings.max_workers)
-    logger.info("  Queue workers: %d", settings.max_workers)
-    logger.info("  Skills: %s", ", ".join(skills) if skills else "none")
-    logger.info("  Auth: %s", "enabled" if settings.webhook_api_key else "disabled")
-    logger.info("  Cache TTL: %ds", settings.cache_ttl)
-    logger.info("  Smart routing: %s", "enabled" if settings.enable_smart_routing else "disabled")
-    logger.info("  Context index: %d documents", app.state.context_index.doc_count)
-    logger.info("  Features: smart-pipelines, feedback-loops, retry, SSE, model-router, sub-monitor, cleanup, memory, semantic-context, parallel-pipelines, learning-engine, dedup, circuit-breaker")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    logger.info("Clay Webhook OS shutting down — stopping background workers...")
+
+    # Stop background workers gracefully
+    if hasattr(app.state, "job_queue"):
+        await app.state.job_queue.stop()
+        logger.info("  Job queue stopped")
+
+    if hasattr(app.state, "scheduler"):
+        await app.state.scheduler.stop()
+        logger.info("  Scheduler stopped")
+
+    if hasattr(app.state, "retry_worker"):
+        await app.state.retry_worker.stop()
+        logger.info("  Retry worker stopped")
+
+    if hasattr(app.state, "subscription_monitor"):
+        await app.state.subscription_monitor.stop()
+        logger.info("  Subscription monitor stopped")
+
+    if hasattr(app.state, "cleanup_worker"):
+        await app.state.cleanup_worker.stop()
+        logger.info("  Cleanup worker stopped")
+
+    logger.info("Shutdown complete")

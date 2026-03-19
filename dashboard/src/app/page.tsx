@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -79,12 +79,15 @@ export default function FunctionsPage() {
   };
 
   // Group functions by folder
-  const functionsByFolder: Record<string, FunctionDefinition[]> = {};
-  for (const func of functions) {
-    const folder = func.folder || "Uncategorized";
-    if (!functionsByFolder[folder]) functionsByFolder[folder] = [];
-    functionsByFolder[folder].push(func);
-  }
+  const functionsByFolder = useMemo(() => {
+    const grouped: Record<string, FunctionDefinition[]> = {};
+    for (const func of functions) {
+      const folder = func.folder || "Uncategorized";
+      if (!grouped[folder]) grouped[folder] = [];
+      grouped[folder].push(func);
+    }
+    return grouped;
+  }, [functions]);
 
   const handleCreateFunction = async () => {
     setBuilderOpen(true);

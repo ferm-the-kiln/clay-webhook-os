@@ -135,7 +135,8 @@ export function useSequenceLab(): UseSequenceLabReturn {
     try {
       const { content } = await fetchSkillContent(SKILL);
       setSkillContent(content);
-    } catch {
+    } catch (e) {
+      console.error("Failed to load skill content:", e);
       setSkillContent("// Failed to load skill content");
     } finally {
       setSkillLoading(false);
@@ -147,7 +148,8 @@ export function useSequenceLab(): UseSequenceLabReturn {
     try {
       const { variants: v } = await fetchVariants(SKILL);
       setVariants(v);
-    } catch {
+    } catch (e) {
+      console.error("Failed to load variants:", e);
       setVariants([]);
     }
   }, []);

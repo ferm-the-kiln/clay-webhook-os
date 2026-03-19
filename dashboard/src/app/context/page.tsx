@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Header } from "@/components/layout/header";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { ClientEditor } from "@/components/context/client-editor";
 import { KnowledgeEditor } from "@/components/context/knowledge-editor";
 import { PromptPreview } from "@/components/context/prompt-preview";
@@ -331,7 +332,7 @@ export default function ContextPage() {
   return (
     <div className="flex flex-col h-full">
       <Header title="Context Hub" />
-
+      <ErrorBoundary>
       <div className="flex flex-1 overflow-hidden">
         {/* Tree Sidebar */}
         <div className="hidden md:flex w-60 shrink-0 border-r border-clay-500 bg-clay-950 flex-col">
@@ -513,6 +514,7 @@ export default function ContextPage() {
           </div>
         </DialogContent>
       </Dialog>
+      </ErrorBoundary>
     </div>
   );
 }

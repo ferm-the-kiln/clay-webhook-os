@@ -52,7 +52,7 @@ Run multiple skills in sequence:
 
 ```json
 {
-  "skills": ["icp-scorer", "email-gen"],
+  "skills": ["company-research", "email-gen"],
   "data": { ... }
 }
 ```

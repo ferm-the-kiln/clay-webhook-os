@@ -23,8 +23,16 @@ async def list_batches(request: Request):
     return {"batches": queue.list_batches()}
 
 
+MAX_BATCH_SIZE = 10_000
+
+
 @router.post("/batch")
 async def batch(body: BatchRequest, request: Request):
+    if not body.rows:
+        return {"error": True, "error_message": "Batch rows cannot be empty"}
+    if len(body.rows) > MAX_BATCH_SIZE:
+        return {"error": True, "error_message": f"Batch too large ({len(body.rows)} rows). Maximum is {MAX_BATCH_SIZE}"}
+
     queue = request.app.state.job_queue
     priority = body.priority or "normal"
     batch_id = uuid.uuid4().hex[:12]

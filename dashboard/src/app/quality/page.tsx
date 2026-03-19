@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Header } from "@/components/layout/header";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { QualityAlerts } from "@/components/quality/quality-alerts";
 import { SkillPerformance } from "@/components/quality/skill-performance";
 import type { FeedbackSummary, QualityAlert, UsageSummary } from "@/lib/types";
@@ -111,6 +112,7 @@ export default function QualityPage() {
         lastUpdated={lastUpdated}
         onRefresh={loadData}
       />
+      <ErrorBoundary>
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6 pb-20 md:pb-6">
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-3">
@@ -344,6 +346,7 @@ export default function QualityPage() {
           <SkillPerformance skills={analytics?.by_skill ?? []} />
         </div>
       </div>
+      </ErrorBoundary>
     </div>
   );
 }

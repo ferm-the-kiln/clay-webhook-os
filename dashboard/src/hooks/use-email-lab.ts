@@ -208,7 +208,8 @@ export function useEmailLab(): UseEmailLabReturn {
     try {
       const { content } = await fetchSkillContent(skill);
       setSkillContent(content);
-    } catch {
+    } catch (e) {
+      console.error("Failed to load skill content:", e);
       setSkillContent("// Failed to load skill content");
     } finally {
       setSkillLoading(false);
@@ -220,7 +221,8 @@ export function useEmailLab(): UseEmailLabReturn {
     try {
       const { variants: v } = await fetchVariants(skill);
       setVariants(v);
-    } catch {
+    } catch (e) {
+      console.error("Failed to load variants:", e);
       setVariants([]);
     }
   }, []);
@@ -361,8 +363,8 @@ export function useEmailLab(): UseEmailLabReturn {
 
       const passed = qgRes.passed !== false && issues.filter((i) => i.severity === "error").length === 0;
       setQualityResult({ passed, issues });
-    } catch {
-      // Quality gate failed silently — don't block the user
+    } catch (e) {
+      console.error("Quality gate check failed:", e);
       setQualityResult(null);
     } finally {
       setQualityLoading(false);
@@ -484,8 +486,8 @@ export function useEmailLab(): UseEmailLabReturn {
       // Fallback: if the response has a subject, include it
       if (alts.length === 0 && res.subject) alts.push(res.subject as string);
       setSubjectAlts(alts);
-    } catch {
-      // silently fail
+    } catch (e) {
+      console.error("Subject line regeneration failed:", e);
     } finally {
       setRegenLoading(false);
     }
