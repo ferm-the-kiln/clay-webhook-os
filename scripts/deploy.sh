@@ -17,8 +17,12 @@ git pull origin main
 echo "[2/3] Installing dependencies..."
 .venv/bin/pip install -q -e .
 
+# Fix ownership (git pull creates files as root, service runs as clay)
+echo "[3/4] Fixing file ownership..."
+chown -R clay:clay "$PROJECT_DIR/functions" "$PROJECT_DIR/data" "$PROJECT_DIR/skills" "$PROJECT_DIR/pipelines" 2>/dev/null || true
+
 # Restart service
-echo "[3/3] Restarting service..."
+echo "[4/4] Restarting service..."
 systemctl restart clay-webhook-os
 
 echo "=== Deploy complete ==="

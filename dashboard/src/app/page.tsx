@@ -233,8 +233,8 @@ export default function FunctionsPage() {
           </div>
         )}
 
-        {/* Empty state */}
-        {!loading && functions.length === 0 && !searchQuery && (
+        {/* Empty state — only when no functions AND no custom folders */}
+        {!loading && functions.length === 0 && !searchQuery && folders.filter(f => f.name !== "Uncategorized").length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="h-16 w-16 rounded-2xl bg-clay-700 flex items-center justify-center">
               <Blocks className="h-8 w-8 text-clay-300" />
@@ -263,8 +263,8 @@ export default function FunctionsPage() {
           </div>
         )}
 
-        {/* Folder grid */}
-        {!loading && functions.length > 0 && (
+        {/* Folder grid — show when there are functions OR custom folders */}
+        {!loading && (functions.length > 0 || folders.filter(f => f.name !== "Uncategorized").length > 0) && (
           <div className="space-y-8">
             {folders
               .filter(f => functionsByFolder[f.name]?.length > 0 || !searchQuery)
