@@ -39,12 +39,12 @@ function FormFields({
               {f.required && <span className="text-kiln-coral ml-0.5">*</span>}
             </label>
             {f.type === "textarea" ? (
-              <textarea
+              <Textarea
                 value={strVal}
                 onChange={(e) => handleFieldChange(f.name, e.target.value)}
                 placeholder={f.placeholder}
                 rows={3}
-                className="w-full rounded-md border border-clay-700 bg-clay-800 px-3 py-2 text-sm text-clay-100 placeholder:text-clay-300 focus:border-kiln-teal focus:outline-none resize-y"
+                className="resize-y"
               />
             ) : (
               <input
@@ -163,11 +163,11 @@ export function FormEditor({
               />
             </div>
           ) : (
-            <textarea
+            <Textarea
               value={value}
               onChange={(e) => onChange(e.target.value)}
               spellCheck={false}
-              className="w-full h-full min-h-[200px] max-h-[400px] rounded-lg bg-transparent px-4 py-3 font-[family-name:var(--font-mono)] text-sm text-clay-100 focus:outline-none resize-y placeholder:text-clay-300"
+              className="h-full min-h-[200px] max-h-[400px] rounded-lg bg-transparent border-0 shadow-none px-4 py-3 font-[family-name:var(--font-mono)] resize-y focus-visible:border-0 focus-visible:shadow-none"
               placeholder='{ "key": "value" }'
             />
           )}

@@ -54,12 +54,12 @@ export function JsonEditor({
         }`}
       >
         <CardContent className="p-0 h-full">
-          <textarea
+          <Textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
             rows={14}
             spellCheck={false}
-            className="w-full h-full rounded-lg bg-transparent px-4 py-3 font-[family-name:var(--font-mono)] text-sm text-clay-100 focus:outline-none resize-none placeholder:text-clay-300"
+            className="h-full rounded-lg bg-transparent border-0 shadow-none px-4 py-3 font-[family-name:var(--font-mono)] resize-none focus-visible:border-0 focus-visible:shadow-none"
             placeholder='{ "key": "value" }'
           />
         </CardContent>

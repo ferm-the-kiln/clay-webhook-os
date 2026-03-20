@@ -186,12 +186,12 @@ export function InstructionBuilder({
         <label className="text-xs font-medium text-clay-300">
           Custom Note
         </label>
-        <textarea
+        <Textarea
           value={customNote}
           onChange={(e) => setCustomNote(e.target.value)}
           placeholder='e.g. "mention we met at SaaStr" or "focus on the funding signal"'
           rows={2}
-          className="w-full rounded-lg border border-clay-700 bg-clay-950 text-clay-200 text-xs px-3 py-2 outline-none focus:border-kiln-teal/50 resize-none leading-relaxed"
+          className="bg-clay-950 text-xs resize-none leading-relaxed"
         />
       </div>
 
@@ -209,11 +209,11 @@ export function InstructionBuilder({
         {showRaw ? "Hide" : "Show"} generated instructions
       </button>
       {showRaw && (
-        <textarea
+        <Textarea
           value={instructions}
           onChange={(e) => onInstructionsChange(e.target.value)}
           rows={4}
-          className="w-full rounded-lg border border-clay-700 bg-clay-950 text-clay-200 text-[11px] font-[family-name:var(--font-mono)] px-3 py-2 outline-none focus:border-kiln-teal/50 resize-none leading-relaxed"
+          className="bg-clay-950 text-[11px] font-[family-name:var(--font-mono)] resize-none leading-relaxed"
         />
       )}
     </div>

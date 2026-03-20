@@ -218,12 +218,12 @@ export function FormEditor({
             {toLabel(field.name)}
             {field.required && <span className="text-red-400 ml-0.5">*</span>}
           </label>
-          <textarea
+          <Textarea
             value={String(value)}
             onChange={(e) => updateField(field.name, e.target.value)}
             placeholder={field.placeholder}
             rows={3}
-            className="w-full rounded-lg border border-clay-700 bg-clay-950 text-clay-200 text-sm px-3 py-2 outline-none focus:border-kiln-teal/50 resize-none leading-relaxed"
+            className="bg-clay-950 resize-none leading-relaxed"
           />
         </div>
       );
@@ -314,11 +314,11 @@ export function FormEditor({
                   {toLabel(key)}
                 </label>
                 {typeof val === "string" && val.length > 80 ? (
-                  <textarea
+                  <Textarea
                     value={String(val)}
                     onChange={(e) => updateField(key, e.target.value)}
                     rows={2}
-                    className="w-full rounded-lg border border-clay-700 bg-clay-950 text-clay-200 text-sm px-3 py-2 outline-none focus:border-kiln-teal/50 resize-none"
+                    className="bg-clay-950 resize-none"
                   />
                 ) : (
                   <input
