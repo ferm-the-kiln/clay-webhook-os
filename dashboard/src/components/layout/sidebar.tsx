@@ -18,7 +18,6 @@ import {
   FlaskConical,
   Send,
   FolderTree,
-  ShieldCheck,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -53,9 +52,8 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/workbench", label: "Workbench", icon: FlaskConical, shortcut: "2" },
       { href: "/outbound", label: "Outbound", icon: Send, shortcut: "3" },
       { href: "/context", label: "Context", icon: FolderTree, shortcut: "4" },
-      { href: "/quality", label: "Quality", icon: ShieldCheck, shortcut: "5" },
-      { href: "/debugger", label: "Debugger", icon: Bug, shortcut: "6" },
-      { href: "/clients", label: "Clients", icon: Users, shortcut: "7" },
+      { href: "/debugger", label: "Debugger", icon: Bug, shortcut: "5" },
+      { href: "/clients", label: "Clients", icon: Users, shortcut: "6" },
     ],
   },
 ];
@@ -193,7 +191,6 @@ export function Sidebar() {
     { href: "/workbench", label: "Workbench", icon: FlaskConical },
     { href: "/outbound", label: "Outbound", icon: Send },
     { href: "/context", label: "Context", icon: FolderTree },
-    { href: "/quality", label: "Quality", icon: ShieldCheck },
     { href: "/debugger", label: "Debugger", icon: Bug },
     { href: "/clients", label: "Clients", icon: Users },
   ];

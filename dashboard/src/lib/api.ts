@@ -41,7 +41,6 @@ import type {
   PromptPreview,
   PublicPortalView,
   PushResult,
-  QualityAlert,
   RunStageRequest,
   ShareToken,
   SheetExportResult,
@@ -523,14 +522,6 @@ export function fetchFeedbackAnalytics(params?: {
 
 export function deleteFeedback(feedbackId: string): Promise<{ ok: boolean }> {
   return apiFetch(`/feedback/${feedbackId}`, { method: "DELETE" });
-}
-
-// Quality Alerts
-export function fetchQualityAlerts(
-  threshold?: number
-): Promise<{ alerts: QualityAlert[]; threshold: number }> {
-  const qs = threshold ? `?threshold=${threshold}` : "";
-  return apiFetch(`/feedback/alerts${qs}`);
 }
 
 // Feedback re-run (Phase 2)

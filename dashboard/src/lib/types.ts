@@ -245,15 +245,6 @@ export interface Experiment {
   completed_at: number | null;
 }
 
-export interface QualityAlert {
-  skill: string;
-  approval_rate: number;
-  total_ratings: number;
-  thumbs_down: number;
-  severity: string;
-  recommendation: string;
-}
-
 // Pipeline types
 export interface PipelineStepConfig {
   skill: string;
