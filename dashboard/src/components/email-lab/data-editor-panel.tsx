@@ -195,15 +195,13 @@ export function DataEditorPanel({
 
         {activeTab === "data" && editorMode === "json" && (
           <div className="h-full">
-            <textarea
+            <Textarea
               value={dataJson}
               onChange={(e) => onDataChange(e.target.value)}
               spellCheck={false}
               className={cn(
-                "w-full h-full resize-none bg-clay-950 border rounded-lg p-4 text-sm text-clay-200 font-[family-name:var(--font-mono)] leading-relaxed outline-none",
-                jsonValid
-                  ? "border-clay-700 focus:border-kiln-teal/50"
-                  : "border-red-500/50 focus:border-red-400"
+                "h-full resize-none bg-clay-950 p-4 font-[family-name:var(--font-mono)] leading-relaxed",
+                !jsonValid && "border-red-500/50 focus-visible:border-red-400 focus-visible:shadow-none"
               )}
               placeholder='{\n  "first_name": "...",\n  "company_name": "..."\n}'
             />
@@ -234,11 +232,11 @@ export function DataEditorPanel({
                 </button>
               ))}
             </div>
-            <textarea
+            <Textarea
               value={instructions}
               onChange={(e) => onInstructionsChange(e.target.value)}
               spellCheck={false}
-              className="w-full flex-1 resize-none bg-clay-950 border border-clay-700 rounded-lg p-4 text-sm text-clay-200 leading-relaxed outline-none focus:border-kiln-teal/50"
+              className="flex-1 resize-none bg-clay-950 p-4 leading-relaxed"
               placeholder="Optional campaign overrides... e.g. 'Keep under 80 words, focus on the funding signal, use a question-based opener'"
             />
           </div>

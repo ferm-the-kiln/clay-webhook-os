@@ -3,6 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { fetchClients } from "@/lib/api";
 import type { ClientSummary } from "@/lib/types";
 import type { SkillFieldMeta } from "@/lib/constants";
@@ -116,18 +123,18 @@ export function FormEditor({
             {toLabel(field.name)}
             {field.required && <span className="text-red-400 ml-0.5">*</span>}
           </label>
-          <select
-            value={String(value)}
-            onChange={(e) => updateField(field.name, e.target.value)}
-            className="w-full rounded-lg border border-clay-700 bg-clay-800 text-clay-200 text-sm px-3 py-2 outline-none focus:border-kiln-teal"
-          >
-            <option value="">Select signal type...</option>
-            {SIGNAL_TYPES.map((st) => (
-              <option key={st.value} value={st.value}>
-                {st.label}
-              </option>
-            ))}
-          </select>
+          <Select value={String(value)} onValueChange={(v) => updateField(field.name, v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select signal type..." />
+            </SelectTrigger>
+            <SelectContent>
+              {SIGNAL_TYPES.map((st) => (
+                <SelectItem key={st.value} value={st.value}>
+                  {st.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       );
     }
@@ -138,17 +145,18 @@ export function FormEditor({
           <label className="text-xs font-medium text-clay-300">
             {toLabel(field.name)}
           </label>
-          <select
-            value={String(value)}
-            onChange={(e) => updateField(field.name, e.target.value)}
-            className="w-full rounded-lg border border-clay-700 bg-clay-800 text-clay-200 text-sm px-3 py-2 outline-none focus:border-kiln-teal"
-          >
-            {SEQUENCE_TYPES.map((st) => (
-              <option key={st.value} value={st.value}>
-                {st.label}
-              </option>
-            ))}
-          </select>
+          <Select value={String(value)} onValueChange={(v) => updateField(field.name, v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SEQUENCE_TYPES.map((st) => (
+                <SelectItem key={st.value} value={st.value}>
+                  {st.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       );
     }
@@ -157,18 +165,18 @@ export function FormEditor({
       return (
         <div key={field.name} className="space-y-1">
           <label className="text-xs font-medium text-clay-300">Client</label>
-          <select
-            value={String(value)}
-            onChange={(e) => updateField(field.name, e.target.value)}
-            className="w-full rounded-lg border border-clay-700 bg-clay-800 text-clay-200 text-sm px-3 py-2 outline-none focus:border-kiln-teal"
-          >
-            <option value="">Select client...</option>
-            {clients.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.name ?? c.slug}
-              </option>
-            ))}
-          </select>
+          <Select value={String(value)} onValueChange={(v) => updateField(field.name, v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select client..." />
+            </SelectTrigger>
+            <SelectContent>
+              {clients.map((c) => (
+                <SelectItem key={c.slug} value={c.slug}>
+                  {c.name ?? c.slug}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       );
     }
@@ -177,22 +185,22 @@ export function FormEditor({
       return (
         <div key={field.name} className="space-y-1">
           <label className="text-xs font-medium text-clay-300">Industry</label>
-          <select
-            value={String(value)}
-            onChange={(e) => updateField(field.name, e.target.value)}
-            className="w-full rounded-lg border border-clay-700 bg-clay-800 text-clay-200 text-sm px-3 py-2 outline-none focus:border-kiln-teal"
-          >
-            <option value="">Select industry...</option>
-            {INDUSTRIES.map((ind) => (
-              <option key={ind} value={ind}>
-                {ind}
-              </option>
-            ))}
-            {/* Allow custom value if not in list */}
-            {value && !INDUSTRIES.includes(String(value)) && (
-              <option value={String(value)}>{String(value)}</option>
-            )}
-          </select>
+          <Select value={String(value)} onValueChange={(v) => updateField(field.name, v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select industry..." />
+            </SelectTrigger>
+            <SelectContent>
+              {INDUSTRIES.map((ind) => (
+                <SelectItem key={ind} value={ind}>
+                  {ind}
+                </SelectItem>
+              ))}
+              {/* Allow custom value if not in list */}
+              {value && !INDUSTRIES.includes(String(value)) && (
+                <SelectItem value={String(value)}>{String(value)}</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
           <input
             type="text"
             value={String(value)}
@@ -283,17 +291,18 @@ export function FormEditor({
           <label className="text-xs font-medium text-clay-300">
             Sequence Type
           </label>
-          <select
-            value={(data.sequence_type as string) ?? "cold"}
-            onChange={(e) => updateField("sequence_type", e.target.value)}
-            className="w-full rounded-lg border border-clay-700 bg-clay-800 text-clay-200 text-sm px-3 py-2 outline-none focus:border-kiln-teal"
-          >
-            {SEQUENCE_TYPES.map((st) => (
-              <option key={st.value} value={st.value}>
-                {st.label}
-              </option>
-            ))}
-          </select>
+          <Select value={(data.sequence_type as string) ?? "cold"} onValueChange={(v) => updateField("sequence_type", v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SEQUENCE_TYPES.map((st) => (
+                <SelectItem key={st.value} value={st.value}>
+                  {st.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 

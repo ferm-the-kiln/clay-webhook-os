@@ -9,6 +9,14 @@ import type {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -221,159 +229,149 @@ export function ResultsPanel({
       </div>
 
       {/* Results table */}
-      <div className="overflow-x-auto rounded-lg border border-clay-600">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-clay-800">
-              <th className="px-3 py-2 text-left text-clay-300 font-medium w-12">
-                #
-              </th>
-              <th className="px-3 py-2 text-left text-clay-300 font-medium w-16">
-                Status
-              </th>
-              {mappings.map((m) => (
-                <th
-                  key={`in-${m.functionInput}`}
-                  className="px-3 py-2 text-left text-clay-300 font-medium whitespace-nowrap cursor-pointer hover:text-clay-100"
-                  onClick={() => handleSort(m.functionInput)}
-                >
-                  {m.functionInput}
-                  {sortColumn === m.functionInput &&
-                    (sortDir === "asc" ? " \u2191" : " \u2193")}
-                </th>
-              ))}
-              {selectedFunction.outputs.map((o) => (
-                <th
-                  key={`out-${o.key}`}
-                  className="px-3 py-2 text-left text-kiln-teal font-medium whitespace-nowrap cursor-pointer hover:text-kiln-teal-light"
-                  onClick={() => handleSort(o.key)}
-                >
-                  {o.key}
-                  {sortColumn === o.key &&
-                    (sortDir === "asc" ? " \u2191" : " \u2193")}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {displayResults.map((row) => (
-              <>
-                <tr
-                  key={row.rowIndex}
-                  className="border-t border-clay-700 hover:bg-clay-800/50"
-                >
-                  <td className="px-3 py-1.5 text-clay-300">
-                    {row.rowIndex + 1}
-                  </td>
-                  <td className="px-3 py-1.5">
-                    {row.status === "done" && (
-                      <Check className="h-3.5 w-3.5 text-green-400" />
-                    )}
-                    {row.status === "error" && (
-                      <button
-                        className="flex items-center gap-1 text-red-400"
-                        onClick={() =>
-                          onExpandedErrorChange(
-                            expandedError === row.rowIndex
-                              ? null
-                              : row.rowIndex
-                          )
-                        }
-                        title="Click to expand error"
-                      >
-                        <AlertCircle className="h-3.5 w-3.5" />
-                        {expandedError === row.rowIndex ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </button>
-                    )}
-                    {row.status === "running" && (
-                      <Loader2 className="h-3.5 w-3.5 text-kiln-teal animate-spin" />
-                    )}
-                    {row.status === "pending" && (
-                      <span className="h-2 w-2 rounded-full bg-clay-500 inline-block" />
-                    )}
-                  </td>
-                  {mappings.map((m) => (
-                    <td
-                      key={`in-${m.functionInput}`}
-                      className="px-3 py-1.5 text-clay-200 max-w-[200px] truncate cursor-pointer"
-                      onClick={() =>
-                        onExpandedCellChange(
-                          expandedCell?.row === row.rowIndex &&
-                            expandedCell?.col === m.functionInput
-                            ? null
-                            : { row: row.rowIndex, col: m.functionInput }
-                        )
-                      }
-                    >
-                      {expandedCell?.row === row.rowIndex &&
-                      expandedCell?.col === m.functionInput ? (
-                        <div className="whitespace-pre-wrap break-words max-w-md">
-                          {String(row.input[m.functionInput] ?? "")}
-                        </div>
-                      ) : (
-                        String(row.input[m.functionInput] ?? "")
-                      )}
-                    </td>
-                  ))}
-                  {selectedFunction.outputs.map((o) => (
-                    <td
-                      key={`out-${o.key}`}
-                      className={cn(
-                        "px-3 py-1.5 max-w-[200px] truncate cursor-pointer",
-                        row.status === "error" ? "text-red-400" : "text-clay-100"
-                      )}
-                      onClick={() =>
-                        onExpandedCellChange(
-                          expandedCell?.row === row.rowIndex &&
-                            expandedCell?.col === o.key
-                            ? null
-                            : { row: row.rowIndex, col: o.key }
-                        )
-                      }
-                    >
-                      {row.status === "error"
-                        ? row.error
-                        : expandedCell?.row === row.rowIndex &&
-                            expandedCell?.col === o.key
-                          ? (
-                              <div className="whitespace-pre-wrap break-words max-w-md">
-                                {typeof row.output?.[o.key] === "object"
-                                  ? JSON.stringify(row.output?.[o.key], null, 2)
-                                  : String(row.output?.[o.key] ?? "")}
-                              </div>
-                            )
-                          : typeof row.output?.[o.key] === "object"
-                            ? JSON.stringify(row.output?.[o.key])
-                            : String(row.output?.[o.key] ?? "")}
-                    </td>
-                  ))}
-                </tr>
-                {/* Expanded error detail row */}
-                {row.status === "error" && expandedError === row.rowIndex && (
-                  <tr key={`err-${row.rowIndex}`} className="bg-red-950/20">
-                    <td
-                      colSpan={
-                        2 +
-                        mappings.length +
-                        selectedFunction.outputs.length
-                      }
-                      className="px-3 py-2"
-                    >
-                      <div className="text-xs text-red-300 whitespace-pre-wrap font-mono">
-                        {row.error || "Unknown error"}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </>
+      <Table className="text-xs">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead className="w-16">Status</TableHead>
+            {mappings.map((m) => (
+              <TableHead
+                key={`in-${m.functionInput}`}
+                className="cursor-pointer hover:text-clay-100"
+                onClick={() => handleSort(m.functionInput)}
+              >
+                {m.functionInput}
+                {sortColumn === m.functionInput &&
+                  (sortDir === "asc" ? " \u2191" : " \u2193")}
+              </TableHead>
             ))}
-          </tbody>
-        </table>
-      </div>
+            {selectedFunction.outputs.map((o) => (
+              <TableHead
+                key={`out-${o.key}`}
+                className="text-kiln-teal cursor-pointer hover:text-kiln-teal-light"
+                onClick={() => handleSort(o.key)}
+              >
+                {o.key}
+                {sortColumn === o.key &&
+                  (sortDir === "asc" ? " \u2191" : " \u2193")}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {displayResults.map((row) => (
+            <>
+              <TableRow key={row.rowIndex}>
+                <TableCell className="text-clay-300">
+                  {row.rowIndex + 1}
+                </TableCell>
+                <TableCell>
+                  {row.status === "done" && (
+                    <Check className="h-3.5 w-3.5 text-green-400" />
+                  )}
+                  {row.status === "error" && (
+                    <button
+                      className="flex items-center gap-1 text-red-400"
+                      onClick={() =>
+                        onExpandedErrorChange(
+                          expandedError === row.rowIndex
+                            ? null
+                            : row.rowIndex
+                        )
+                      }
+                      title="Click to expand error"
+                    >
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      {expandedError === row.rowIndex ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
+                  {row.status === "running" && (
+                    <Loader2 className="h-3.5 w-3.5 text-kiln-teal animate-spin" />
+                  )}
+                  {row.status === "pending" && (
+                    <span className="h-2 w-2 rounded-full bg-clay-500 inline-block" />
+                  )}
+                </TableCell>
+                {mappings.map((m) => (
+                  <TableCell
+                    key={`in-${m.functionInput}`}
+                    className="max-w-[200px] truncate cursor-pointer"
+                    onClick={() =>
+                      onExpandedCellChange(
+                        expandedCell?.row === row.rowIndex &&
+                          expandedCell?.col === m.functionInput
+                          ? null
+                          : { row: row.rowIndex, col: m.functionInput }
+                      )
+                    }
+                  >
+                    {expandedCell?.row === row.rowIndex &&
+                    expandedCell?.col === m.functionInput ? (
+                      <div className="whitespace-pre-wrap break-words max-w-md">
+                        {String(row.input[m.functionInput] ?? "")}
+                      </div>
+                    ) : (
+                      String(row.input[m.functionInput] ?? "")
+                    )}
+                  </TableCell>
+                ))}
+                {selectedFunction.outputs.map((o) => (
+                  <TableCell
+                    key={`out-${o.key}`}
+                    className={cn(
+                      "max-w-[200px] truncate cursor-pointer",
+                      row.status === "error" && "text-red-400"
+                    )}
+                    onClick={() =>
+                      onExpandedCellChange(
+                        expandedCell?.row === row.rowIndex &&
+                          expandedCell?.col === o.key
+                          ? null
+                          : { row: row.rowIndex, col: o.key }
+                      )
+                    }
+                  >
+                    {row.status === "error"
+                      ? row.error
+                      : expandedCell?.row === row.rowIndex &&
+                          expandedCell?.col === o.key
+                        ? (
+                            <div className="whitespace-pre-wrap break-words max-w-md">
+                              {typeof row.output?.[o.key] === "object"
+                                ? JSON.stringify(row.output?.[o.key], null, 2)
+                                : String(row.output?.[o.key] ?? "")}
+                            </div>
+                          )
+                        : typeof row.output?.[o.key] === "object"
+                          ? JSON.stringify(row.output?.[o.key])
+                          : String(row.output?.[o.key] ?? "")}
+                  </TableCell>
+                ))}
+              </TableRow>
+              {/* Expanded error detail row */}
+              {row.status === "error" && expandedError === row.rowIndex && (
+                <TableRow key={`err-${row.rowIndex}`} className="bg-red-950/20 hover:bg-red-950/20">
+                  <TableCell
+                    colSpan={
+                      2 +
+                      mappings.length +
+                      selectedFunction.outputs.length
+                    }
+                  >
+                    <div className="text-xs text-red-300 whitespace-pre-wrap font-mono">
+                      {row.error || "Unknown error"}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

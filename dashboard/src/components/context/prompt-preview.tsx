@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Eye, FileText, Hash } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect } from "react";
@@ -64,35 +71,35 @@ export function PromptPreview({ clients }: PromptPreviewProps) {
           <label className="text-xs font-medium text-clay-200 mb-1 block">
             Skill
           </label>
-          <select
-            value={selectedSkill}
-            onChange={(e) => setSelectedSkill(e.target.value)}
-            className="w-full rounded-md bg-clay-800 border border-clay-700 text-clay-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kiln-teal/50"
-          >
-            <option value="">Select a skill...</option>
-            {skills.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+          <Select value={selectedSkill} onValueChange={setSelectedSkill}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a skill..." />
+            </SelectTrigger>
+            <SelectContent>
+              {skills.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <label className="text-xs font-medium text-clay-200 mb-1 block">
             Client
           </label>
-          <select
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
-            className="w-full rounded-md bg-clay-800 border border-clay-700 text-clay-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kiln-teal/50"
-          >
-            <option value="">Select a client...</option>
-            {clients.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <Select value={selectedClient} onValueChange={setSelectedClient}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a client..." />
+            </SelectTrigger>
+            <SelectContent>
+              {clients.map((c) => (
+                <SelectItem key={c.slug} value={c.slug}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

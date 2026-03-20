@@ -6,6 +6,13 @@ import { FileGridItem } from "./file-grid-item";
 import { FileListRow } from "./file-list-row";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FolderOpen } from "lucide-react";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 interface FileGridProps {
@@ -49,35 +56,33 @@ export function FileGrid({
 
   if (viewMode === "list") {
     return (
-      <div className="rounded-lg border border-clay-500 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-clay-500 text-left text-xs text-clay-200">
-              <th className="px-3 py-2 font-medium">Name</th>
-              <th className="px-3 py-2 font-medium hidden sm:table-cell">Type</th>
-              <th className="px-3 py-2 font-medium hidden md:table-cell">Category</th>
-              <th className="px-3 py-2 font-medium w-10" />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <FileListRow
-                key={item.id}
-                node={item}
-                isSelected={item.id === selectedFileId}
-                isMultiSelected={selectedIds.has(item.id)}
-                isRenaming={item.id === renamingId}
-                onSelect={onSelect}
-                onDoubleClick={onDoubleClick}
-                onNavigate={onNavigate}
-                onRename={onRename}
-                onToggleSelect={onToggleSelect}
-                onContextMenu={onContextMenu}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table className="text-sm">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-xs">Name</TableHead>
+            <TableHead className="text-xs hidden sm:table-cell">Type</TableHead>
+            <TableHead className="text-xs hidden md:table-cell">Category</TableHead>
+            <TableHead className="w-10" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((item) => (
+            <FileListRow
+              key={item.id}
+              node={item}
+              isSelected={item.id === selectedFileId}
+              isMultiSelected={selectedIds.has(item.id)}
+              isRenaming={item.id === renamingId}
+              onSelect={onSelect}
+              onDoubleClick={onDoubleClick}
+              onNavigate={onNavigate}
+              onRename={onRename}
+              onToggleSelect={onToggleSelect}
+              onContextMenu={onContextMenu}
+            />
+          ))}
+        </TableBody>
+      </Table>
     );
   }
 

@@ -37,6 +37,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { toast } from "sonner";
 
 export default function FunctionsPage() {
@@ -369,25 +382,26 @@ export default function FunctionsPage() {
         )}
       </div>
 
-      {/* Builder slide-out panel (Phase 4 — placeholder) */}
-      {builderOpen && (
-        <FunctionBuilderPanel
-          folders={folders}
-          onClose={() => setBuilderOpen(false)}
-          onCreated={() => { setBuilderOpen(false); load(); }}
-        />
-      )}
+      {/* Builder slide-out panel */}
+      <FunctionBuilderPanel
+        open={builderOpen}
+        onOpenChange={setBuilderOpen}
+        folders={folders}
+        onCreated={() => { setBuilderOpen(false); load(); }}
+      />
     </div>
   );
 }
 
 function FunctionBuilderPanel({
+  open,
+  onOpenChange,
   folders: availableFolders,
-  onClose,
   onCreated,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   folders: FolderDefinition[];
-  onClose: () => void;
   onCreated: () => void;
 }) {
   const [step, setStep] = useState<"describe" | "review">("describe");
@@ -447,14 +461,11 @@ function FunctionBuilderPanel({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full sm:w-[520px] bg-clay-800 border-l border-clay-600 z-50 flex flex-col shadow-2xl">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-clay-600">
-        <h2 className="text-lg font-semibold text-clay-100">New Function</h2>
-        <Button variant="ghost" size="sm" onClick={onClose} className="text-clay-300 hover:text-clay-100">
-          Close
-        </Button>
-      </div>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:w-[520px] sm:max-w-[520px] p-0 flex flex-col">
+        <SheetHeader className="p-4 border-b border-clay-600">
+          <SheetTitle>New Function</SheetTitle>
+        </SheetHeader>
 
       {/* Step 1: Describe */}
       {step === "describe" && (
@@ -481,15 +492,16 @@ function FunctionBuilderPanel({
 
             <div>
               <label className="text-xs font-medium text-clay-300 mb-1 block">Folder (optional)</label>
-              <select
-                value={folder}
-                onChange={(e) => setFolder(e.target.value)}
-                className="w-full h-9 rounded-md bg-clay-900 border border-clay-600 text-clay-100 text-sm px-3 focus:outline-none focus:ring-1 focus:ring-kiln-teal"
-              >
-                {availableFolders.map(f => (
-                  <option key={f.name} value={f.name}>{f.name}</option>
-                ))}
-              </select>
+              <Select value={folder} onValueChange={setFolder}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableFolders.map(f => (
+                    <SelectItem key={f.name} value={f.name}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="border-t border-clay-700 pt-3">
@@ -503,7 +515,7 @@ function FunctionBuilderPanel({
           </div>
 
           <div className="p-4 border-t border-clay-600 flex items-center gap-2 justify-end">
-            <Button variant="outline" onClick={onClose} className="border-clay-600 text-clay-300">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="border-clay-600 text-clay-300">
               Cancel
             </Button>
             <Button
@@ -597,7 +609,7 @@ function FunctionBuilderPanel({
               Regenerate
             </Button>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={onClose} className="border-clay-600 text-clay-300">
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="border-clay-600 text-clay-300">
                 Cancel
               </Button>
               <Button
@@ -611,6 +623,7 @@ function FunctionBuilderPanel({
           </div>
         </>
       )}
-    </div>
+    </SheetContent>
+    </Sheet>
   );
 }

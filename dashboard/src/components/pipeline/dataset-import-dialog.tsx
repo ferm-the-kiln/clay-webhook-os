@@ -4,6 +4,14 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Papa from "papaparse";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -208,36 +216,36 @@ export function DatasetImportDialog({
 
               {/* Mini table */}
               <div className="overflow-x-auto max-h-[160px]">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-clay-600">
+                <Table className="text-xs">
+                  <TableHeader>
+                    <TableRow>
                       {preview.headers.slice(0, 6).map((h) => (
-                        <th key={h} className="px-2 py-1 text-left text-clay-300 font-medium whitespace-nowrap">
+                        <TableHead key={h} className="px-2 py-1 h-auto">
                           {h}
-                        </th>
+                        </TableHead>
                       ))}
                       {preview.headers.length > 6 && (
-                        <th className="px-2 py-1 text-left text-clay-300">
+                        <TableHead className="px-2 py-1 h-auto">
                           +{preview.headers.length - 6}
-                        </th>
+                        </TableHead>
                       )}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {preview.rows.map((row, i) => (
-                      <tr key={i} className="border-b border-clay-700">
+                      <TableRow key={i}>
                         {preview.headers.slice(0, 6).map((h) => (
-                          <td key={h} className="px-2 py-1 text-clay-200 max-w-[120px] truncate">
+                          <TableCell key={h} className="px-2 py-1 max-w-[120px] truncate">
                             {row[h] || "\u2014"}
-                          </td>
+                          </TableCell>
                         ))}
                         {preview.headers.length > 6 && (
-                          <td className="px-2 py-1 text-clay-300">...</td>
+                          <TableCell className="px-2 py-1 text-clay-300">...</TableCell>
                         )}
-                      </tr>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </div>
           )}

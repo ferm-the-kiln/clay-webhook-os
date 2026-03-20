@@ -2,6 +2,13 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { GitFork, Cpu, X, Sparkles } from "lucide-react";
 import {
   EMAIL_LAB_TEMPLATES,
@@ -175,17 +182,18 @@ export function TemplatePanel({
         <h3 className="text-[11px] font-semibold text-clay-300 uppercase tracking-[0.1em] mb-2">
           Skill
         </h3>
-        <select
-          value={selectedSkill}
-          onChange={(e) => onSelectSkill(e.target.value as EmailLabSkill)}
-          className="w-full rounded-lg border border-clay-700 bg-clay-800 text-clay-200 text-sm px-3 py-2 outline-none focus:border-kiln-teal"
-        >
-          {EMAIL_LAB_SKILLS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+        <Select value={selectedSkill} onValueChange={(v) => onSelectSkill(v as EmailLabSkill)}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {EMAIL_LAB_SKILLS.map((s) => (
+              <SelectItem key={s.value} value={s.value}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {/* Variants */}
         {variants.length > 0 && (

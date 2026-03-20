@@ -7,6 +7,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { EmailLabRun } from "@/lib/email-lab-constants";
 import { cn } from "@/lib/utils";
 
@@ -109,30 +116,30 @@ export function CompareDialog({
 
         {/* Selectors */}
         <div className="grid grid-cols-2 gap-4 shrink-0">
-          <select
-            value={leftId ?? ""}
-            onChange={(e) => setLeftId(e.target.value || null)}
-            className="w-full rounded-lg border border-clay-700 bg-clay-800 text-clay-200 text-xs px-3 py-2 outline-none focus:border-kiln-teal"
-          >
-            <option value="">Select run...</option>
-            {history.map((run) => (
-              <option key={run.id} value={run.id}>
-                {formatLabel(run)}
-              </option>
-            ))}
-          </select>
-          <select
-            value={rightId ?? ""}
-            onChange={(e) => setRightId(e.target.value || null)}
-            className="w-full rounded-lg border border-clay-700 bg-clay-800 text-clay-200 text-xs px-3 py-2 outline-none focus:border-kiln-teal"
-          >
-            <option value="">Select run...</option>
-            {history.map((run) => (
-              <option key={run.id} value={run.id}>
-                {formatLabel(run)}
-              </option>
-            ))}
-          </select>
+          <Select value={leftId ?? ""} onValueChange={(v) => setLeftId(v || null)}>
+            <SelectTrigger className="w-full" size="sm">
+              <SelectValue placeholder="Select run..." />
+            </SelectTrigger>
+            <SelectContent>
+              {history.map((run) => (
+                <SelectItem key={run.id} value={run.id}>
+                  {formatLabel(run)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={rightId ?? ""} onValueChange={(v) => setRightId(v || null)}>
+            <SelectTrigger className="w-full" size="sm">
+              <SelectValue placeholder="Select run..." />
+            </SelectTrigger>
+            <SelectContent>
+              {history.map((run) => (
+                <SelectItem key={run.id} value={run.id}>
+                  {formatLabel(run)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Side by side */}

@@ -3,6 +3,14 @@
 import type { FunctionDefinition } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
 
 interface FunctionInfoPanelProps {
   func: FunctionDefinition;
@@ -17,55 +25,42 @@ export function FunctionInfoPanel({ func }: FunctionInfoPanelProps) {
           <h4 className="text-xs font-medium text-clay-300 uppercase tracking-wider mb-2">
             Inputs ({func.inputs.length})
           </h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-clay-700">
-                  <th className="text-left py-1.5 pr-3 text-clay-300 font-medium">
-                    Field
-                  </th>
-                  <th className="text-left py-1.5 pr-3 text-clay-300 font-medium">
-                    Type
-                  </th>
-                  <th className="text-left py-1.5 pr-3 text-clay-300 font-medium">
-                    Required
-                  </th>
-                  <th className="text-left py-1.5 text-clay-300 font-medium">
-                    Description
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {func.inputs.map((input) => (
-                  <tr
-                    key={input.name}
-                    className="border-b border-clay-700/50"
-                  >
-                    <td className="py-1.5 pr-3 font-mono text-clay-100">
-                      {input.name}
-                    </td>
-                    <td className="py-1.5 pr-3">
-                      <Badge variant="secondary" className="text-[10px]">
-                        {input.type}
+          <Table className="text-xs">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Field</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Required</TableHead>
+                <TableHead>Description</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {func.inputs.map((input) => (
+                <TableRow key={input.name}>
+                  <TableCell className="font-mono">
+                    {input.name}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {input.type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {input.required ? (
+                      <Badge className="text-[10px] bg-kiln-teal/15 text-kiln-teal border-kiln-teal/25">
+                        required
                       </Badge>
-                    </td>
-                    <td className="py-1.5 pr-3">
-                      {input.required ? (
-                        <Badge className="text-[10px] bg-kiln-teal/15 text-kiln-teal border-kiln-teal/25">
-                          required
-                        </Badge>
-                      ) : (
-                        <span className="text-clay-300">optional</span>
-                      )}
-                    </td>
-                    <td className="py-1.5 text-clay-300">
-                      {input.description || "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    ) : (
+                      <span className="text-clay-300">optional</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-clay-300">
+                    {input.description || "\u2014"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
 
         {/* Outputs */}
@@ -73,43 +68,32 @@ export function FunctionInfoPanel({ func }: FunctionInfoPanelProps) {
           <h4 className="text-xs font-medium text-clay-300 uppercase tracking-wider mb-2">
             Outputs ({func.outputs.length})
           </h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-clay-700">
-                  <th className="text-left py-1.5 pr-3 text-clay-300 font-medium">
-                    Key
-                  </th>
-                  <th className="text-left py-1.5 pr-3 text-clay-300 font-medium">
-                    Type
-                  </th>
-                  <th className="text-left py-1.5 text-clay-300 font-medium">
-                    Description
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {func.outputs.map((output) => (
-                  <tr
-                    key={output.key}
-                    className="border-b border-clay-700/50"
-                  >
-                    <td className="py-1.5 pr-3 font-mono text-kiln-teal">
-                      {output.key}
-                    </td>
-                    <td className="py-1.5 pr-3">
-                      <Badge variant="secondary" className="text-[10px]">
-                        {output.type}
-                      </Badge>
-                    </td>
-                    <td className="py-1.5 text-clay-300">
-                      {output.description || "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table className="text-xs">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Key</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Description</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {func.outputs.map((output) => (
+                <TableRow key={output.key}>
+                  <TableCell className="font-mono text-kiln-teal">
+                    {output.key}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {output.type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-clay-300">
+                    {output.description || "\u2014"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
 
         {/* Pipeline */}

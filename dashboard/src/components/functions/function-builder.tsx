@@ -4,6 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -287,19 +294,16 @@ export function FunctionBuilder({
                         placeholder="Name"
                         className="bg-clay-900 border-clay-600 text-clay-100 text-xs h-7 flex-1"
                       />
-                      <select
-                        value={inp.type}
-                        onChange={(e) => updateInput(i, "type", e.target.value)}
-                        className="bg-clay-900 border border-clay-600 text-clay-100 text-xs rounded h-7 px-1"
-                      >
-                        {["string", "number", "url", "email", "boolean"].map(
-                          (t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          )
-                        )}
-                      </select>
+                      <Select value={inp.type} onValueChange={(v) => updateInput(i, "type", v)}>
+                        <SelectTrigger size="sm" className="w-auto h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["string", "number", "url", "email", "boolean"].map((t) => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <label className="flex items-center gap-1 text-xs text-clay-300">
                         <input
                           type="checkbox"
@@ -404,19 +408,16 @@ export function FunctionBuilder({
                         placeholder="Key"
                         className="bg-clay-900 border-clay-600 text-clay-100 text-xs h-7 flex-1"
                       />
-                      <select
-                        value={out.type}
-                        onChange={(e) =>
-                          updateOutput(i, "type", e.target.value)
-                        }
-                        className="bg-clay-900 border border-clay-600 text-clay-100 text-xs rounded h-7 px-1"
-                      >
-                        {["string", "number", "boolean", "json"].map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={out.type} onValueChange={(v) => updateOutput(i, "type", v)}>
+                        <SelectTrigger size="sm" className="w-auto h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["string", "number", "boolean", "json"].map((t) => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Input
                         value={out.description}
                         onChange={(e) =>
