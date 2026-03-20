@@ -613,6 +613,35 @@ export interface ToolCategory {
   tools: ToolDefinition[];
 }
 
+// Data Flow types (function builder visual canvas)
+export interface DataFlowEdge {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  variable: string;
+  resolved: boolean;
+}
+
+export interface VariableInfo {
+  name: string;
+  type: string;
+  source: "input" | "step";
+  stepIndex?: number;
+  toolName?: string;
+}
+
+export interface SchemaIssue {
+  type: "missing" | "unmapped" | "type_mismatch";
+  key: string;
+  message: string;
+}
+
+export interface CostEstimate {
+  apiCalls: number;
+  aiCalls: number;
+  breakdown: string[];
+}
+
 // Analysis types
 export type AnalysisType = "icp" | "win-loss" | "churn" | "usage" | "sequence-performance" | "expansion";
 

@@ -15,8 +15,8 @@
   --color-clay-600: #2a2a2e;
   --color-clay-500: #3a3a40;
   --color-clay-400: #4a4a52;
-  --color-clay-300: #8a8882;
-  --color-clay-200: #9a9892;
+  --color-clay-300: #b0ada6;
+  --color-clay-200: #c8c5be;
   --color-clay-100: #e8e6e3;
 
   /* Retro Mac accents */
@@ -140,7 +140,7 @@ body {
   --secondary: #1c1c1f;
   --secondary-foreground: #e8e6e3;
   --muted: #1c1c1f;
-  --muted-foreground: #9a9892;
+  --muted-foreground: #b0ada6;
   --accent: #4a9ead;
   --accent-foreground: #0a0a0b;
   --destructive: #c45a4a;
@@ -175,7 +175,7 @@ body {
   --secondary: #1c1c1f;
   --secondary-foreground: #e8e6e3;
   --muted: #1c1c1f;
-  --muted-foreground: #9a9892;
+  --muted-foreground: #b0ada6;
   --accent: #4a9ead;
   --accent-foreground: #0a0a0b;
   --destructive: #c45a4a;
@@ -304,7 +304,7 @@ body {
   font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1.4;
-  color: #8a8882;
+  color: #b0ada6;
   background: #0e0e10;
   border: 1px solid #2a2a2e;
   border-radius: 4px;
