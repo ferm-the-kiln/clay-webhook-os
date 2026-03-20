@@ -141,10 +141,10 @@ export function ConfigurePhase({
             >
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <at.icon className={`h-4 w-4 ${analysisType === at.type ? "text-kiln-amber" : "text-clay-400"}`} />
+                  <at.icon className={`h-4 w-4 ${analysisType === at.type ? "text-kiln-amber" : "text-clay-300"}`} />
                   <span className="text-sm font-medium text-clay-100">{at.label}</span>
                 </div>
-                <p className="text-xs text-clay-400">{at.description}</p>
+                <p className="text-xs text-clay-300">{at.description}</p>
               </CardContent>
             </Card>
           ))}
@@ -159,7 +159,7 @@ export function ConfigurePhase({
               <label className="text-sm font-medium text-clay-200 block mb-1.5">
                 Outcome column <span className="text-red-400">*</span>
               </label>
-              <p className="text-xs text-clay-400 mb-2">
+              <p className="text-xs text-clay-300 mb-2">
                 Which column contains the outcome? (e.g., Won/Lost, Churned/Retained)
               </p>
               <Select
@@ -180,9 +180,9 @@ export function ConfigurePhase({
 
           <div>
             <label className="text-sm font-medium text-clay-200 block mb-1.5">
-              Segment columns <span className="text-clay-500">(optional)</span>
+              Segment columns <span className="text-clay-300">(optional)</span>
             </label>
-            <p className="text-xs text-clay-400 mb-2">
+            <p className="text-xs text-clay-300 mb-2">
               Columns to cross-tabulate against. Leave empty for auto-detection.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -209,9 +209,9 @@ export function ConfigurePhase({
 
           <div>
             <label className="text-sm font-medium text-clay-200 block mb-1.5">
-              Business context <span className="text-clay-500">(optional)</span>
+              Business context <span className="text-clay-300">(optional)</span>
             </label>
-            <p className="text-xs text-clay-400 mb-2">
+            <p className="text-xs text-clay-300 mb-2">
               What does your company sell? Who is your ICP? This helps the AI contextualize patterns.
             </p>
             <Textarea
@@ -244,7 +244,7 @@ export function ConfigurePhase({
           )}
         </Button>
         {isRunning && (
-          <span className="text-xs text-clay-400">
+          <span className="text-xs text-clay-300">
             Pre-processing data and running AI analysis...
           </span>
         )}
@@ -265,11 +265,11 @@ export function ConfigurePhase({
                   <span className="text-sm text-clay-100 font-medium">
                     {ANALYSIS_TYPES.find((t) => t.type === a.analysis_type)?.label ?? a.analysis_type}
                   </span>
-                  <span className="text-xs text-clay-400 ml-2">
+                  <span className="text-xs text-clay-300 ml-2">
                     {a.status === "completed" ? "Completed" : a.status === "failed" ? "Failed" : "Processing"}
                   </span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-clay-500" />
+                <ChevronRight className="h-4 w-4 text-clay-300" />
               </button>
             ))}
           </div>

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -208,7 +209,7 @@ export function FunctionBuilder({
           {editing ? (
             <>
               <div>
-                <label className="text-xs text-clay-400 mb-1 block">Name</label>
+                <label className="text-xs text-clay-300 mb-1 block">Name</label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -216,7 +217,7 @@ export function FunctionBuilder({
                 />
               </div>
               <div>
-                <label className="text-xs text-clay-400 mb-1 block">
+                <label className="text-xs text-clay-300 mb-1 block">
                   Description
                 </label>
                 <textarea
@@ -227,7 +228,7 @@ export function FunctionBuilder({
                 />
               </div>
               <div>
-                <label className="text-xs text-clay-400 mb-1 block">
+                <label className="text-xs text-clay-300 mb-1 block">
                   Folder
                 </label>
                 <Input
@@ -242,7 +243,7 @@ export function FunctionBuilder({
               <div className="text-sm text-clay-200">
                 {func.description || "No description"}
               </div>
-              <div className="text-xs text-clay-400">
+              <div className="text-xs text-clay-300">
                 Folder: {func.folder} | ID: {func.id}
               </div>
             </>
@@ -271,7 +272,7 @@ export function FunctionBuilder({
         </CardHeader>
         <CardContent>
           {inputs.length === 0 ? (
-            <div className="text-xs text-clay-500 py-2">No inputs defined</div>
+            <div className="text-xs text-clay-300 py-2">No inputs defined</div>
           ) : (
             <div className="space-y-2">
               {inputs.map((inp, i) => (
@@ -325,14 +326,14 @@ export function FunctionBuilder({
                       <span className="font-medium text-clay-100">
                         {inp.name}
                       </span>
-                      <span className="text-clay-400">({inp.type})</span>
+                      <span className="text-clay-300">({inp.type})</span>
                       {inp.required && (
                         <span className="text-red-400 text-[10px]">
                           required
                         </span>
                       )}
                       {inp.description && (
-                        <span className="text-clay-500">
+                        <span className="text-clay-300">
                           — {inp.description}
                         </span>
                       )}
@@ -386,7 +387,7 @@ export function FunctionBuilder({
         </CardHeader>
         <CardContent>
           {outputs.length === 0 ? (
-            <div className="text-xs text-clay-500 py-2">
+            <div className="text-xs text-clay-300 py-2">
               No outputs defined
             </div>
           ) : (
@@ -439,9 +440,9 @@ export function FunctionBuilder({
                       <span className="font-medium text-kiln-teal">
                         {out.key}
                       </span>
-                      <span className="text-clay-400">({out.type})</span>
+                      <span className="text-clay-300">({out.type})</span>
                       {out.description && (
-                        <span className="text-clay-500">
+                        <span className="text-clay-300">
                           — {out.description}
                         </span>
                       )}
@@ -486,7 +487,7 @@ export function FunctionBuilder({
         </CardHeader>
         <CardContent>
           {steps.length === 0 ? (
-            <div className="text-xs text-clay-500 py-2">
+            <div className="text-xs text-clay-300 py-2">
               No steps defined. Add tools to build this function.
             </div>
           ) : (
@@ -505,7 +506,7 @@ export function FunctionBuilder({
                     className="rounded bg-clay-900/50 border border-clay-700"
                   >
                     <div className="flex items-center gap-2 p-2">
-                      <span className="text-[10px] text-clay-500 w-4">
+                      <span className="text-[10px] text-clay-300 w-4">
                         {i + 1}
                       </span>
                       {editing ? (
@@ -523,7 +524,7 @@ export function FunctionBuilder({
                               setEditingStepIdx(isEditingParams ? null : i)
                             }
                             className={cn(
-                              "h-6 px-1.5 text-clay-400",
+                              "h-6 px-1.5 text-clay-300",
                               isEditingParams && "text-kiln-teal"
                             )}
                           >
@@ -543,7 +544,7 @@ export function FunctionBuilder({
                           {hasParams ? (
                             <button
                               onClick={() => toggleStepExpanded(i)}
-                              className="text-clay-400 hover:text-clay-200"
+                              className="text-clay-300 hover:text-clay-200"
                             >
                               {isExpanded ? (
                                 <ChevronDown className="h-3 w-3" />
@@ -566,7 +567,7 @@ export function FunctionBuilder({
                                   <div className="font-medium">
                                     {toolDef.name}
                                   </div>
-                                  <div className="text-clay-400 text-[10px]">
+                                  <div className="text-clay-300 text-[10px]">
                                     {toolDef.category} &middot; {step.tool}
                                   </div>
                                   {toolDef.description && (
@@ -575,12 +576,12 @@ export function FunctionBuilder({
                                     </div>
                                   )}
                                   {toolDef.execution_mode && (
-                                    <div className="text-clay-400 text-[10px]">
+                                    <div className="text-clay-300 text-[10px]">
                                       Executor: {toolDef.execution_mode === "native" ? "Native API" : toolDef.execution_mode === "ai_agent" ? "AI Agent (web search)" : "AI Single-turn"}
                                     </div>
                                   )}
                                   {toolDef.ai_fallback_description && (
-                                    <div className="text-clay-500 text-[10px] italic">
+                                    <div className="text-clay-300 text-[10px] italic">
                                       {toolDef.ai_fallback_description}
                                     </div>
                                   )}
@@ -642,7 +643,7 @@ export function FunctionBuilder({
                             </span>
                           )}
                           {hasParams && (
-                            <span className="text-[10px] text-clay-500 ml-auto">
+                            <span className="text-[10px] text-clay-300 ml-auto">
                               {Object.keys(step.params).length} param
                               {Object.keys(step.params).length !== 1
                                 ? "s"
@@ -661,10 +662,10 @@ export function FunctionBuilder({
                             key={key}
                             className="flex items-baseline gap-2 text-[11px]"
                           >
-                            <span className="text-clay-400 font-mono shrink-0">
+                            <span className="text-clay-300 font-mono shrink-0">
                               {key}
                             </span>
-                            <span className="text-clay-600">=</span>
+                            <span className="text-clay-300">=</span>
                             <span className="text-clay-200 break-all">
                               {highlightTemplateVars(val)}
                             </span>
@@ -691,7 +692,7 @@ export function FunctionBuilder({
                               className="bg-clay-900 border-clay-600 text-clay-100 text-xs h-7 w-28 font-mono"
                               placeholder="key"
                             />
-                            <span className="text-clay-600 text-xs">=</span>
+                            <span className="text-clay-300 text-xs">=</span>
                             <Input
                               value={val}
                               onChange={(e) =>
@@ -721,7 +722,7 @@ export function FunctionBuilder({
                           </Button>
                           {inputs.length > 0 && (
                             <div className="flex items-center gap-1 ml-2">
-                              <span className="text-[10px] text-clay-500">
+                              <span className="text-[10px] text-clay-300">
                                 Insert:
                               </span>
                               {inputs.map((inp) => (

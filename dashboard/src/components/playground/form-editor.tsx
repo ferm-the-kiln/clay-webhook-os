@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { SKILL_FIELDS, type SkillFieldMeta } from "@/lib/constants";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Code, ListChecks } from "lucide-react";
 
 function parseJsonError(message: string): string {

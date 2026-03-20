@@ -30,7 +30,7 @@ export function DatasetRowDetail({ data }: { data: DatasetRow }) {
         )}
       </div>
       <div className="mt-3 pt-2 border-t border-clay-700">
-        <span className="text-[10px] text-clay-400 font-[family-name:var(--font-mono)]">
+        <span className="text-[10px] text-clay-300 font-[family-name:var(--font-mono)]">
           ID: {data._row_id}
         </span>
       </div>

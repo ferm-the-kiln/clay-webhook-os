@@ -191,7 +191,7 @@ export function SequencePreviewPanel({
                       </span>
                       <span>
                         Pick a template
-                        <ArrowRight className="inline h-3 w-3 mx-1 text-clay-500" />
+                        <ArrowRight className="inline h-3 w-3 mx-1 text-clay-300" />
                         or enter prospect details
                       </span>
                     </div>
@@ -224,7 +224,7 @@ export function SequencePreviewPanel({
               </>
             ) : (
               <>
-                <ListOrdered className="h-8 w-8 text-clay-500" />
+                <ListOrdered className="h-8 w-8 text-clay-300" />
                 <p className="text-sm text-clay-300">
                   Select a template and run to preview
                 </p>
@@ -289,7 +289,7 @@ export function SequencePreviewPanel({
                     variant="ghost"
                     size="sm"
                     onClick={handleExportCsv}
-                    className="h-7 text-[10px] text-clay-400 hover:text-clay-200 px-1.5"
+                    className="h-7 text-[10px] text-clay-300 hover:text-clay-200 px-1.5"
                     title="Export as CSV"
                   >
                     <Download className="h-3 w-3" />
@@ -298,7 +298,7 @@ export function SequencePreviewPanel({
                     variant="ghost"
                     size="sm"
                     onClick={handleCopyJson}
-                    className="h-7 text-[10px] text-clay-400 hover:text-clay-200 px-1.5"
+                    className="h-7 text-[10px] text-clay-300 hover:text-clay-200 px-1.5"
                     title="Copy raw JSON"
                   >
                     {copiedJson ? (
@@ -318,7 +318,7 @@ export function SequencePreviewPanel({
                       Day {day}
                     </span>
                     {i < dayMarkers.length - 1 && (
-                      <span className="text-clay-500 text-[10px]">&rarr;</span>
+                      <span className="text-clay-300 text-[10px]">&rarr;</span>
                     )}
                   </span>
                 ))}

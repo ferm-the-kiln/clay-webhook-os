@@ -24,6 +24,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { FeedbackButtons } from "@/components/feedback/feedback-buttons";
 import { PushToDestination } from "@/components/shared/push-to-destination";
 import type { WebhookResponse } from "@/lib/types";
@@ -218,7 +219,7 @@ export function EmailPreviewPanel({
                       </span>
                       <span>
                         Pick a template from the left panel
-                        <ArrowRight className="inline h-3 w-3 mx-1 text-clay-500" />
+                        <ArrowRight className="inline h-3 w-3 mx-1 text-clay-300" />
                         or fill in prospect data
                       </span>
                     </div>
@@ -251,7 +252,7 @@ export function EmailPreviewPanel({
               </>
             ) : (
               <>
-                <Mail className="h-8 w-8 text-clay-500" />
+                <Mail className="h-8 w-8 text-clay-300" />
                 <p className="text-sm text-clay-300">
                   Select a template and run to preview
                 </p>
@@ -328,7 +329,7 @@ export function EmailPreviewPanel({
                       variant="ghost"
                       size="sm"
                       onClick={handleCopyJson}
-                      className="h-7 text-[10px] text-clay-400 hover:text-clay-200 px-1.5"
+                      className="h-7 text-[10px] text-clay-300 hover:text-clay-200 px-1.5"
                       title="Copy raw JSON"
                     >
                       {copied ? (
@@ -519,7 +520,7 @@ export function EmailPreviewPanel({
 
             {/* Quality gate toggle */}
             {onSetAutoQualityCheck && (
-              <div className="flex items-center justify-between text-[10px] text-clay-400">
+              <div className="flex items-center justify-between text-[10px] text-clay-300">
                 <span>Auto-check quality</span>
                 <button
                   onClick={() => onSetAutoQualityCheck(!autoQualityCheck)}
@@ -549,13 +550,13 @@ export function EmailPreviewPanel({
                 )}
               >
                 <span className="font-medium">{stats.words} words</span>
-                <span className="text-clay-500">&middot;</span>
+                <span className="text-clay-300">&middot;</span>
                 <span>{stats.sentences} sentences</span>
-                <span className="text-clay-500">&middot;</span>
+                <span className="text-clay-300">&middot;</span>
                 <span>~{stats.readTimeSec}s read</span>
                 {!stats.inRange && (
                   <>
-                    <span className="text-clay-500">&middot;</span>
+                    <span className="text-clay-300">&middot;</span>
                     <span className="font-medium">
                       {stats.words < 50 ? "Too short" : "Too long"}
                     </span>

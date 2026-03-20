@@ -23,7 +23,7 @@ export function AnalyzePage() {
         <div className="flex items-center gap-1">
         {(["upload", "configure", "results"] as const).map((phase, i) => (
           <div key={phase} className="flex items-center gap-1">
-            {i > 0 && <span className="text-clay-600 mx-1">/</span>}
+            {i > 0 && <span className="text-clay-300 mx-1">/</span>}
             <button
               onClick={() => {
                 if (phase === "upload") analyzer.reset();
@@ -37,7 +37,7 @@ export function AnalyzePage() {
               className={`text-xs px-2 py-1 rounded-md transition-colors ${
                 analyzer.phase === phase
                   ? "bg-kiln-amber/10 text-kiln-amber font-medium"
-                  : "text-clay-400 hover:text-clay-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                  : "text-clay-300 hover:text-clay-300 disabled:opacity-30 disabled:cursor-not-allowed"
               }`}
             >
               {phase === "upload" ? "1. Upload" : phase === "configure" ? "2. Configure" : "3. Results"}

@@ -54,7 +54,7 @@ function JsonViewer({ data, label }: { data: unknown; label: string }) {
             e.stopPropagation();
             handleCopy();
           }}
-          className="h-6 w-6 text-clay-400 hover:text-clay-200"
+          className="h-6 w-6 text-clay-300 hover:text-clay-200"
         >
           {copied ? (
             <Check className="h-3 w-3 text-status-success" />
@@ -160,7 +160,7 @@ export function RequestDetail({ jobId, onClose }: RequestDetailProps) {
           <h3 className="text-sm font-medium text-clay-100 truncate">
             Request Detail
           </h3>
-          <code className="text-xs text-clay-400 font-mono truncate">
+          <code className="text-xs text-clay-300 font-mono truncate">
             {jobId}
           </code>
         </div>
@@ -168,7 +168,7 @@ export function RequestDetail({ jobId, onClose }: RequestDetailProps) {
           variant="ghost"
           size="icon-sm"
           onClick={onClose}
-          className="h-7 w-7 text-clay-400 hover:text-clay-200 shrink-0"
+          className="h-7 w-7 text-clay-300 hover:text-clay-200 shrink-0"
         >
           <X className="h-4 w-4" />
         </Button>
@@ -210,7 +210,7 @@ export function RequestDetail({ jobId, onClose }: RequestDetailProps) {
                 <Clock className="h-3 w-3" />
                 {formatDuration(job.duration_ms)}
               </span>
-              <span className="text-xs text-clay-400 font-mono">
+              <span className="text-xs text-clay-300 font-mono">
                 {formatTimestamp(job.created_at)}
               </span>
               {job.priority && job.priority !== "normal" && (
@@ -224,7 +224,7 @@ export function RequestDetail({ jobId, onClose }: RequestDetailProps) {
             {job.input_tokens_est !== undefined && (
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-clay-800 rounded-md px-3 py-2 border border-clay-600">
-                  <p className="text-[10px] uppercase tracking-wider text-clay-400 mb-0.5">
+                  <p className="text-[10px] uppercase tracking-wider text-clay-300 mb-0.5">
                     Input Tokens
                   </p>
                   <p className="text-sm font-mono text-clay-200">
@@ -232,7 +232,7 @@ export function RequestDetail({ jobId, onClose }: RequestDetailProps) {
                   </p>
                 </div>
                 <div className="bg-clay-800 rounded-md px-3 py-2 border border-clay-600">
-                  <p className="text-[10px] uppercase tracking-wider text-clay-400 mb-0.5">
+                  <p className="text-[10px] uppercase tracking-wider text-clay-300 mb-0.5">
                     Output Tokens
                   </p>
                   <p className="text-sm font-mono text-clay-200">
@@ -240,7 +240,7 @@ export function RequestDetail({ jobId, onClose }: RequestDetailProps) {
                   </p>
                 </div>
                 <div className="bg-clay-800 rounded-md px-3 py-2 border border-clay-600">
-                  <p className="text-[10px] uppercase tracking-wider text-clay-400 mb-0.5">
+                  <p className="text-[10px] uppercase tracking-wider text-clay-300 mb-0.5">
                     Est. Cost
                   </p>
                   <p className="text-sm font-mono text-clay-200">

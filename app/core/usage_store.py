@@ -58,7 +58,7 @@ class UsageStore:
     def record(self, entry: UsageEntry) -> None:
         self._entries.append(entry)
         # Trim if over soft cap
-        if len(self._entries) > int(MAX_IN_MEMORY_ENTRIES * 1.5):
+        if len(self._entries) > MAX_IN_MEMORY_ENTRIES + 100:
             self._entries = self._entries[-MAX_IN_MEMORY_ENTRIES:]
         self._data_dir.mkdir(parents=True, exist_ok=True)
         with open(self._entries_file, "a") as f:
@@ -68,7 +68,7 @@ class UsageStore:
         err = UsageError(error_type=error_type, message=message)
         self._errors.append(err)
         # Trim if over soft cap
-        if len(self._errors) > int(MAX_IN_MEMORY_ERRORS * 1.5):
+        if len(self._errors) > MAX_IN_MEMORY_ERRORS + 50:
             self._errors = self._errors[-MAX_IN_MEMORY_ERRORS:]
         self._data_dir.mkdir(parents=True, exist_ok=True)
         with open(self._errors_file, "a") as f:

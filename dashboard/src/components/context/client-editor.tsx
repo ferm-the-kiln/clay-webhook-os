@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { ClientProfile } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Sheet,
   SheetContent,
@@ -94,11 +95,11 @@ function TextArea({
   return (
     <div>
       <Label>{label}</Label>
-      <textarea
+      <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows || 4}
-        className="w-full rounded-md bg-clay-800 border border-clay-700 text-clay-100 placeholder:text-clay-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kiln-teal/50 resize-y"
+        className="resize-y"
       />
     </div>
   );

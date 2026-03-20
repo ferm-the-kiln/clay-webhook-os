@@ -156,7 +156,7 @@ export function Header({ title, breadcrumbs, lastUpdated, onRefresh }: HeaderPro
               <div className="hidden sm:flex items-center gap-1.5 text-sm font-mono">
                 {breadcrumbs.map((crumb, i) => (
                   <span key={i} className="flex items-center gap-1.5">
-                    <span className="text-clay-400">/</span>
+                    <span className="text-clay-300">/</span>
                     {crumb.href ? (
                       <Link href={crumb.href} className="text-clay-300 hover:text-kiln-teal transition-colors duration-150">
                         {crumb.label}

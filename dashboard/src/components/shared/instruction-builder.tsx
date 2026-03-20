@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 import { ChevronDown } from "lucide-react";
 
 const TONE_LABELS = ["Very Formal", "Formal", "Professional", "Conversational", "Casual"];
@@ -104,7 +105,7 @@ export function InstructionBuilder({
           onChange={(e) => setTone(Number(e.target.value))}
           className="w-full accent-kiln-teal h-1.5"
         />
-        <div className="flex justify-between text-[10px] text-clay-400">
+        <div className="flex justify-between text-[10px] text-clay-300">
           <span>Formal</span>
           <span className="text-kiln-teal font-medium">{TONE_LABELS[tone]}</span>
           <span>Casual</span>
@@ -127,7 +128,7 @@ export function InstructionBuilder({
               )}
             >
               <span className="font-medium">{opt.label}</span>
-              <span className="block text-[9px] text-clay-400 mt-0.5">
+              <span className="block text-[9px] text-clay-300 mt-0.5">
                 {opt.desc}
               </span>
             </button>
@@ -153,7 +154,7 @@ export function InstructionBuilder({
               )}
             >
               <span className="font-medium block">{opt.label}</span>
-              <span className="text-[9px] text-clay-400 block mt-0.5 leading-tight">
+              <span className="text-[9px] text-clay-300 block mt-0.5 leading-tight">
                 {opt.desc}
               </span>
             </button>
@@ -197,7 +198,7 @@ export function InstructionBuilder({
       {/* Show raw instructions */}
       <button
         onClick={() => setShowRaw(!showRaw)}
-        className="flex items-center gap-1 text-[10px] text-clay-400 hover:text-clay-300 transition-colors"
+        className="flex items-center gap-1 text-[10px] text-clay-300 hover:text-clay-300 transition-colors"
       >
         <ChevronDown
           className={cn(

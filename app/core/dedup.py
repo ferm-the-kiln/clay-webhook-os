@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import time
+from collections import OrderedDict
 
 logger = logging.getLogger("clay-webhook-os")
 
@@ -13,7 +14,7 @@ class RequestDeduplicator:
 
     def __init__(self, window_seconds: int = 60):
         self._window = window_seconds
-        self._cache: dict[str, tuple[float, dict]] = {}  # hash → (timestamp, result)
+        self._cache: OrderedDict[str, tuple[float, dict]] = OrderedDict()  # hash → (timestamp, result)
         self._hits = 0
         self._checks = 0
 
@@ -37,18 +38,21 @@ class RequestDeduplicator:
         """Store a result for dedup matching."""
         key = self._make_key(skill, data, instructions)
         self._cache[key] = (time.time(), result)
-        # Hard cap: evict oldest entries if over limit
-        if len(self._cache) > MAX_ENTRIES:
-            sorted_keys = sorted(self._cache, key=lambda k: self._cache[k][0])
-            for k in sorted_keys[: len(self._cache) - MAX_ENTRIES]:
-                del self._cache[k]
+        self._cache.move_to_end(key)
+        # Hard cap: evict oldest entries (front of OrderedDict) — O(1) per pop
+        while len(self._cache) > MAX_ENTRIES:
+            self._cache.popitem(last=False)
 
     def _evict(self) -> None:
         """Remove entries older than the window."""
         cutoff = time.time() - self._window
-        expired = [k for k, (ts, _) in self._cache.items() if ts < cutoff]
-        for k in expired:
-            del self._cache[k]
+        # OrderedDict is insertion-ordered; pop from front while expired
+        while self._cache:
+            key, (ts, _) = next(iter(self._cache.items()))
+            if ts < cutoff:
+                del self._cache[key]
+            else:
+                break
 
     def get_stats(self) -> dict:
         return {

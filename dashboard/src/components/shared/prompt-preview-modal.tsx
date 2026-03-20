@@ -90,7 +90,7 @@ export function PromptPreviewButton({
                 <h2 className="text-sm font-semibold text-clay-100">
                   Prompt Preview
                 </h2>
-                <p className="text-[11px] text-clay-400 mt-0.5">
+                <p className="text-[11px] text-clay-300 mt-0.5">
                   This is everything the AI knows when writing your email
                 </p>
               </div>
@@ -143,16 +143,16 @@ export function PromptPreviewButton({
                           Context Files ({contextFiles.length})
                         </div>
                         {estimatedTokens > 0 && (
-                          <div className="flex items-center gap-1.5 text-xs text-clay-400">
+                          <div className="flex items-center gap-1.5 text-xs text-clay-300">
                             <Zap className="h-3 w-3" />
                             ~{estimatedTokens.toLocaleString()} tokens
                           </div>
                         )}
                       </div>
-                      <div className="font-[family-name:var(--font-mono)] text-[11px] text-clay-400 space-y-0.5">
+                      <div className="font-[family-name:var(--font-mono)] text-[11px] text-clay-300 space-y-0.5">
                         {contextFiles.map((file, i) => (
                           <div key={file} className="flex items-start">
-                            <span className="text-clay-600 mr-1.5 select-none">
+                            <span className="text-clay-300 mr-1.5 select-none">
                               {i === contextFiles.length - 1 ? "└──" : "├──"}
                             </span>
                             <span className="text-clay-300">{file}</span>

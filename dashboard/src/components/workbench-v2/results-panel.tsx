@@ -90,7 +90,7 @@ export function ResultsPanel({
       {/* Summary stats bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className="bg-clay-800/60 rounded-lg px-3 py-2">
-          <div className="text-[10px] text-clay-400 uppercase tracking-wider">
+          <div className="text-[10px] text-clay-300 uppercase tracking-wider">
             Success Rate
           </div>
           <div
@@ -107,16 +107,16 @@ export function ResultsPanel({
           </div>
         </div>
         <div className="bg-clay-800/60 rounded-lg px-3 py-2">
-          <div className="text-[10px] text-clay-400 uppercase tracking-wider">
+          <div className="text-[10px] text-clay-300 uppercase tracking-wider">
             Processed
           </div>
           <div className="text-lg font-bold text-clay-100">
             {doneCount + errorCount}
-            <span className="text-sm text-clay-400">/{results.length}</span>
+            <span className="text-sm text-clay-300">/{results.length}</span>
           </div>
         </div>
         <div className="bg-clay-800/60 rounded-lg px-3 py-2">
-          <div className="text-[10px] text-clay-400 uppercase tracking-wider">
+          <div className="text-[10px] text-clay-300 uppercase tracking-wider">
             Errors
           </div>
           <div
@@ -129,7 +129,7 @@ export function ResultsPanel({
           </div>
         </div>
         <div className="bg-clay-800/60 rounded-lg px-3 py-2">
-          <div className="text-[10px] text-clay-400 uppercase tracking-wider">
+          <div className="text-[10px] text-clay-300 uppercase tracking-wider">
             Successful
           </div>
           <div className="text-lg font-bold text-green-400">{doneCount}</div>
@@ -149,7 +149,7 @@ export function ResultsPanel({
           </span>
           {pendingCount > 0 && (
             <span className="flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin text-clay-400" />
+              <Loader2 className="h-3 w-3 animate-spin text-clay-300" />
               {pendingCount} pending
             </span>
           )}
@@ -262,7 +262,7 @@ export function ResultsPanel({
                   key={row.rowIndex}
                   className="border-t border-clay-700 hover:bg-clay-800/50"
                 >
-                  <td className="px-3 py-1.5 text-clay-400">
+                  <td className="px-3 py-1.5 text-clay-300">
                     {row.rowIndex + 1}
                   </td>
                   <td className="px-3 py-1.5">

@@ -53,7 +53,7 @@ export function DatasetHeaderCell({
       >
         {renderHeaderContent(header)}
         {source && source !== "import" && (
-          <span className="text-[9px] font-normal normal-case text-clay-400 ml-0.5">
+          <span className="text-[9px] font-normal normal-case text-clay-300 ml-0.5">
             {source}
           </span>
         )}

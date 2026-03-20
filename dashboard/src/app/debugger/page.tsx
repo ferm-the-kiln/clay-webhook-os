@@ -191,7 +191,7 @@ export default function DebuggerPage() {
                 "border-clay-700 h-9",
                 streaming
                   ? "text-status-success hover:text-status-success"
-                  : "text-clay-400 hover:text-clay-200"
+                  : "text-clay-300 hover:text-clay-200"
               )}
             >
               {streaming ? (
@@ -220,7 +220,7 @@ export default function DebuggerPage() {
 
         {/* Streaming indicator */}
         {streaming && (
-          <div className="flex items-center gap-2 text-xs text-clay-400">
+          <div className="flex items-center gap-2 text-xs text-clay-300">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-success opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-status-success" />
@@ -240,7 +240,7 @@ export default function DebuggerPage() {
               <span className="text-xs font-medium text-clay-300 uppercase tracking-wider">
                 Request Log
               </span>
-              <span className="text-xs text-clay-500 font-mono">
+              <span className="text-xs text-clay-300 font-mono">
                 {filteredJobs.length} / {jobs.length}
               </span>
             </div>
@@ -262,11 +262,11 @@ export default function DebuggerPage() {
             ) : (
               <Card className="flex-1 flex items-center justify-center">
                 <CardContent className="text-center py-16">
-                  <Zap className="h-10 w-10 text-clay-600 mx-auto mb-3" />
-                  <p className="text-sm text-clay-400">
+                  <Zap className="h-10 w-10 text-clay-300 mx-auto mb-3" />
+                  <p className="text-sm text-clay-300">
                     Select a request to view details
                   </p>
-                  <p className="text-xs text-clay-500 mt-1">
+                  <p className="text-xs text-clay-300 mt-1">
                     Click any row in the request log
                   </p>
                 </CardContent>
@@ -295,7 +295,7 @@ function StatCard({
       <CardContent className="py-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-clay-400 mb-1">
+            <p className="text-[10px] uppercase tracking-wider text-clay-300 mb-1">
               {label}
             </p>
             <p className="text-lg font-semibold font-mono text-clay-100 tabular-nums">

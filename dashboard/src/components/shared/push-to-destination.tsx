@@ -68,7 +68,7 @@ export function PushToDestination({
         size="sm"
         disabled
         className={cn(
-          "text-xs text-clay-400 h-7 cursor-not-allowed",
+          "text-xs text-clay-300 h-7 cursor-not-allowed",
           className
         )}
         title="No destinations configured. Set up destinations in Settings."
@@ -123,7 +123,7 @@ export function PushToDestination({
                 className="w-full text-left px-3 py-2 text-xs text-clay-200 hover:bg-clay-700/50 transition-colors"
               >
                 <span className="font-medium block">{dest.name}</span>
-                <span className="text-[10px] text-clay-400">{dest.type}</span>
+                <span className="text-[10px] text-clay-300">{dest.type}</span>
               </button>
             ))}
           </div>

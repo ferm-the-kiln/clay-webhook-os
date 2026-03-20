@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 import { fetchClients } from "@/lib/api";
 import type { ClientSummary } from "@/lib/types";
 import type { SkillFieldMeta } from "@/lib/constants";
@@ -302,7 +303,7 @@ export function FormEditor({
       {/* Render extra fields from data that aren't in the schema */}
       {extraFields.length > 0 && (
         <div className="pt-2 border-t border-clay-700/50 space-y-3">
-          <p className="text-[10px] text-clay-400 uppercase tracking-wider font-medium">
+          <p className="text-[10px] text-clay-300 uppercase tracking-wider font-medium">
             Additional Fields
           </p>
           {extraFields.map((key) => {
@@ -335,7 +336,7 @@ export function FormEditor({
 
       {/* No fields fallback */}
       {fields.length === 0 && extraFields.length === 0 && (
-        <div className="text-center py-6 text-clay-400 text-xs">
+        <div className="text-center py-6 text-clay-300 text-xs">
           <p>No field definitions found for this skill.</p>
           <p className="mt-1">Switch to JSON mode to enter data.</p>
         </div>

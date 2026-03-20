@@ -15,7 +15,7 @@
   --color-clay-600: #2a2a2e;
   --color-clay-500: #3a3a40;
   --color-clay-400: #4a4a52;
-  --color-clay-300: #6a6862;
+  --color-clay-300: #8a8882;
   --color-clay-200: #9a9892;
   --color-clay-100: #e8e6e3;
 
@@ -304,7 +304,7 @@ body {
   font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1.4;
-  color: #6a6862;
+  color: #8a8882;
   background: #0e0e10;
   border: 1px solid #2a2a2e;
   border-radius: 4px;

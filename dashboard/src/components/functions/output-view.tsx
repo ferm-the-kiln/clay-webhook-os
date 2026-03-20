@@ -31,14 +31,14 @@ export function OutputView({ result }: OutputViewProps) {
 
   if (fields.length === 0) {
     return (
-      <div className="text-xs text-clay-500 py-4 text-center">
+      <div className="text-xs text-clay-300 py-4 text-center">
         No output fields returned
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {fields.map(([key, value]) => (
         <OutputField key={key} name={key} value={value} />
       ))}
@@ -50,10 +50,10 @@ function OutputField({ name, value }: { name: string; value: unknown }) {
   const type = inferType(value);
 
   return (
-    <div className="rounded bg-clay-900/50 border border-clay-700 px-3 py-2">
+    <div className="rounded bg-clay-900/50 border border-clay-700 px-4 py-3">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] font-mono text-clay-300">{name}</span>
-        <span className="text-[10px] text-clay-600">{type}</span>
+        <span className="text-xs font-mono text-clay-200">{name}</span>
+        <span className="text-[11px] text-clay-300">{type}</span>
       </div>
       <FieldValue name={name} value={value} />
     </div>
@@ -66,7 +66,7 @@ function FieldValue({ name, value }: { name: string; value: unknown }) {
 
   if (value === null) {
     return (
-      <span className="text-xs text-amber-400 italic inline-flex items-center gap-1">
+      <span className="text-sm text-amber-400 italic inline-flex items-center gap-1">
         <AlertTriangle className="h-3 w-3" />
         null
       </span>
@@ -77,7 +77,7 @@ function FieldValue({ name, value }: { name: string; value: unknown }) {
     return (
       <span
         className={cn(
-          "text-[10px] px-2 py-0.5 rounded-full font-medium",
+          "text-xs px-2.5 py-1 rounded-full font-medium",
           value
             ? "bg-emerald-500/15 text-emerald-400"
             : "bg-red-500/15 text-red-400"
@@ -92,13 +92,13 @@ function FieldValue({ name, value }: { name: string; value: unknown }) {
     const pct = Math.round((value as number) * 100);
     return (
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-2 rounded-full bg-clay-800 overflow-hidden">
+        <div className="flex-1 h-2.5 rounded-full bg-clay-800 overflow-hidden">
           <div
             className="h-full rounded-full bg-kiln-teal transition-all"
             style={{ width: `${pct}%` }}
           />
         </div>
-        <span className="text-[11px] font-mono text-clay-300 shrink-0">
+        <span className="text-xs font-mono text-clay-300 shrink-0">
           {pct}%
         </span>
       </div>
@@ -119,7 +119,7 @@ function FieldValue({ name, value }: { name: string; value: unknown }) {
         {value.length > 200 && (
           <button
             onClick={() => setShowMore(!showMore)}
-            className="text-[10px] text-kiln-teal hover:text-kiln-teal-light ml-1"
+            className="text-xs text-kiln-teal hover:text-kiln-teal-light ml-1"
           >
             {showMore ? "Show less" : "Show more"}
           </button>
@@ -134,7 +134,7 @@ function FieldValue({ name, value }: { name: string; value: unknown }) {
     <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-[10px] text-clay-400 hover:text-clay-200"
+        className="flex items-center gap-1 text-xs text-clay-300 hover:text-clay-200"
       >
         {expanded ? (
           <ChevronDown className="h-3 w-3" />
@@ -146,7 +146,7 @@ function FieldValue({ name, value }: { name: string; value: unknown }) {
           : `${Object.keys(value as object).length} keys`}
       </button>
       {expanded && (
-        <pre className="mt-1 text-[10px] text-clay-300 bg-clay-950 p-2 rounded border border-clay-800 overflow-auto max-h-48 whitespace-pre-wrap">
+        <pre className="mt-1 text-xs text-clay-300 bg-clay-950 p-3 rounded border border-clay-800 overflow-auto max-h-64 whitespace-pre-wrap">
           {json}
         </pre>
       )}

@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { EditorPane } from "@/components/editor/editor-pane";
 import { Play, Loader2, Save, Cpu, Code, FormInput } from "lucide-react";
 import type { EditorTab, EditorMode, InstructionMode } from "@/hooks/use-email-lab";
@@ -114,7 +115,7 @@ export function DataEditorPanel({
                     "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors",
                     editorMode === "form"
                       ? "bg-clay-700 text-clay-100"
-                      : "text-clay-400 hover:text-clay-200"
+                      : "text-clay-300 hover:text-clay-200"
                   )}
                 >
                   <FormInput className="h-3 w-3" />
@@ -126,7 +127,7 @@ export function DataEditorPanel({
                     "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors",
                     editorMode === "json"
                       ? "bg-clay-700 text-clay-100"
-                      : "text-clay-400 hover:text-clay-200"
+                      : "text-clay-300 hover:text-clay-200"
                   )}
                 >
                   <Code className="h-3 w-3" />
@@ -160,7 +161,7 @@ export function DataEditorPanel({
                   "px-2 py-1 rounded text-[10px] font-medium transition-colors",
                   instructionMode === "builder"
                     ? "bg-clay-700 text-clay-100"
-                    : "text-clay-400 hover:text-clay-200"
+                    : "text-clay-300 hover:text-clay-200"
                 )}
               >
                 Builder
@@ -171,7 +172,7 @@ export function DataEditorPanel({
                   "px-2 py-1 rounded text-[10px] font-medium transition-colors",
                   instructionMode === "freeform"
                     ? "bg-clay-700 text-clay-100"
-                    : "text-clay-400 hover:text-clay-200"
+                    : "text-clay-300 hover:text-clay-200"
                 )}
               >
                 Freeform

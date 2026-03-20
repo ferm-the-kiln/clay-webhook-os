@@ -148,7 +148,7 @@ export default function QualityPage() {
             Refresh
           </Button>
 
-          <span className="text-xs text-clay-400 ml-auto">
+          <span className="text-xs text-clay-300 ml-auto">
             Auto-refreshes every 30s
           </span>
         </div>

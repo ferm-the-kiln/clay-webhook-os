@@ -14,23 +14,23 @@ export function FunctionInfoPanel({ func }: FunctionInfoPanelProps) {
       <CardContent className="p-4 space-y-4">
         {/* Inputs */}
         <div className="border-t border-clay-700/50 pt-4">
-          <h4 className="text-xs font-medium text-clay-400 uppercase tracking-wider mb-2">
+          <h4 className="text-xs font-medium text-clay-300 uppercase tracking-wider mb-2">
             Inputs ({func.inputs.length})
           </h4>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-clay-700">
-                  <th className="text-left py-1.5 pr-3 text-clay-400 font-medium">
+                  <th className="text-left py-1.5 pr-3 text-clay-300 font-medium">
                     Field
                   </th>
-                  <th className="text-left py-1.5 pr-3 text-clay-400 font-medium">
+                  <th className="text-left py-1.5 pr-3 text-clay-300 font-medium">
                     Type
                   </th>
-                  <th className="text-left py-1.5 pr-3 text-clay-400 font-medium">
+                  <th className="text-left py-1.5 pr-3 text-clay-300 font-medium">
                     Required
                   </th>
-                  <th className="text-left py-1.5 text-clay-400 font-medium">
+                  <th className="text-left py-1.5 text-clay-300 font-medium">
                     Description
                   </th>
                 </tr>
@@ -55,7 +55,7 @@ export function FunctionInfoPanel({ func }: FunctionInfoPanelProps) {
                           required
                         </Badge>
                       ) : (
-                        <span className="text-clay-500">optional</span>
+                        <span className="text-clay-300">optional</span>
                       )}
                     </td>
                     <td className="py-1.5 text-clay-300">
@@ -70,20 +70,20 @@ export function FunctionInfoPanel({ func }: FunctionInfoPanelProps) {
 
         {/* Outputs */}
         <div className="border-t border-clay-700/50 pt-4">
-          <h4 className="text-xs font-medium text-clay-400 uppercase tracking-wider mb-2">
+          <h4 className="text-xs font-medium text-clay-300 uppercase tracking-wider mb-2">
             Outputs ({func.outputs.length})
           </h4>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-clay-700">
-                  <th className="text-left py-1.5 pr-3 text-clay-400 font-medium">
+                  <th className="text-left py-1.5 pr-3 text-clay-300 font-medium">
                     Key
                   </th>
-                  <th className="text-left py-1.5 pr-3 text-clay-400 font-medium">
+                  <th className="text-left py-1.5 pr-3 text-clay-300 font-medium">
                     Type
                   </th>
-                  <th className="text-left py-1.5 text-clay-400 font-medium">
+                  <th className="text-left py-1.5 text-clay-300 font-medium">
                     Description
                   </th>
                 </tr>
@@ -115,7 +115,7 @@ export function FunctionInfoPanel({ func }: FunctionInfoPanelProps) {
         {/* Pipeline */}
         {func.steps.length > 0 && (
           <div className="border-t border-clay-700/50 pt-4">
-            <h4 className="text-xs font-medium text-clay-400 uppercase tracking-wider mb-2">
+            <h4 className="text-xs font-medium text-clay-300 uppercase tracking-wider mb-2">
               Pipeline ({func.steps.length})
             </h4>
             <div className="space-y-0">
@@ -142,7 +142,7 @@ export function FunctionInfoPanel({ func }: FunctionInfoPanelProps) {
                         {Object.entries(step.params).map(([k, v]) => (
                           <span
                             key={k}
-                            className="text-[10px] text-clay-400 bg-clay-800 rounded px-1.5 py-0.5"
+                            className="text-[10px] text-clay-300 bg-clay-800 rounded px-1.5 py-0.5"
                           >
                             {k}={v}
                           </span>

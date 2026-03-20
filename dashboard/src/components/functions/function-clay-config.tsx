@@ -40,7 +40,7 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
         navigator.clipboard.writeText(text);
         toast.success(label || "Copied");
       }}
-      className="h-7 w-7 p-0 text-clay-400 hover:text-clay-200 shrink-0"
+      className="h-7 w-7 p-0 text-clay-300 hover:text-clay-200 shrink-0"
     >
       <Copy className="h-3 w-3" />
     </Button>
@@ -79,7 +79,7 @@ function ToolCatalogPanel({
       <CardContent className="space-y-2">
         {/* Search input */}
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-clay-500" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-clay-300" />
           <Input
             value={catalogSearch}
             onChange={(e) => setCatalogSearch(e.target.value)}
@@ -89,7 +89,7 @@ function ToolCatalogPanel({
           {catalogSearch && (
             <button
               onClick={() => setCatalogSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-clay-500 hover:text-clay-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-clay-300 hover:text-clay-300"
             >
               <X className="h-3 w-3" />
             </button>
@@ -97,7 +97,7 @@ function ToolCatalogPanel({
         </div>
 
         {filtered && (
-          <div className="text-[10px] text-clay-500">
+          <div className="text-[10px] text-clay-300">
             {filtered.length} of {allTools.length} tools
           </div>
         )}
@@ -113,13 +113,13 @@ function ToolCatalogPanel({
                   className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-clay-700 transition-colors"
                 >
                   <div className="font-medium text-clay-100">{tool.name}</div>
-                  <div className="text-[10px] text-clay-400 line-clamp-1">
+                  <div className="text-[10px] text-clay-300 line-clamp-1">
                     {tool.description}
                   </div>
                 </button>
               ))}
               {filtered.length === 0 && (
-                <div className="text-xs text-clay-500 py-2 text-center">
+                <div className="text-xs text-clay-300 py-2 text-center">
                   No tools match &ldquo;{catalogSearch}&rdquo;
                 </div>
               )}
@@ -128,7 +128,7 @@ function ToolCatalogPanel({
             /* Category-grouped list */
             toolCategories.map((cat) => (
               <div key={cat.category} className="mb-3">
-                <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-1">
+                <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-1">
                   {cat.category}
                 </div>
                 <div className="space-y-1">
@@ -141,7 +141,7 @@ function ToolCatalogPanel({
                       <div className="font-medium text-clay-100">
                         {tool.name}
                       </div>
-                      <div className="text-[10px] text-clay-400 line-clamp-1">
+                      <div className="text-[10px] text-clay-300 line-clamp-1">
                         {tool.description}
                       </div>
                     </button>
@@ -187,7 +187,7 @@ export function FunctionClayConfig({
           <CardContent className="space-y-3">
             {/* Webhook URL */}
             <div>
-              <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Globe className="h-3 w-3" /> Webhook URL
               </div>
               <div className="flex items-center gap-1">
@@ -200,7 +200,7 @@ export function FunctionClayConfig({
 
             {/* Method */}
             <div>
-              <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-1">
+              <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-1">
                 Method
               </div>
               <code className="text-xs text-clay-200 bg-clay-900 px-2 py-1 rounded border border-clay-700">
@@ -210,7 +210,7 @@ export function FunctionClayConfig({
 
             {/* Headers */}
             <div>
-              <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Key className="h-3 w-3" /> Headers
               </div>
               <div className="bg-clay-900 rounded border border-clay-700 divide-y divide-clay-700">
@@ -231,7 +231,7 @@ export function FunctionClayConfig({
 
             {/* Timeout */}
             <div>
-              <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Clock className="h-3 w-3" /> Timeout
               </div>
               <code className="text-xs text-clay-200 bg-clay-900 px-2 py-1 rounded border border-clay-700">
@@ -241,7 +241,7 @@ export function FunctionClayConfig({
 
             {/* Body Template */}
             <div>
-              <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-1">
+              <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-1">
                 Body Template
               </div>
               <pre className="text-[10px] text-clay-300 bg-clay-900 p-2 rounded border border-clay-700 overflow-auto max-h-32">
@@ -255,15 +255,15 @@ export function FunctionClayConfig({
                   2
                 )}
               </pre>
-              <p className="text-[10px] text-clay-500 mt-1">
-                Replace <code className="text-clay-400">/Column Name</code> with your actual Clay column names using <code className="text-clay-400">/</code> prefix
+              <p className="text-[10px] text-clay-300 mt-1">
+                Replace <code className="text-clay-300">/Column Name</code> with your actual Clay column names using <code className="text-clay-300">/</code> prefix
               </p>
             </div>
 
             {/* Curl Example */}
             {curlExample && (
               <div>
-                <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-1 flex items-center gap-1">
                   <Terminal className="h-3 w-3" /> Quick Test (curl)
                 </div>
                 <div className="relative">
@@ -309,7 +309,7 @@ export function FunctionClayConfig({
 
         {/* Metadata */}
         <Card className="border-clay-600">
-          <CardContent className="p-4 text-xs text-clay-400 space-y-1">
+          <CardContent className="p-4 text-xs text-clay-300 space-y-1">
             <div>
               Created:{" "}
               {new Date(func.created_at * 1000).toLocaleDateString()}
@@ -332,14 +332,14 @@ export function FunctionClayConfig({
                 Copy to Clay
               </h3>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-clay-400">
+                <span className="text-xs text-clay-300">
                   Step {clayWizardStep + 1} of 4
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setClayWizardOpen(false)}
-                  className="text-clay-400"
+                  className="text-clay-300"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -358,7 +358,7 @@ export function FunctionClayConfig({
                       <div className="text-sm font-medium text-clay-100">
                         Create an HTTP API column in Clay
                       </div>
-                      <div className="text-xs text-clay-400">
+                      <div className="text-xs text-clay-300">
                         Add a new column and select &quot;HTTP API&quot; as the type
                       </div>
                     </div>
@@ -383,7 +383,7 @@ export function FunctionClayConfig({
                       <div className="text-sm font-medium text-clay-100">
                         Configure the request
                       </div>
-                      <div className="text-xs text-clay-400">
+                      <div className="text-xs text-clay-300">
                         Set the URL, headers, and timeout
                       </div>
                     </div>
@@ -392,7 +392,7 @@ export function FunctionClayConfig({
                   <div className="space-y-3">
                     {/* URL */}
                     <div className="bg-clay-900 rounded-lg p-3">
-                      <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-1">Method & URL</div>
+                      <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-1">Method & URL</div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-emerald-400 bg-clay-800 px-2 py-0.5 rounded">POST</span>
                         <code className="text-xs text-kiln-teal flex-1 truncate">{webhookUrl}</code>
@@ -402,17 +402,17 @@ export function FunctionClayConfig({
 
                     {/* Headers */}
                     <div className="bg-clay-900 rounded-lg p-3">
-                      <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-2">Headers (add both)</div>
+                      <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-2">Headers (add both)</div>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <code className="text-[10px] text-clay-300 flex-1">
-                            <span className="text-clay-400">Content-Type:</span> application/json
+                            <span className="text-clay-300">Content-Type:</span> application/json
                           </code>
                           <CopyButton text="application/json" label="Copied" />
                         </div>
                         <div className="flex items-center gap-2">
                           <code className="text-[10px] text-clay-300 flex-1 truncate">
-                            <span className="text-clay-400">x-api-key:</span>{" "}
+                            <span className="text-clay-300">x-api-key:</span>{" "}
                             <span className="text-kiln-teal">{apiKey}</span>
                           </code>
                           <CopyButton text={apiKey} label="API key copied" />
@@ -422,9 +422,9 @@ export function FunctionClayConfig({
 
                     {/* Timeout */}
                     <div className="bg-clay-900 rounded-lg p-3">
-                      <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-1">Timeout</div>
+                      <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-1">Timeout</div>
                       <code className="text-xs text-clay-200">{timeout}</code>
-                      <span className="text-[10px] text-clay-500 ml-2">({timeout / 60000} minutes)</span>
+                      <span className="text-[10px] text-clay-300 ml-2">({timeout / 60000} minutes)</span>
                     </div>
                   </div>
                 </div>
@@ -441,14 +441,14 @@ export function FunctionClayConfig({
                       <div className="text-sm font-medium text-clay-100">
                         Set the body & map columns
                       </div>
-                      <div className="text-xs text-clay-400">
+                      <div className="text-xs text-clay-300">
                         Paste the body and replace column references
                       </div>
                     </div>
                   </div>
 
                   <div className="bg-clay-900 rounded-lg p-3">
-                    <div className="text-[10px] text-clay-400 uppercase tracking-wider mb-2">Body (JSON)</div>
+                    <div className="text-[10px] text-clay-300 uppercase tracking-wider mb-2">Body (JSON)</div>
                     <pre className="text-[10px] text-clay-300 overflow-auto max-h-32">
                       {JSON.stringify(
                         clayConfig.body_template || { data: {} },
@@ -476,12 +476,12 @@ export function FunctionClayConfig({
                   </Button>
 
                   <div className="bg-clay-900/50 rounded-lg p-3 border border-clay-700">
-                    <div className="text-[10px] text-clay-400 mb-2">Replace the placeholder values with your Clay column references:</div>
+                    <div className="text-[10px] text-clay-300 mb-2">Replace the placeholder values with your Clay column references:</div>
                     <div className="space-y-1">
                       {func.inputs.map((inp) => (
                         <div key={inp.name} className="flex items-center gap-2 text-[10px]">
-                          <code className="text-clay-400">/{'{{Column Name}}'}</code>
-                          <span className="text-clay-500">→</span>
+                          <code className="text-clay-300">/{'{{Column Name}}'}</code>
+                          <span className="text-clay-300">→</span>
                           <code className="text-kiln-teal">/Your {inp.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} Column</code>
                           {inp.required && <span className="text-red-400">required</span>}
                         </div>
@@ -502,7 +502,7 @@ export function FunctionClayConfig({
                       <div className="text-sm font-medium text-clay-100">
                         Map outputs & test
                       </div>
-                      <div className="text-xs text-clay-400">
+                      <div className="text-xs text-clay-300">
                         Map response fields to Clay columns, then run on one row
                       </div>
                     </div>
@@ -510,7 +510,7 @@ export function FunctionClayConfig({
 
                   {/* Output mapping */}
                   <div>
-                    <div className="text-xs text-clay-400 uppercase tracking-wider mb-1">
+                    <div className="text-xs text-clay-300 uppercase tracking-wider mb-1">
                       Output Columns (Function → Clay)
                     </div>
                     <div className="bg-clay-900 rounded-lg divide-y divide-clay-700">
@@ -522,14 +522,14 @@ export function FunctionClayConfig({
                           <span className="text-kiln-teal font-medium">
                             {out.key}
                           </span>
-                          <span className="text-clay-400">→</span>
+                          <span className="text-clay-300">→</span>
                           <span className="text-clay-200">
                             {out.key} ({out.type})
                           </span>
                         </div>
                       ))}
                       {func.outputs.length === 0 && (
-                        <div className="px-3 py-2 text-xs text-clay-500">
+                        <div className="px-3 py-2 text-xs text-clay-300">
                           No outputs defined yet
                         </div>
                       )}
@@ -539,7 +539,7 @@ export function FunctionClayConfig({
                   {/* Curl test */}
                   {curlExample && (
                     <div>
-                      <div className="text-xs text-clay-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <div className="text-xs text-clay-300 uppercase tracking-wider mb-1 flex items-center gap-1">
                         <Terminal className="h-3 w-3" /> Quick Test
                       </div>
                       <div className="relative">
@@ -550,7 +550,7 @@ export function FunctionClayConfig({
                           <CopyButton text={curlExample} label="curl copied" />
                         </div>
                       </div>
-                      <p className="text-[10px] text-clay-500 mt-1">
+                      <p className="text-[10px] text-clay-300 mt-1">
                         Run this in your terminal to verify the function works before enabling in Clay
                       </p>
                     </div>

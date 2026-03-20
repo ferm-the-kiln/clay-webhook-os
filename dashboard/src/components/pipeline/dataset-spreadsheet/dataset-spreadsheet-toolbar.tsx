@@ -104,7 +104,7 @@ export function DatasetSpreadsheetToolbar({
               <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
                 {Object.entries(grouped).map(([source, cols]) => (
                   <div key={source}>
-                    <p className="text-[10px] text-clay-400 uppercase tracking-wider mb-1">
+                    <p className="text-[10px] text-clay-300 uppercase tracking-wider mb-1">
                       {source}
                     </p>
                     {cols.map((col) => {

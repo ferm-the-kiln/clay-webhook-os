@@ -29,11 +29,11 @@ export function ResultsPhase({ analysis, isRunning, onBack }: ResultsPhaseProps)
       <div className="flex flex-col items-center justify-center py-20">
         <Loader2 className="h-10 w-10 text-kiln-amber animate-spin mb-4" />
         <p className="text-sm font-medium text-clay-200">Running analysis...</p>
-        <p className="text-xs text-clay-400 mt-1">
+        <p className="text-xs text-clay-300 mt-1">
           Pre-processing data and generating insights with AI
         </p>
         {analysis?.preprocessed_summary && (
-          <p className="text-xs text-clay-500 mt-3">
+          <p className="text-xs text-clay-300 mt-3">
             Processed {analysis.preprocessed_summary.row_count} rows,{" "}
             {analysis.preprocessed_summary.column_count} columns,{" "}
             {analysis.preprocessed_summary.cross_tab_count} cross-tabs
@@ -45,7 +45,7 @@ export function ResultsPhase({ analysis, isRunning, onBack }: ResultsPhaseProps)
 
   if (!analysis) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-clay-400">
+      <div className="flex flex-col items-center justify-center py-20 text-clay-300">
         <p>No analysis selected</p>
       </div>
     );
@@ -60,7 +60,7 @@ export function ResultsPhase({ analysis, isRunning, onBack }: ResultsPhaseProps)
         <div className="flex flex-col items-center justify-center py-12">
           <AlertTriangle className="h-10 w-10 text-red-400 mb-4" />
           <p className="text-sm font-medium text-red-400">Analysis failed</p>
-          <p className="text-xs text-clay-400 mt-1 max-w-md text-center">
+          <p className="text-xs text-clay-300 mt-1 max-w-md text-center">
             {analysis.error_message ?? "Unknown error"}
           </p>
           <Button variant="outline" size="sm" className="mt-4" onClick={onBack}>
@@ -87,7 +87,7 @@ export function ResultsPhase({ analysis, isRunning, onBack }: ResultsPhaseProps)
             <h3 className="text-lg font-semibold text-clay-100">
               {analysis.analysis_type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} Results
             </h3>
-            <div className="flex items-center gap-2 text-xs text-clay-400">
+            <div className="flex items-center gap-2 text-xs text-clay-300">
               <CheckCircle2 className="h-3 w-3 text-green-400" />
               <span>Completed</span>
               {confidence > 0 && (
@@ -141,7 +141,7 @@ export function ResultsPhase({ analysis, isRunning, onBack }: ResultsPhaseProps)
 
       {/* Raw JSON fallback */}
       <details className="group">
-        <summary className="text-xs text-clay-500 cursor-pointer hover:text-clay-400">
+        <summary className="text-xs text-clay-300 cursor-pointer hover:text-clay-300">
           View raw JSON
         </summary>
         <pre className="mt-2 p-3 rounded-lg bg-clay-800 text-xs text-clay-300 overflow-auto max-h-96">
@@ -205,16 +205,16 @@ function renderAnalysisResults(analysisType: string, results: Record<string, unk
       <Card key={key} className="rounded-xl">
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-2 mb-3">
-            <Icon className="h-4 w-4 text-clay-400" />
+            <Icon className="h-4 w-4 text-clay-300" />
             <span className="text-sm font-semibold text-clay-100">{label}</span>
-            <span className="text-xs text-clay-500">({data.length})</span>
+            <span className="text-xs text-clay-300">({data.length})</span>
           </div>
           <div className="space-y-2">
             {(data as Record<string, unknown>[]).map((item, i) => (
               <div key={i} className="p-2.5 rounded-lg bg-clay-800/50 text-sm">
                 {Object.entries(item).map(([k, v]) => (
                   <div key={k} className="flex gap-2">
-                    <span className="text-clay-500 text-xs min-w-[100px]">{k}:</span>
+                    <span className="text-clay-300 text-xs min-w-[100px]">{k}:</span>
                     <span className="text-clay-200 text-xs">
                       {Array.isArray(v) ? v.join(", ") : String(v ?? "")}
                     </span>
@@ -235,7 +235,7 @@ function renderAnalysisResults(analysisType: string, results: Record<string, unk
       <Card key="power-user" className="rounded-xl">
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-2 mb-2">
-            <Target className="h-4 w-4 text-clay-400" />
+            <Target className="h-4 w-4 text-clay-300" />
             <span className="text-sm font-semibold text-clay-100">Power User Profile</span>
           </div>
           {profile.description ? <p className="text-sm text-clay-200 mb-2">{String(profile.description)}</p> : null}
@@ -245,7 +245,7 @@ function renderAnalysisResults(analysisType: string, results: Record<string, unk
             </ul>
           ) : null}
           {profile.percentage_of_users ? (
-            <p className="text-xs text-clay-400 mt-2">{String(profile.percentage_of_users)} of users</p>
+            <p className="text-xs text-clay-300 mt-2">{String(profile.percentage_of_users)} of users</p>
           ) : null}
         </CardContent>
       </Card>
@@ -259,11 +259,11 @@ function renderAnalysisResults(analysisType: string, results: Record<string, unk
       <Card key="personalization" className="rounded-xl">
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-2 mb-2">
-            <Target className="h-4 w-4 text-clay-400" />
+            <Target className="h-4 w-4 text-clay-300" />
             <span className="text-sm font-semibold text-clay-100">Personalization Impact</span>
           </div>
           {impact.finding ? <p className="text-sm text-clay-200 mb-2">{String(impact.finding)}</p> : null}
-          {impact.recommendation ? <p className="text-xs text-clay-400">{String(impact.recommendation)}</p> : null}
+          {impact.recommendation ? <p className="text-xs text-clay-300">{String(impact.recommendation)}</p> : null}
         </CardContent>
       </Card>
     );

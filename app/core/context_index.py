@@ -91,6 +91,9 @@ class ContextIndex:
             for term, count in df.items()
         }
 
+        # Free raw token lists — only needed during build() for IDF computation
+        self._docs.clear()
+
         logger.info(
             "[context-index] Indexed %d documents, %d unique terms",
             self._doc_count, len(self._idf),
@@ -101,7 +104,7 @@ class ContextIndex:
 
         Returns list of (rel_path, score) sorted by relevance, descending.
         """
-        if not self._docs:
+        if self._doc_count == 0:
             return []
 
         query_tokens = _tokenize(query)

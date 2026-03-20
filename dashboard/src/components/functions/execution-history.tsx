@@ -18,17 +18,17 @@ import { ExecutionTrace } from "./execution-trace";
 
 const STATUS_CONFIG = {
   success: {
-    icon: <CheckCircle2 className="h-3 w-3 text-emerald-400" />,
+    icon: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />,
     color: "bg-emerald-500",
     label: "Success",
   },
   error: {
-    icon: <XCircle className="h-3 w-3 text-red-400" />,
+    icon: <XCircle className="h-3.5 w-3.5 text-red-400" />,
     color: "bg-red-500",
     label: "Error",
   },
   partial: {
-    icon: <AlertTriangle className="h-3 w-3 text-amber-400" />,
+    icon: <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />,
     color: "bg-amber-500",
     label: "Partial",
   },
@@ -73,7 +73,7 @@ export function ExecutionHistoryPanel({ functionId }: ExecutionHistoryPanelProps
 
   if (loading) {
     return (
-      <div className="text-xs text-clay-500 py-4 text-center">
+      <div className="text-sm text-clay-500 py-4 text-center">
         Loading history...
       </div>
     );
@@ -81,14 +81,14 @@ export function ExecutionHistoryPanel({ functionId }: ExecutionHistoryPanelProps
 
   if (records.length === 0) {
     return (
-      <div className="text-xs text-clay-500 py-4 text-center">
+      <div className="text-sm text-clay-500 py-4 text-center">
         No past runs yet. Run the function to see execution history.
       </div>
     );
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {records.map((rec) => {
         const status = STATUS_CONFIG[rec.status] || STATUS_CONFIG.error;
         const isExpanded = expandedId === rec.id;
@@ -108,20 +108,20 @@ export function ExecutionHistoryPanel({ functionId }: ExecutionHistoryPanelProps
             {/* Summary row */}
             <button
               onClick={() => setExpandedId(isExpanded ? null : rec.id)}
-              className="flex items-center gap-2 p-2 w-full text-left hover:bg-clay-800/50 transition-colors"
+              className="flex items-center gap-2 p-2.5 w-full text-left hover:bg-clay-800/50 transition-colors"
             >
               {/* Status dot */}
-              <span className={cn("h-2 w-2 rounded-full shrink-0", status.color)} />
+              <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", status.color)} />
 
               {/* Timestamp */}
-              <span className="text-[10px] text-clay-400 shrink-0 w-28">
+              <span className="text-xs text-clay-400 shrink-0 w-28">
                 {timeStr}
               </span>
 
               {/* Duration badge */}
               <Badge
                 variant="outline"
-                className="text-[9px] px-1.5 py-0 h-4 border-clay-600 text-clay-300 shrink-0"
+                className="text-[10px] px-1.5 py-0 h-5 border-clay-600 text-clay-300 shrink-0"
               >
                 <Clock className="h-2.5 w-2.5 mr-0.5" />
                 {rec.duration_ms >= 1000
@@ -130,12 +130,12 @@ export function ExecutionHistoryPanel({ functionId }: ExecutionHistoryPanelProps
               </Badge>
 
               {/* Step count */}
-              <span className="text-[10px] text-clay-500">
+              <span className="text-xs text-clay-500">
                 {rec.step_count} step{rec.step_count !== 1 ? "s" : ""}
               </span>
 
               {/* Status */}
-              <span className="flex items-center gap-1 ml-auto text-[10px]">
+              <span className="flex items-center gap-1 ml-auto text-xs">
                 {status.icon}
                 <span className="text-clay-400">{status.label}</span>
               </span>
@@ -157,7 +157,7 @@ export function ExecutionHistoryPanel({ functionId }: ExecutionHistoryPanelProps
                 {rec.warnings && rec.warnings.length > 0 && (
                   <div className="rounded bg-amber-500/10 border border-amber-500/30 px-2 py-1.5">
                     {rec.warnings.map((w, i) => (
-                      <div key={i} className="text-[10px] text-amber-300/80">
+                      <div key={i} className="text-[11px] text-amber-300/80">
                         {w}
                       </div>
                     ))}
@@ -173,12 +173,12 @@ export function ExecutionHistoryPanel({ functionId }: ExecutionHistoryPanelProps
                       e.stopPropagation();
                       toggleInputs(rec.id);
                     }}
-                    className="h-5 px-1 text-[10px] text-clay-400 hover:text-clay-200"
+                    className="h-6 px-1 text-xs text-clay-400 hover:text-clay-200"
                   >
                     {showInputs.has(rec.id) ? "Hide Inputs" : "Show Inputs"}
                   </Button>
                   {showInputs.has(rec.id) && (
-                    <pre className="mt-1 text-[10px] text-clay-400 bg-clay-950 p-2 rounded border border-clay-800 overflow-auto max-h-32 whitespace-pre-wrap">
+                    <pre className="mt-1 text-xs text-clay-400 bg-clay-950 p-3 rounded border border-clay-800 overflow-auto max-h-32 whitespace-pre-wrap">
                       {JSON.stringify(rec.inputs, null, 2)}
                     </pre>
                   )}
@@ -193,12 +193,12 @@ export function ExecutionHistoryPanel({ functionId }: ExecutionHistoryPanelProps
                       e.stopPropagation();
                       toggleOutputs(rec.id);
                     }}
-                    className="h-5 px-1 text-[10px] text-clay-400 hover:text-clay-200"
+                    className="h-6 px-1 text-xs text-clay-400 hover:text-clay-200"
                   >
                     {showOutputs.has(rec.id) ? "Hide Outputs" : "Show Outputs"}
                   </Button>
                   {showOutputs.has(rec.id) && (
-                    <pre className="mt-1 text-[10px] text-clay-300 bg-clay-950 p-2 rounded border border-clay-800 overflow-auto max-h-32 whitespace-pre-wrap">
+                    <pre className="mt-1 text-xs text-clay-300 bg-clay-950 p-3 rounded border border-clay-800 overflow-auto max-h-32 whitespace-pre-wrap">
                       {JSON.stringify(rec.outputs, null, 2)}
                     </pre>
                   )}

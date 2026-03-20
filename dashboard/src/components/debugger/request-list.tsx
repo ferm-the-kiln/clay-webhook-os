@@ -71,10 +71,10 @@ export function RequestList({
 
   if (jobs.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-clay-400">
+      <div className="flex flex-col items-center justify-center py-16 text-clay-300">
         <AlertCircle className="h-8 w-8 mb-3 opacity-50" />
         <p className="text-sm">No requests yet</p>
-        <p className="text-xs text-clay-500 mt-1">
+        <p className="text-xs text-clay-300 mt-1">
           Requests will appear here in real time
         </p>
       </div>
@@ -127,26 +127,26 @@ export function RequestList({
               <div className="flex items-center gap-3 shrink-0">
                 {/* Duration */}
                 {job.duration_ms > 0 && (
-                  <span className="flex items-center gap-1 text-xs text-clay-400 font-mono tabular-nums">
+                  <span className="flex items-center gap-1 text-xs text-clay-300 font-mono tabular-nums">
                     <Clock className="h-3 w-3" />
                     {formatDuration(job.duration_ms)}
                   </span>
                 )}
                 {/* Timestamp */}
-                <span className="text-xs text-clay-500 font-mono tabular-nums whitespace-nowrap">
+                <span className="text-xs text-clay-300 font-mono tabular-nums whitespace-nowrap">
                   {formatRelativeTime(job.created_at)}
                 </span>
               </div>
             </div>
             {/* Second row: Job ID + priority */}
             <div className="flex items-center gap-2 mt-1 ml-[18px]">
-              <code className="text-[11px] text-clay-500 font-mono truncate">
+              <code className="text-[11px] text-clay-300 font-mono truncate">
                 {job.id}
               </code>
               {job.priority && job.priority !== "normal" && (
                 <Badge
                   variant="outline"
-                  className="text-[10px] px-1 py-0 h-3.5 border-clay-600 text-clay-400"
+                  className="text-[10px] px-1 py-0 h-3.5 border-clay-600 text-clay-300"
                 >
                   {job.priority}
                 </Badge>

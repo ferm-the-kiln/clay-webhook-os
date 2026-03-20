@@ -201,7 +201,7 @@ export function CommandPalette() {
               />
             </div>
             <Command.List className="max-h-80 overflow-y-auto p-2">
-              <Command.Empty className="py-6 text-center text-sm text-clay-500">
+              <Command.Empty className="py-6 text-center text-sm text-clay-300">
                 No results found.
               </Command.Empty>
 
@@ -234,8 +234,8 @@ export function CommandPalette() {
                       <Briefcase className="h-4 w-4" />
                       <span className="flex-1 truncate">
                         <span className="text-kiln-teal">{job.skill}</span>
-                        <span className="text-clay-600 mx-1.5">{job.id.slice(0, 8)}</span>
-                        <span className={`text-xs ${job.status === "failed" ? "text-kiln-coral" : "text-clay-500"}`}>
+                        <span className="text-clay-300 mx-1.5">{job.id.slice(0, 8)}</span>
+                        <span className={`text-xs ${job.status === "failed" ? "text-kiln-coral" : "text-clay-300"}`}>
                           {job.status}
                         </span>
                       </span>
@@ -258,7 +258,7 @@ export function CommandPalette() {
                       <span className="flex-1 truncate">
                         {client.name}
                         {client.industry && (
-                          <span className="text-clay-600 ml-1.5 text-xs">{client.industry}</span>
+                          <span className="text-clay-300 ml-1.5 text-xs">{client.industry}</span>
                         )}
                       </span>
                     </Command.Item>
@@ -283,7 +283,7 @@ export function CommandPalette() {
                       )}
                       <span className="flex-1 truncate">
                         <span className="text-clay-200">{file.name}</span>
-                        <span className="text-clay-600 ml-1.5 text-xs">{file.path}</span>
+                        <span className="text-clay-300 ml-1.5 text-xs">{file.path}</span>
                       </span>
                     </Command.Item>
                   ))}

@@ -62,9 +62,9 @@ export function WorkbenchPage() {
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-clay-300 py-20">
-                  <UserSearch className="h-10 w-10 mb-3 text-clay-500" />
+                  <UserSearch className="h-10 w-10 mb-3 text-clay-300" />
                   <p className="text-sm font-medium">No rows yet</p>
-                  <p className="text-xs text-clay-400 mt-1">
+                  <p className="text-xs text-clay-300 mt-1">
                     Click Source to import a CSV or generate leads
                   </p>
                 </div>
@@ -103,7 +103,7 @@ export function WorkbenchPage() {
         </>
       ) : (
         <div className="flex flex-col items-center justify-center flex-1 text-clay-300">
-          <UserSearch className="h-12 w-12 mb-4 text-clay-500" />
+          <UserSearch className="h-12 w-12 mb-4 text-clay-300" />
           <p className="text-lg font-medium mb-1">Select a dataset</p>
           <p className="text-sm">Choose or create a dataset to start prospecting.</p>
         </div>

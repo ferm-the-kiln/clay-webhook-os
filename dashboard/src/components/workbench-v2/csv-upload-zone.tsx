@@ -49,10 +49,10 @@ export function CsvUploadZone({
                 <Badge
                   key={f.name}
                   variant="secondary"
-                  className="text-[11px] font-mono text-clay-400"
+                  className="text-[11px] font-mono text-clay-300"
                 >
                   {f.name}
-                  <span className="ml-1 text-clay-500 font-sans">optional</span>
+                  <span className="ml-1 text-clay-300 font-sans">optional</span>
                 </Badge>
               ))}
             </div>
@@ -96,18 +96,18 @@ export function CsvUploadZone({
                 e.stopPropagation();
                 onClear();
               }}
-              className="text-xs text-clay-400 hover:text-clay-200 underline"
+              className="text-xs text-clay-300 hover:text-clay-200 underline"
             >
               Upload different file
             </button>
           </div>
         ) : (
           <div className="space-y-2">
-            <Upload className="h-10 w-10 text-clay-400 mx-auto" />
+            <Upload className="h-10 w-10 text-clay-300 mx-auto" />
             <div className="text-sm text-clay-200">
               Drag and drop a CSV file here
             </div>
-            <div className="text-xs text-clay-400">or click to browse</div>
+            <div className="text-xs text-clay-300">or click to browse</div>
           </div>
         )}
       </div>

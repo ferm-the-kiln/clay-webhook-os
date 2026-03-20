@@ -26,7 +26,7 @@ export function CsvPreviewTable({
                   className="px-3 py-2 text-left text-clay-300 font-medium whitespace-nowrap"
                 >
                   <div>{h}</div>
-                  <div className="text-[10px] text-clay-500 font-normal">
+                  <div className="text-[10px] text-clay-300 font-normal">
                     {detectColumnType(
                       h,
                       csvData.rows.map((r) => r[h])

@@ -37,7 +37,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <CardContent className="flex flex-col items-center justify-center py-8 text-center">
             <AlertTriangle className="h-10 w-10 text-kiln-coral mb-3" />
             <p className="text-clay-200 font-medium mb-1">Something went wrong</p>
-            <p className="text-sm text-clay-500 mb-4 max-w-sm">
+            <p className="text-sm text-clay-300 mb-4 max-w-sm">
               {this.state.error?.message || "An unexpected error occurred."}
             </p>
             <Button

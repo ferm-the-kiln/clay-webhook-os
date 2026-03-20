@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   fetchFunctions,
   fetchFolders,
@@ -184,7 +185,7 @@ export default function FunctionsPage() {
               placeholder="Search functions..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              className="pl-9 bg-clay-800 border-clay-600 text-clay-100 placeholder:text-clay-400"
+              className="pl-9 bg-clay-800 border-clay-600 text-clay-100 placeholder:text-clay-300"
             />
           </div>
           {showNewFolderInput ? (
@@ -203,7 +204,7 @@ export default function FunctionsPage() {
               <Button size="sm" onClick={handleCreateFolder} disabled={!newFolderName.trim()} className="h-8 bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light text-xs">
                 Create
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => { setShowNewFolderInput(false); setNewFolderName(""); }} className="h-8 text-clay-400 text-xs">
+              <Button variant="ghost" size="sm" onClick={() => { setShowNewFolderInput(false); setNewFolderName(""); }} className="h-8 text-clay-300 text-xs">
                 Cancel
               </Button>
             </div>
@@ -260,7 +261,7 @@ export default function FunctionsPage() {
         {/* Search empty state */}
         {!loading && functions.length === 0 && searchQuery && (
           <div className="flex flex-col items-center justify-center py-20 gap-2">
-            <Search className="h-8 w-8 text-clay-400" />
+            <Search className="h-8 w-8 text-clay-300" />
             <p className="text-sm text-clay-300">No functions match &quot;{searchQuery}&quot;</p>
           </div>
         )}
@@ -285,14 +286,14 @@ export default function FunctionsPage() {
                   <div className="flex items-center gap-2">
                     <Folder className="h-4 w-4 text-clay-300" />
                     <h3 className="text-sm font-semibold text-clay-100">{folder.name}</h3>
-                    <span className="text-xs text-clay-400">
+                    <span className="text-xs text-clay-300">
                       {functionsByFolder[folder.name]?.length || 0}
                     </span>
                   </div>
                   {folder.name !== "Uncategorized" && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-clay-400 hover:text-clay-200">
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-clay-300 hover:text-clay-200">
                           <MoreHorizontal className="h-3.5 w-3.5" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -325,16 +326,16 @@ export default function FunctionsPage() {
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <GripVertical className="h-3.5 w-3.5 text-clay-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
+                            <GripVertical className="h-3.5 w-3.5 text-clay-300 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
                             <h4 className="text-sm font-medium text-clay-100 line-clamp-1">{func.name}</h4>
                           </div>
-                          <ChevronRight className="h-3.5 w-3.5 text-clay-500 group-hover:text-clay-300 transition-colors" />
+                          <ChevronRight className="h-3.5 w-3.5 text-clay-300 group-hover:text-clay-300 transition-colors" />
                         </div>
                         {func.description && (
                           <p className="text-xs text-clay-300 line-clamp-2 mb-3">{func.description}</p>
                         )}
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 text-[10px] text-clay-400">
+                          <div className="flex items-center gap-3 text-[10px] text-clay-300">
                             <span>{func.inputs.length} inputs</span>
                             <span>{func.outputs.length} outputs</span>
                             <span>{func.steps.length} steps</span>
@@ -343,7 +344,7 @@ export default function FunctionsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 w-6 p-0 text-clay-400 hover:text-clay-200"
+                              className="h-6 w-6 p-0 text-clay-300 hover:text-clay-200"
                               onClick={(e) => { e.stopPropagation(); handleCopyClayConfig(func); }}
                             >
                               <Copy className="h-3 w-3" />
@@ -461,7 +462,7 @@ function FunctionBuilderPanel({
           <div className="flex-1 overflow-auto p-4 space-y-4">
             <div className="bg-clay-900/50 border border-clay-700 rounded-lg p-4">
               <div className="text-sm font-medium text-clay-100 mb-1">Describe your function</div>
-              <p className="text-xs text-clay-400 mb-3">
+              <p className="text-xs text-clay-300 mb-3">
                 Tell me what data you want in and what results you want out. I'll suggest the right tools and build the function for you.
               </p>
               <textarea
@@ -470,12 +471,12 @@ function FunctionBuilderPanel({
                 placeholder={"e.g., Given a company name, find their domain, look up their tech stack, find the VP of Sales email, and verify the email is valid."}
                 rows={5}
                 autoFocus
-                className="w-full rounded-md bg-clay-900 border border-clay-600 text-clay-100 text-sm p-3 placeholder:text-clay-500 focus:outline-none focus:ring-1 focus:ring-kiln-teal resize-none"
+                className="w-full rounded-md bg-clay-900 border border-clay-600 text-clay-100 text-sm p-3 placeholder:text-clay-300 focus:outline-none focus:ring-1 focus:ring-kiln-teal resize-none"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleAssemble();
                 }}
               />
-              <div className="text-[10px] text-clay-500 mt-1">Press Cmd+Enter to submit</div>
+              <div className="text-[10px] text-clay-300 mt-1">Press Cmd+Enter to submit</div>
             </div>
 
             <div>
@@ -494,7 +495,7 @@ function FunctionBuilderPanel({
             <div className="border-t border-clay-700 pt-3">
               <button
                 onClick={() => { setName(""); setDescription(""); setStep("review"); }}
-                className="text-xs text-clay-400 hover:text-clay-200 underline"
+                className="text-xs text-clay-300 hover:text-clay-200 underline"
               >
                 Skip AI — build manually instead
               </button>
@@ -544,7 +545,7 @@ function FunctionBuilderPanel({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What does this function do?"
                 rows={2}
-                className="w-full rounded-md bg-clay-900 border border-clay-600 text-clay-100 text-sm p-2.5 placeholder:text-clay-500 focus:outline-none focus:ring-1 focus:ring-kiln-teal"
+                className="w-full rounded-md bg-clay-900 border border-clay-600 text-clay-100 text-sm p-2.5 placeholder:text-clay-300 focus:outline-none focus:ring-1 focus:ring-kiln-teal"
               />
             </div>
 
@@ -555,11 +556,11 @@ function FunctionBuilderPanel({
                 {inputs.map((inp, i) => (
                   <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded bg-clay-900/50 border border-clay-700 text-xs">
                     <span className="font-medium text-clay-100 flex-1">{inp.name}</span>
-                    <span className="text-clay-400">({inp.type})</span>
+                    <span className="text-clay-300">({inp.type})</span>
                     {inp.required && <span className="text-red-400 text-[10px]">required</span>}
                   </div>
                 ))}
-                {inputs.length === 0 && <div className="text-xs text-clay-500 py-1">No inputs — add them after creation</div>}
+                {inputs.length === 0 && <div className="text-xs text-clay-300 py-1">No inputs — add them after creation</div>}
               </div>
             </div>
 
@@ -570,10 +571,10 @@ function FunctionBuilderPanel({
                 {outputs.map((out, i) => (
                   <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded bg-clay-900/50 border border-clay-700 text-xs">
                     <span className="font-medium text-kiln-teal flex-1">{out.key}</span>
-                    <span className="text-clay-400">({out.type})</span>
+                    <span className="text-clay-300">({out.type})</span>
                   </div>
                 ))}
-                {outputs.length === 0 && <div className="text-xs text-clay-500 py-1">No outputs — add them after creation</div>}
+                {outputs.length === 0 && <div className="text-xs text-clay-300 py-1">No outputs — add them after creation</div>}
               </div>
             </div>
 
@@ -583,17 +584,17 @@ function FunctionBuilderPanel({
               <div className="space-y-1">
                 {steps.map((s, i) => (
                   <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded bg-clay-900/50 border border-clay-700 text-xs">
-                    <span className="text-clay-500 w-4">{i + 1}</span>
+                    <span className="text-clay-300 w-4">{i + 1}</span>
                     <span className="font-medium text-clay-100">{s.tool}</span>
                   </div>
                 ))}
-                {steps.length === 0 && <div className="text-xs text-clay-500 py-1">No steps — add tools after creation</div>}
+                {steps.length === 0 && <div className="text-xs text-clay-300 py-1">No steps — add tools after creation</div>}
               </div>
             </div>
           </div>
 
           <div className="p-4 border-t border-clay-600 flex items-center justify-between">
-            <Button variant="ghost" size="sm" onClick={handleRegenerate} className="text-clay-400 text-xs">
+            <Button variant="ghost" size="sm" onClick={handleRegenerate} className="text-clay-300 text-xs">
               Regenerate
             </Button>
             <div className="flex items-center gap-2">

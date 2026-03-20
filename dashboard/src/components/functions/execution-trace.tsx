@@ -52,7 +52,7 @@ const EXECUTOR_CONFIG: Record<
   },
   unknown: {
     label: "Unknown",
-    color: "bg-clay-500/15 text-clay-400 border-clay-500/30",
+    color: "bg-clay-500/15 text-clay-300 border-clay-500/30",
     icon: Code2,
   },
 };
@@ -60,7 +60,7 @@ const EXECUTOR_CONFIG: Record<
 const STATUS_ICON = {
   success: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />,
   error: <XCircle className="h-3.5 w-3.5 text-red-400" />,
-  skipped: <SkipForward className="h-3.5 w-3.5 text-clay-500" />,
+  skipped: <SkipForward className="h-3.5 w-3.5 text-clay-300" />,
 };
 
 interface ExecutionTraceProps {
@@ -117,18 +117,18 @@ export function ExecutionTrace({
   return (
     <div className="space-y-3">
       {/* Summary header */}
-      <div className="flex items-center gap-3 text-xs">
+      <div className="flex items-center gap-3 text-sm">
         <span className="flex items-center gap-1.5 text-clay-300">
-          <Clock className="h-3 w-3" />
+          <Clock className="h-3.5 w-3.5" />
           {(totalDurationMs / 1000).toFixed(1)}s total
         </span>
-        <span className="text-clay-600">|</span>
+        <span className="text-clay-300">|</span>
         <span className="text-clay-300">
           {completedSteps}/{stepsTotal} steps
         </span>
         {errorSteps > 0 && (
           <>
-            <span className="text-clay-600">|</span>
+            <span className="text-clay-300">|</span>
             <span className="text-red-400">{errorSteps} failed</span>
           </>
         )}
@@ -137,12 +137,12 @@ export function ExecutionTrace({
       {/* Warnings banner */}
       {warnings && warnings.length > 0 && (
         <div className="rounded bg-amber-500/10 border border-amber-500/30 px-3 py-2 space-y-1">
-          <div className="flex items-center gap-1.5 text-amber-400 text-[11px] font-medium">
+          <div className="flex items-center gap-1.5 text-amber-400 text-xs font-medium">
             <AlertTriangle className="h-3 w-3" />
             {warnings.length === 1 ? "Warning" : `${warnings.length} Warnings`}
           </div>
           {warnings.map((w, i) => (
-            <div key={i} className="text-[10px] text-amber-300/80 pl-4">
+            <div key={i} className="text-[11px] text-amber-300/80 pl-4">
               {w}
             </div>
           ))}
@@ -181,7 +181,7 @@ export function ExecutionTrace({
                   )}
                 >
                   {/* Step number dot */}
-                  <span className="flex items-center justify-center h-5 w-5 rounded-full bg-clay-800 border border-clay-600 text-[10px] text-clay-400 shrink-0">
+                  <span className="flex items-center justify-center h-6 w-6 rounded-full bg-clay-800 border border-clay-600 text-xs text-clay-300 shrink-0">
                     {step.step_index + 1}
                   </span>
 
@@ -189,7 +189,7 @@ export function ExecutionTrace({
                   {STATUS_ICON[step.status] || STATUS_ICON.success}
 
                   {/* Tool name */}
-                  <span className="text-xs font-medium text-clay-100 truncate">
+                  <span className="text-sm font-medium text-clay-100 truncate">
                     {step.tool_name || step.tool}
                   </span>
 
@@ -197,7 +197,7 @@ export function ExecutionTrace({
                   <Badge
                     variant="outline"
                     className={cn(
-                      "text-[9px] px-1.5 py-0 h-4 shrink-0 border",
+                      "text-[10px] px-1.5 py-0 h-5 shrink-0 border",
                       config.color
                     )}
                   >
@@ -209,7 +209,7 @@ export function ExecutionTrace({
                   {step.parse_error && (
                     <Badge
                       variant="outline"
-                      className="text-[9px] px-1.5 py-0 h-4 shrink-0 border bg-red-500/15 text-red-400 border-red-500/30"
+                      className="text-[10px] px-1.5 py-0 h-5 shrink-0 border bg-red-500/15 text-red-400 border-red-500/30"
                     >
                       <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
                       Parse Failed
@@ -217,7 +217,7 @@ export function ExecutionTrace({
                   )}
 
                   {/* Duration pill */}
-                  <span className="text-[10px] text-clay-500 ml-auto shrink-0">
+                  <span className="text-xs text-clay-300 ml-auto shrink-0">
                     {step.duration_ms >= 1000
                       ? `${(step.duration_ms / 1000).toFixed(1)}s`
                       : `${step.duration_ms}ms`}
@@ -225,7 +225,7 @@ export function ExecutionTrace({
 
                   {/* Expand indicator */}
                   {hasDetails && (
-                    <span className="text-clay-500 shrink-0">
+                    <span className="text-clay-300 shrink-0">
                       {isExpanded ? (
                         <ChevronDown className="h-3 w-3" />
                       ) : (
@@ -248,7 +248,7 @@ export function ExecutionTrace({
                     {/* Resolved params */}
                     {Object.keys(step.resolved_params).length > 0 && (
                       <div>
-                        <div className="text-[10px] text-clay-500 mb-1 font-medium uppercase tracking-wide">
+                        <div className="text-xs text-clay-300 mb-1 font-medium uppercase tracking-wide">
                           Parameters
                         </div>
                         <div className="space-y-0.5">
@@ -256,12 +256,12 @@ export function ExecutionTrace({
                             ([key, val]) => (
                               <div
                                 key={key}
-                                className="flex items-baseline gap-2 text-[11px]"
+                                className="flex items-baseline gap-2 text-xs"
                               >
-                                <span className="text-clay-400 font-mono shrink-0">
+                                <span className="text-clay-300 font-mono shrink-0">
                                   {key}
                                 </span>
-                                <span className="text-clay-600">=</span>
+                                <span className="text-clay-300">=</span>
                                 <span className="text-clay-200 break-all">
                                   {val}
                                 </span>
@@ -275,7 +275,7 @@ export function ExecutionTrace({
                     {/* Output keys */}
                     {step.output_keys.length > 0 && (
                       <div>
-                        <div className="text-[10px] text-clay-500 mb-1 font-medium uppercase tracking-wide">
+                        <div className="text-xs text-clay-300 mb-1 font-medium uppercase tracking-wide">
                           Output
                         </div>
                         <div className="flex flex-wrap gap-1">
@@ -283,7 +283,7 @@ export function ExecutionTrace({
                             <Badge
                               key={key}
                               variant="outline"
-                              className="text-[9px] px-1.5 py-0 h-4 text-kiln-teal border-kiln-teal/30"
+                              className="text-[10px] px-1.5 py-0 h-5 text-kiln-teal border-kiln-teal/30"
                             >
                               {key}
                             </Badge>
@@ -302,13 +302,13 @@ export function ExecutionTrace({
                             e.stopPropagation();
                             togglePrompt(i);
                           }}
-                          className="h-5 px-1 text-[10px] text-clay-400 hover:text-clay-200"
+                          className="h-6 px-1 text-xs text-clay-300 hover:text-clay-200"
                         >
                           <Code2 className="h-3 w-3 mr-1" />
                           {isPromptShown ? "Hide Prompt" : "Show Prompt"}
                         </Button>
                         {isPromptShown && (
-                          <pre className="mt-1 text-[10px] text-clay-400 bg-clay-950 p-2 rounded border border-clay-800 overflow-auto max-h-48 whitespace-pre-wrap">
+                          <pre className="mt-1 text-xs text-clay-300 bg-clay-950 p-3 rounded border border-clay-800 overflow-auto max-h-48 whitespace-pre-wrap">
                             {step.ai_prompt}
                           </pre>
                         )}
@@ -326,10 +326,10 @@ export function ExecutionTrace({
                             toggleRawResponse(i);
                           }}
                           className={cn(
-                            "h-5 px-1 text-[10px] hover:text-clay-200",
+                            "h-6 px-1 text-xs hover:text-clay-200",
                             step.parse_error
                               ? "text-red-400"
-                              : "text-clay-400"
+                              : "text-clay-300"
                           )}
                         >
                           <Eye className="h-3 w-3 mr-1" />
@@ -337,10 +337,10 @@ export function ExecutionTrace({
                         </Button>
                         {isRawResponseShown && (
                           <pre className={cn(
-                            "mt-1 text-[10px] p-2 rounded border overflow-auto max-h-48 whitespace-pre-wrap",
+                            "mt-1 text-xs p-3 rounded border overflow-auto max-h-48 whitespace-pre-wrap",
                             step.parse_error
                               ? "text-red-300 bg-red-950/30 border-red-800/50"
-                              : "text-clay-400 bg-clay-950 border-clay-800"
+                              : "text-clay-300 bg-clay-950 border-clay-800"
                           )}>
                             {step.ai_raw_response}
                           </pre>
@@ -359,11 +359,11 @@ export function ExecutionTrace({
           <div className="relative">
             <div className="rounded bg-clay-900/50 border border-clay-700 border-dashed mb-2 animate-pulse">
               <div className="flex items-center gap-2 p-2">
-                <span className="flex items-center justify-center h-5 w-5 rounded-full bg-clay-800 border border-clay-600 text-[10px] text-clay-500 shrink-0">
+                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-clay-800 border border-clay-600 text-xs text-clay-300 shrink-0">
                   {trace.length + 1}
                 </span>
                 <div className="h-3.5 w-3.5 rounded-full border-2 border-kiln-teal border-t-transparent animate-spin" />
-                <span className="text-xs text-clay-400">
+                <span className="text-sm text-clay-300">
                   Running{currentStepName ? ` ${currentStepName}` : ""}...
                 </span>
               </div>

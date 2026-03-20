@@ -6,6 +6,7 @@ import { previewPrompt, fetchSkills } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Eye, FileText, Hash } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect } from "react";
@@ -99,11 +100,11 @@ export function PromptPreview({ clients }: PromptPreviewProps) {
         <label className="text-xs font-medium text-clay-200 mb-1 block">
           Sample Data (optional JSON)
         </label>
-        <textarea
+        <Textarea
           value={sampleData}
           onChange={(e) => setSampleData(e.target.value)}
           rows={3}
-          className="w-full rounded-md bg-clay-800 border border-clay-700 text-clay-100 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-kiln-teal/50 resize-y"
+          className="font-mono resize-y"
           placeholder='{"first_name": "Sarah", "company_name": "Acme"}'
         />
       </div>

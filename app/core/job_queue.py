@@ -219,7 +219,7 @@ class JobQueue:
                 return job_id
 
         # Inline prune when job dict grows too large
-        if len(self._jobs) > MAX_COMPLETED_JOBS * 2:  # 200
+        if len(self._jobs) > MAX_COMPLETED_JOBS + 20:  # 120
 
             self._inline_prune()
 
@@ -432,6 +432,7 @@ class JobQueue:
                 job.error = str(e)
                 job.completed_at = time.time()
                 job.data = {}  # Free input payload on dead-letter
+                job.result = None  # Free result payload
                 logger.error("[queue] Job %s dead-lettered (subscription limit): %s", job.id, e)
                 if hasattr(self, '_usage_store') and self._usage_store:
                     self._usage_store.record_error("subscription_limit", str(e))
@@ -456,6 +457,7 @@ class JobQueue:
                     job.error = str(e)
                     job.completed_at = time.time()
                     job.data = {}  # Free input payload on dead-letter
+                    job.result = None  # Free result payload
                     logger.error("[queue] Job %s dead-lettered after %d retries: %s", job.id, job.max_retries, e)
                     if self._event_bus:
                         self._event_bus.publish("job_updated", {"job_id": job.id, "status": "dead_letter"})
@@ -499,6 +501,7 @@ class JobQueue:
             # No callback — free input payload for terminal jobs
             if job.status in (JobStatus.completed, JobStatus.failed, JobStatus.dead_letter):
                 job.data = {}
+                job.result = None
             return
 
         payload = {
@@ -534,8 +537,9 @@ class JobQueue:
                         job.id, job.callback_url, resp.status_code, attempt + 1,
                     )
                     if resp.status_code < 500:
-                        # Free input payload after successful delivery
+                        # Free input payload and result after successful delivery
                         job.data = {}
+                        job.result = None
                         return
             except Exception as e:
                 logger.warning(
@@ -551,8 +555,9 @@ class JobQueue:
             self._retry_worker.enqueue(job.callback_url, payload, headers, job_id=job.id)
         else:
             self._log_failed_callback(job, payload)
-        # Free input payload — result already captured in callback payload
+        # Free input payload and result — already captured in callback payload
         job.data = {}
+        job.result = None
 
     def _log_failed_callback(self, job: Job, payload: dict):
         import json as _json

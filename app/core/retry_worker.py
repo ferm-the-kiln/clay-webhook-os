@@ -223,8 +223,8 @@ class RetryWorker:
             "created_at": item.created_at,
             "dead_at": time.time(),
         })
-        # Keep last 1000 dead letters
-        self._dead_letters = self._dead_letters[-1000:]
+        # Keep last 200 dead letters
+        self._dead_letters = self._dead_letters[-200:]
         self._save_queue()
         self._save_dead_letters()
         logger.error("[retry-worker] Dead-lettered %s after %d attempts: %s", item.id, item.attempt, item.last_error)

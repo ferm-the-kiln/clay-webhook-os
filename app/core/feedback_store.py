@@ -3,7 +3,7 @@ import logging
 import time
 from pathlib import Path
 
-from app.core.atomic_writer import atomic_write_json
+from app.core.atomic_writer import atomic_write_json, atomic_write_text
 from app.models.feedback import FeedbackEntry, FeedbackSummary, SkillAnalytics
 
 logger = logging.getLogger("clay-webhook-os")
@@ -38,7 +38,7 @@ class FeedbackStore:
     def submit(self, entry: FeedbackEntry) -> FeedbackEntry:
         self._entries.append(entry)
         # Trim if over soft cap
-        if len(self._entries) > int(MAX_IN_MEMORY * 1.5):
+        if len(self._entries) > MAX_IN_MEMORY + 100:
             self._entries = self._entries[-MAX_IN_MEMORY:]
         self._append_entry(entry)
         self._rebuild_summary()

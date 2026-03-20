@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 
 interface KnowledgeEditorProps {
@@ -180,11 +181,11 @@ export function KnowledgeEditor({
         )}
 
         <div className="flex-1 px-6 pb-2 min-h-0">
-          <textarea
+          <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder={isCreate ? "# Title\n\nWrite your knowledge base content here..." : undefined}
-            className="w-full h-full min-h-[300px] rounded-md bg-clay-800 border border-clay-700 text-clay-100 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-kiln-teal/50 resize-none"
+            className="h-full min-h-[300px] font-mono resize-none"
           />
         </div>
         <div className="px-6 pb-2">

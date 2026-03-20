@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import logging
 import os
 import subprocess
@@ -80,7 +81,7 @@ class DataCleanupWorker:
         prompt_cache: "PromptCache | None" = None,
         feedback_loop: "FeedbackLoop | None" = None,
         retry_worker: "RetryWorker | None" = None,
-        interval_seconds: int = 3600,
+        interval_seconds: int = 300,
         job_retention_hours: int = 24,
         feedback_retention_days: int = 90,
         usage_retention_days: int = 90,
@@ -125,10 +126,11 @@ class DataCleanupWorker:
             try:
                 report = await self.run_once()
                 # RSS pressure valve: if memory is high, run emergency cleanup
-                if report.rss_mb > 500:
-                    logger.warning("[cleanup] RSS %.1fMB exceeds 500MB — running emergency cleanup", report.rss_mb)
+                if report.rss_mb > 300:
+                    logger.warning("[cleanup] RSS %.1fMB exceeds 300MB — running emergency cleanup", report.rss_mb)
                     self._job_queue.prune_completed(time.time() - 3600)  # 1hr retention
                     self._job_queue.prune_batches(max_age_hours=1)
+                    gc.collect()
                     rss_after = _get_rss_mb()
                     logger.warning("[cleanup] Emergency cleanup done — RSS now %.1fMB", rss_after)
             except asyncio.CancelledError:
@@ -150,6 +152,9 @@ class DataCleanupWorker:
         report.reruns_pruned = self._cleanup_feedback_loop()
         report.semaphores_pruned = self._cleanup_retry_semaphores()
         self._cleanup_failed_callbacks()
+
+        # Force garbage collection to release fragmented memory
+        gc.collect()
 
         report.rss_mb = _get_rss_mb()
         report.duration_ms = int((time.monotonic() - start) * 1000)

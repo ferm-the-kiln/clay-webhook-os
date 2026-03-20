@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Mail, Linkedin, Phone, Copy, Check, ChevronDown, Pencil, Save, X } from "lucide-react";
 
 const CHANNEL_CONFIG: Record<string, { icon: typeof Mail; color: string; badgeColor: string }> = {

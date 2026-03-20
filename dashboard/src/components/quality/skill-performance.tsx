@@ -41,7 +41,7 @@ function ApprovalBar({ rate }: { rate: number }) {
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
-  if (!active) return <ArrowUpDown className="h-3 w-3 text-clay-400" />;
+  if (!active) return <ArrowUpDown className="h-3 w-3 text-clay-300" />;
   return dir === "asc" ? (
     <ArrowUp className="h-3 w-3 text-kiln-teal" />
   ) : (

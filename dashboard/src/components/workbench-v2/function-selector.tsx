@@ -69,10 +69,10 @@ export function FunctionSelector({
             className="w-full sm:w-auto justify-between border-clay-600 text-clay-100 bg-clay-800"
           >
             <span className="flex items-center gap-2">
-              <Blocks className="h-4 w-4 text-clay-400" />
+              <Blocks className="h-4 w-4 text-clay-300" />
               {selectedFunction ? selectedFunction.name : "Select a function..."}
             </span>
-            <ChevronDown className="h-4 w-4 text-clay-400" />
+            <ChevronDown className="h-4 w-4 text-clay-300" />
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -81,7 +81,7 @@ export function FunctionSelector({
         >
           <div className="p-2 border-b border-clay-700">
             <div className="relative">
-              <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-clay-400" />
+              <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-clay-300" />
               <Input
                 placeholder="Search functions..."
                 value={search}
@@ -92,7 +92,7 @@ export function FunctionSelector({
           </div>
           <div className="max-h-72 overflow-auto py-1">
             {folderNames.length === 0 && (
-              <div className="px-3 py-4 text-xs text-clay-400 text-center">
+              <div className="px-3 py-4 text-xs text-clay-300 text-center">
                 {functions.length === 0
                   ? "No functions available"
                   : "No matches found"}
@@ -101,11 +101,11 @@ export function FunctionSelector({
             {folderNames.map((folder) => (
               <div key={folder}>
                 <div className="sticky top-0 bg-clay-800 px-3 py-1.5 flex items-center gap-1.5 border-b border-clay-700/50">
-                  <FolderOpen className="h-3 w-3 text-clay-400" />
-                  <span className="text-[10px] font-medium text-clay-400 uppercase tracking-wider">
+                  <FolderOpen className="h-3 w-3 text-clay-300" />
+                  <span className="text-[10px] font-medium text-clay-300 uppercase tracking-wider">
                     {folder || "Uncategorized"}
                   </span>
-                  <span className="text-[10px] text-clay-500">
+                  <span className="text-[10px] text-clay-300">
                     ({filteredByFolder[folder].length})
                   </span>
                 </div>
@@ -135,7 +135,7 @@ export function FunctionSelector({
                           {f.name}
                         </div>
                         {f.description && (
-                          <div className="text-[11px] text-clay-400 line-clamp-1 mt-0.5">
+                          <div className="text-[11px] text-clay-300 line-clamp-1 mt-0.5">
                             {f.description}
                           </div>
                         )}

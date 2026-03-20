@@ -122,7 +122,7 @@ export function NotificationPanel() {
                       variant="ghost"
                       size="xs"
                       onClick={markAllRead}
-                      className="text-clay-500 hover:text-clay-300 text-xs"
+                      className="text-clay-300 hover:text-clay-300 text-xs"
                     >
                       <CheckCheck className="h-3 w-3 mr-1" />
                       Mark read
@@ -131,7 +131,7 @@ export function NotificationPanel() {
                       variant="ghost"
                       size="xs"
                       onClick={clearAll}
-                      className="text-clay-500 hover:text-clay-300 text-xs"
+                      className="text-clay-300 hover:text-clay-300 text-xs"
                     >
                       <X className="h-3 w-3 mr-1" />
                       Clear
@@ -147,9 +147,9 @@ export function NotificationPanel() {
           <div className="mt-4 space-y-1 max-h-[calc(100vh-120px)] overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="py-12 text-center">
-                <Bell className="h-8 w-8 text-clay-700 mx-auto mb-3" />
-                <p className="text-sm text-clay-500">No notifications yet</p>
-                <p className="text-xs text-clay-600 mt-1">
+                <Bell className="h-8 w-8 text-clay-300 mx-auto mb-3" />
+                <p className="text-sm text-clay-300">No notifications yet</p>
+                <p className="text-xs text-clay-300 mt-1">
                   Job failures will appear here
                 </p>
               </div>
@@ -172,8 +172,8 @@ export function NotificationPanel() {
                     <p className="text-sm text-clay-200 font-medium truncate">
                       {n.title}
                     </p>
-                    <p className="text-xs text-clay-500 truncate">{n.message}</p>
-                    <p className="text-xs text-clay-600 mt-0.5">
+                    <p className="text-xs text-clay-300 truncate">{n.message}</p>
+                    <p className="text-xs text-clay-300 mt-0.5">
                       {formatRelativeTime(n.timestamp)}
                     </p>
                   </div>

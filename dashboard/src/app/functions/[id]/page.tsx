@@ -403,7 +403,7 @@ export default function FunctionDetailPage() {
 
           {/* Quick Test Panel */}
           {testOpen && (
-            <div className="mt-6 max-w-2xl">
+            <div className="mt-6">
               <ErrorBoundary>
                 <FunctionPlayground
                   inputs={func.inputs}

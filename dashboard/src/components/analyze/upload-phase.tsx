@@ -50,7 +50,7 @@ export function UploadPhase({ datasets, onUpload, onSelectDataset, error }: Uplo
             dragOver ? "border-kiln-amber bg-kiln-amber/5" : "border-clay-600 hover:border-clay-500"
           }`}
         >
-          <Upload className="h-8 w-8 mx-auto mb-3 text-clay-400" />
+          <Upload className="h-8 w-8 mx-auto mb-3 text-clay-300" />
           <p className="text-sm text-clay-300 mb-2">
             {file ? file.name : "Drop a CSV file here, or click to browse"}
           </p>
@@ -108,7 +108,7 @@ export function UploadPhase({ datasets, onUpload, onSelectDataset, error }: Uplo
                     <Database className="h-4 w-4 text-kiln-amber" />
                     <span className="text-sm font-medium text-clay-100 truncate">{ds.name}</span>
                   </div>
-                  <span className="text-xs text-clay-400">
+                  <span className="text-xs text-clay-300">
                     {ds.row_count} rows &middot; {ds.column_count} columns
                   </span>
                 </CardContent>

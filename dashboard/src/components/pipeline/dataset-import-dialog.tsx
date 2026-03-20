@@ -217,7 +217,7 @@ export function DatasetImportDialog({
                         </th>
                       ))}
                       {preview.headers.length > 6 && (
-                        <th className="px-2 py-1 text-left text-clay-400">
+                        <th className="px-2 py-1 text-left text-clay-300">
                           +{preview.headers.length - 6}
                         </th>
                       )}
@@ -232,7 +232,7 @@ export function DatasetImportDialog({
                           </td>
                         ))}
                         {preview.headers.length > 6 && (
-                          <td className="px-2 py-1 text-clay-400">...</td>
+                          <td className="px-2 py-1 text-clay-300">...</td>
                         )}
                       </tr>
                     ))}

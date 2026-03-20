@@ -40,7 +40,7 @@ export function ColumnMappingPanel({
       {/* Required inputs */}
       {requiredInputs.length > 0 && (
         <div className="space-y-1.5 mb-3">
-          <div className="text-[10px] text-clay-400 uppercase tracking-wider font-medium">
+          <div className="text-[10px] text-clay-300 uppercase tracking-wider font-medium">
             Required Inputs
           </div>
           {requiredInputs.map((input) => (
@@ -68,7 +68,7 @@ export function ColumnMappingPanel({
       {/* Optional inputs */}
       {optionalInputs.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[10px] text-clay-400 uppercase tracking-wider font-medium">
+          <div className="text-[10px] text-clay-300 uppercase tracking-wider font-medium">
             Optional Inputs
           </div>
           {optionalInputs.map((input) => (
@@ -150,14 +150,14 @@ function MappingRow({
           {inputType}
         </Badge>
         {inputDescription && (
-          <span className="text-[10px] text-clay-500 truncate hidden sm:inline">
+          <span className="text-[10px] text-clay-300 truncate hidden sm:inline">
             {inputDescription}
           </span>
         )}
       </div>
 
       {/* Arrow */}
-      <ArrowRight className="h-3 w-3 text-clay-500 shrink-0" />
+      <ArrowRight className="h-3 w-3 text-clay-300 shrink-0" />
 
       {/* CSV column selector */}
       <div className="flex items-center gap-1 shrink-0">
@@ -168,7 +168,7 @@ function MappingRow({
                 "text-xs px-2 py-1 rounded border transition-colors min-w-[120px] text-left",
                 isMapped
                   ? "border-kiln-teal/30 text-kiln-teal bg-kiln-teal/5"
-                  : "border-clay-600 text-clay-400 hover:text-clay-200 hover:border-clay-500"
+                  : "border-clay-600 text-clay-300 hover:text-clay-200 hover:border-clay-500"
               )}
             >
               {mapping ? mapping.csvColumn : "Select column..."}
@@ -190,7 +190,7 @@ function MappingRow({
         {isMapped && (
           <button
             onClick={onClear}
-            className="p-0.5 text-clay-500 hover:text-clay-200 transition-colors"
+            className="p-0.5 text-clay-300 hover:text-clay-200 transition-colors"
             title="Clear mapping"
           >
             <X className="h-3 w-3" />
