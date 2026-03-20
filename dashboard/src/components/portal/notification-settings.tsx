@@ -10,6 +10,7 @@ interface NotificationSettingsProps {
   slug: string;
   slackWebhookUrl: string | null;
   onSaved: (url: string | null) => void;
+  compact?: boolean;
 }
 
 function SlackIcon({ className }: { className?: string }) {
@@ -20,10 +21,11 @@ function SlackIcon({ className }: { className?: string }) {
   );
 }
 
-export function NotificationSettings({ slug, slackWebhookUrl, onSaved }: NotificationSettingsProps) {
+export function NotificationSettings({ slug, slackWebhookUrl, onSaved, compact }: NotificationSettingsProps) {
   const [url, setUrl] = useState(slackWebhookUrl ?? "");
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const isConnected = !!slackWebhookUrl;
   const isDirty = url !== (slackWebhookUrl ?? "");
 
@@ -51,6 +53,64 @@ export function NotificationSettings({ slug, slackWebhookUrl, onSaved }: Notific
     } finally {
       setTesting(false);
     }
+  }
+
+  if (compact) {
+    return (
+      <div className="rounded-lg border border-clay-700 bg-clay-800 p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <SlackIcon className="h-4 w-4 text-clay-400" />
+            <span className="text-xs font-medium text-clay-200">Slack</span>
+            {isConnected ? (
+              <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Connected
+              </span>
+            ) : (
+              <span className="text-[10px] text-clay-500">Not connected</span>
+            )}
+          </div>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-[11px] text-clay-400 hover:text-clay-200"
+          >
+            {expanded ? "Close" : "Edit"}
+          </button>
+        </div>
+        {expanded && (
+          <div className="mt-3 space-y-2">
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://hooks.slack.com/services/..."
+              className="w-full rounded-md border border-clay-600 bg-clay-900 px-2.5 py-1.5 text-xs text-clay-100 placeholder:text-clay-500 focus:border-clay-400 focus:outline-none"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving || !isDirty}
+                className="inline-flex items-center gap-1 rounded-md bg-clay-600 px-2.5 py-1 text-[11px] font-medium text-clay-100 hover:bg-clay-500 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                Save
+              </button>
+              {isConnected && (
+                <button
+                  onClick={handleTest}
+                  disabled={testing || isDirty}
+                  className="inline-flex items-center gap-1 rounded-md border border-clay-600 px-2.5 py-1 text-[11px] font-medium text-clay-300 hover:bg-clay-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                  Test
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
