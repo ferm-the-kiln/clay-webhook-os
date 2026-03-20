@@ -8,7 +8,7 @@ logger = logging.getLogger("clay-webhook-os")
 
 
 class WorkerPool:
-    def __init__(self, max_workers: int = 10):
+    def __init__(self, max_workers: int = 3):
         self._semaphore = asyncio.Semaphore(max_workers)
         self._max_workers = max_workers
         self._active = 0

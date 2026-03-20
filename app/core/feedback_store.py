@@ -7,6 +7,9 @@ from app.models.feedback import FeedbackEntry, FeedbackSummary, SkillAnalytics
 
 logger = logging.getLogger("clay-webhook-os")
 
+MAX_IN_MEMORY = 2000
+RETENTION_DAYS = 90
+
 
 class FeedbackStore:
     def __init__(self, data_dir: Path):
@@ -18,13 +21,24 @@ class FeedbackStore:
     def load(self) -> None:
         self._data_dir.mkdir(parents=True, exist_ok=True)
         if self._entries_file.exists():
+            cutoff = time.time() - (RETENTION_DAYS * 86400)
+            kept = []
             for line in self._entries_file.read_text().strip().splitlines():
                 if line.strip():
-                    self._entries.append(FeedbackEntry(**json.loads(line)))
-            logger.info("[feedback] Loaded %d entries", len(self._entries))
+                    entry = FeedbackEntry(**json.loads(line))
+                    if entry.created_at >= cutoff:
+                        kept.append(entry)
+            # Cap to newest MAX_IN_MEMORY entries
+            if len(kept) > MAX_IN_MEMORY:
+                kept = kept[-MAX_IN_MEMORY:]
+            self._entries = kept
+            logger.info("[feedback] Loaded %d entries (retention=%dd, cap=%d)", len(self._entries), RETENTION_DAYS, MAX_IN_MEMORY)
 
     def submit(self, entry: FeedbackEntry) -> FeedbackEntry:
         self._entries.append(entry)
+        # Trim if over soft cap
+        if len(self._entries) > int(MAX_IN_MEMORY * 1.5):
+            self._entries = self._entries[-MAX_IN_MEMORY:]
         self._append_entry(entry)
         self._rebuild_summary()
         return entry

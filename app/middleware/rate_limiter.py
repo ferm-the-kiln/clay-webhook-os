@@ -30,6 +30,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 return prefix, getattr(settings, attr)
         return "_default", settings.rate_limit_default
 
+    MAX_HITS_PER_KEY = 300  # Hard cap per key (prevents list bloat)
+    MAX_TOTAL_KEYS = 10000  # Hard cap on tracked keys
+
     def _cleanup_old(self):
         """Evict entries older than 60s. Runs at most once per 30s."""
         now = time.monotonic()
@@ -43,6 +46,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 stale_keys.append(key)
         for key in stale_keys:
             del self._hits[key]
+        # Hard cap on total tracked keys
+        if len(self._hits) > self.MAX_TOTAL_KEYS:
+            excess = len(self._hits) - self.MAX_TOTAL_KEYS
+            for key in list(self._hits.keys())[:excess]:
+                del self._hits[key]
         self._last_cleanup = now
 
     async def dispatch(self, request: Request, call_next):
@@ -54,8 +62,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         now = time.monotonic()
         cutoff = now - 60
 
-        # Prune old hits for this key
+        # Prune old hits for this key and enforce hard cap
         self._hits[key] = [t for t in self._hits[key] if t > cutoff]
+        if len(self._hits[key]) > self.MAX_HITS_PER_KEY:
+            self._hits[key] = self._hits[key][-self.MAX_HITS_PER_KEY:]
 
         if len(self._hits[key]) >= limit:
             return JSONResponse(

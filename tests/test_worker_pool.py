@@ -9,7 +9,7 @@ from app.core.worker_pool import WorkerPool
 class TestWorkerPoolProperties:
     def test_default_max_workers(self):
         pool = WorkerPool()
-        assert pool.max_workers == 10
+        assert pool.max_workers == 3
 
     def test_custom_max_workers(self):
         pool = WorkerPool(max_workers=5)

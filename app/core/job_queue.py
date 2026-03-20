@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger("clay-webhook-os")
 
 PRIORITY_WEIGHTS = {"high": 0, "normal": 1, "low": 2}
+MAX_COMPLETED_JOBS = 100
+MAX_BATCHES = 200
 
 
 class JobStatus(str, Enum):
@@ -100,6 +102,14 @@ class JobQueue:
 
     def register_batch(self, batch_id: str, job_ids: list[str]) -> None:
         self._batches[batch_id] = job_ids
+        # Cap batches to prevent unbounded growth
+        if len(self._batches) > MAX_BATCHES:
+            # Remove oldest batches (first inserted)
+            excess = len(self._batches) - MAX_BATCHES
+            keys_to_remove = list(self._batches.keys())[:excess]
+            for k in keys_to_remove:
+                del self._batches[k]
+            logger.info("[queue] Pruned %d old batches (cap=%d)", excess, MAX_BATCHES)
 
     def list_batches(self) -> list[dict]:
         """Return summary info for all registered batches, newest first."""
@@ -208,6 +218,11 @@ class JobQueue:
                 logger.info("[queue] Job %s cache hit (skill=%s)", job_id, skill)
                 return job_id
 
+        # Inline prune when job dict grows too large
+        if len(self._jobs) > MAX_COMPLETED_JOBS * 2:  # 200
+
+            self._inline_prune()
+
         job_id = uuid.uuid4().hex[:12]
         job = Job(
             id=job_id,
@@ -251,6 +266,37 @@ class JobQueue:
         ]
         for jid in to_remove:
             del self._jobs[jid]
+        return len(to_remove)
+
+    def _inline_prune(self) -> None:
+        """Fast prune: keep only the newest MAX_COMPLETED_JOBS terminal jobs."""
+        terminal = {JobStatus.completed, JobStatus.failed, JobStatus.dead_letter}
+        terminal_jobs = [
+            (jid, j.created_at) for jid, j in self._jobs.items()
+            if j.status in terminal
+        ]
+        if len(terminal_jobs) <= MAX_COMPLETED_JOBS:
+            return
+        terminal_jobs.sort(key=lambda x: x[1])
+        to_remove = terminal_jobs[: len(terminal_jobs) - MAX_COMPLETED_JOBS]
+        for jid, _ in to_remove:
+            del self._jobs[jid]
+        logger.info("[queue] Inline prune removed %d old jobs", len(to_remove))
+
+    def prune_batches(self, max_age_hours: int = 48) -> int:
+        """Remove batch records older than max_age_hours."""
+        cutoff = time.time() - (max_age_hours * 3600)
+        to_remove = []
+        for batch_id, job_ids in self._batches.items():
+            jobs = [self._jobs[jid] for jid in job_ids if jid in self._jobs]
+            if not jobs:
+                to_remove.append(batch_id)
+                continue
+            newest = max(j.created_at for j in jobs)
+            if newest < cutoff:
+                to_remove.append(batch_id)
+        for bid in to_remove:
+            del self._batches[bid]
         return len(to_remove)
 
     async def _worker(self, worker_id: int):
@@ -483,6 +529,8 @@ class JobQueue:
                         job.id, job.callback_url, resp.status_code, attempt + 1,
                     )
                     if resp.status_code < 500:
+                        # Free input payload after successful delivery
+                        job.data = {}
                         return
             except Exception as e:
                 logger.warning(

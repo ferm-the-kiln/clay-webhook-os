@@ -5,6 +5,8 @@ import time
 
 logger = logging.getLogger("clay-webhook-os")
 
+MAX_ENTRIES = 500
+
 
 class RequestDeduplicator:
     """Deduplicates identical webhook requests within a time window."""
@@ -35,6 +37,11 @@ class RequestDeduplicator:
         """Store a result for dedup matching."""
         key = self._make_key(skill, data, instructions)
         self._cache[key] = (time.time(), result)
+        # Hard cap: evict oldest entries if over limit
+        if len(self._cache) > MAX_ENTRIES:
+            sorted_keys = sorted(self._cache, key=lambda k: self._cache[k][0])
+            for k in sorted_keys[: len(self._cache) - MAX_ENTRIES]:
+                del self._cache[k]
 
     def _evict(self) -> None:
         """Remove entries older than the window."""

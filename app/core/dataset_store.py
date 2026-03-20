@@ -132,20 +132,25 @@ class DatasetStore:
         return len(rows)
 
     def get_rows(self, dataset_id: str, offset: int = 0, limit: int = 100) -> tuple[list[dict], int]:
-        """Return (rows, total_count) with pagination."""
+        """Return (rows, total_count) with streaming pagination.
+
+        Only deserializes rows in the requested page — O(limit) memory instead of O(all_rows).
+        """
         rows_path = self.base_dir / dataset_id / "rows.jsonl"
         if not rows_path.exists():
             return [], 0
 
-        all_rows = []
+        page = []
+        total = 0
+        end = offset + limit
         with open(rows_path) as f:
             for line in f:
                 line = line.strip()
-                if line:
-                    all_rows.append(json.loads(line))
-
-        total = len(all_rows)
-        page = all_rows[offset : offset + limit]
+                if not line:
+                    continue
+                if offset <= total < end:
+                    page.append(json.loads(line))
+                total += 1
         return page, total
 
     def update_rows(self, dataset_id: str, updates: dict[str, dict]) -> int:

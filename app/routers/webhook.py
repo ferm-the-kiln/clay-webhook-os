@@ -556,31 +556,79 @@ async def _run_function(body: WebhookRequest, request: Request) -> dict:
                 step_result.pop("_meta", None)
                 accumulated_output.update(step_result)
         else:
-            # Execute Deepline tool via AI — construct a prompt from tool metadata
+            # Execute Deepline tool — try native API first, then AI fallback
             tool_meta = _get_tool_meta(tool_id)
             if tool_meta is None:
                 accumulated_output[f"_step_{step_idx}_error"] = f"Unknown tool: {tool_id}"
                 continue
 
-            # Build AI prompt to simulate the tool's function
+            # --- Native API execution for tools with real integrations ---
+            if tool_id == "findymail" and settings.findymail_api_key:
+                from app.core import findymail_client
+                try:
+                    result = await findymail_client.enrich_company(
+                        name=resolved_params.get("name") or resolved_params.get("company_name"),
+                        domain=resolved_params.get("domain"),
+                        linkedin_url=resolved_params.get("linkedin_url"),
+                        api_key=settings.findymail_api_key,
+                        base_url=settings.findymail_base_url,
+                        timeout=settings.findymail_timeout,
+                    )
+                    if isinstance(result, dict) and not result.get("error"):
+                        accumulated_output.update(result)
+                    elif isinstance(result, dict):
+                        accumulated_output[f"_step_{step_idx}_error"] = result.get("error_message", "Findymail API error")
+                except Exception as e:
+                    logger.warning("[functions] Findymail native call failed: %s", e)
+                    accumulated_output[f"_step_{step_idx}_error"] = str(e)
+                continue
+
+            # --- AI fallback with web search for data lookup tools ---
             expected_outputs = [o.key for o in func.outputs]
             ai_prompt = (
-                f"You are a data enrichment tool called '{tool_meta['name']}'.\n"
-                f"Description: {tool_meta['description']}\n\n"
-                f"Given these inputs:\n"
+                f"Look up real data for the following query and return accurate results.\n\n"
+                f"Task: {tool_meta['description']}\n\n"
+                f"Inputs:\n"
                 + "\n".join(f"- {k}: {v}" for k, v in resolved_params.items())
-                + f"\n\nReturn a JSON object with ONLY these keys: {expected_outputs}\n"
-                f"Use your knowledge to return the most accurate data possible. "
-                f"For domain lookups, return the company's primary website domain (e.g. 'salesforce.com'). "
-                f"For LinkedIn URLs, return the company LinkedIn page URL. "
-                f"If you are not confident, still return your best guess rather than null. "
-                f"Return ONLY valid JSON, no explanation."
+                + f"\n\nReturn a JSON object with these keys: {expected_outputs}\n\n"
+                f"RULES:\n"
+                f"- Use real, factual data only. Search the web if needed.\n"
+                f"- For company domains: return the primary website (e.g. hubspot.com, salesforce.com)\n"
+                f"- For LinkedIn URLs: return https://linkedin.com/company/{{slug}}\n"
+                f"- NEVER return null — return your best answer for every key.\n"
+                f"- Return ONLY the JSON object, no markdown fences, no explanation.\n\n"
+                f"Example for company_name 'Salesforce':\n"
+                f'{{"domain": "salesforce.com", "linkedin_url": "https://linkedin.com/company/salesforce"}}'
             )
 
             pool = request.app.state.pool
+            data_categories = {"Research", "People Search", "Company Enrichment"}
+            use_agent = tool_meta.get("category") in data_categories
+
             try:
-                ai_result = await pool.submit(ai_prompt, "sonnet", 30)
+                if use_agent:
+                    ai_result = await pool.submit(
+                        ai_prompt, "sonnet", 60,
+                        executor_type="agent",
+                        max_turns=3,
+                        allowed_tools=["WebSearch", "WebFetch"],
+                    )
+                else:
+                    ai_result = await pool.submit(ai_prompt, "sonnet", 30)
+
                 parsed = ai_result.get("result", {})
+                # If result is a string, try to parse it as JSON
+                if isinstance(parsed, str):
+                    import re as _re
+                    try:
+                        parsed = json.loads(parsed)
+                    except (json.JSONDecodeError, TypeError):
+                        brace_match = _re.search(r"\{[\s\S]*\}", parsed)
+                        if brace_match:
+                            try:
+                                parsed = json.loads(brace_match.group(0))
+                            except json.JSONDecodeError:
+                                pass
                 if isinstance(parsed, dict):
                     accumulated_output.update(parsed)
             except Exception as e:
@@ -588,6 +636,13 @@ async def _run_function(body: WebhookRequest, request: Request) -> dict:
                 accumulated_output[f"_step_{step_idx}_error"] = str(e)
 
     duration_ms = int((time.time() - start_time) * 1000)
+
+    # Collect step errors for visibility
+    step_errors = [
+        f"Step {k.split('_')[1]}: {v}"
+        for k, v in accumulated_output.items()
+        if k.endswith("_error") and k.startswith("_step_")
+    ]
 
     # Filter output to declared outputs only
     final_output: dict = {}
@@ -600,10 +655,11 @@ async def _run_function(body: WebhookRequest, request: Request) -> dict:
 
     # If no outputs declared, return everything
     if not func.outputs:
-        final_output = accumulated_output
+        final_output = {k: v for k, v in accumulated_output.items() if not k.startswith("_step_")}
 
     return {
         **final_output,
+        **({"_errors": step_errors} if step_errors else {}),
         "_meta": {
             "function": func.id,
             "function_name": func.name,

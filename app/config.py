@@ -20,10 +20,12 @@ class Settings(BaseSettings):
     rate_limit_batch: int = 10
     rate_limit_pipeline: int = 20
     rate_limit_default: int = 120
-    max_workers: int = 10
+    max_workers: int = 3
     default_model: str = "opus"
     request_timeout: int = 120
-    cache_ttl: int = 86400
+    cache_ttl: int = 3600
+    cache_max_entries: int = 200
+    prompt_cache_max_entries: int = 100
     max_subscription_monthly_usd: float = 200.0
     prompt_size_warn_tokens: int = 50000
 
@@ -60,7 +62,7 @@ class Settings(BaseSettings):
     subscription_probe_interval_paused: int = 120
 
     # Cleanup worker
-    cleanup_interval_seconds: int = 3600
+    cleanup_interval_seconds: int = 300
     cleanup_job_retention_hours: int = 24
     cleanup_feedback_retention_days: int = 90
     cleanup_usage_retention_days: int = 90

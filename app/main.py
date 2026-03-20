@@ -99,7 +99,7 @@ app.include_router(evals.router)
 @app.on_event("startup")
 async def startup():
     app.state.pool = WorkerPool(max_workers=settings.max_workers)
-    app.state.cache = ResultCache(ttl=settings.cache_ttl)
+    app.state.cache = ResultCache(ttl=settings.cache_ttl, max_size=settings.cache_max_entries)
     app.state.event_bus = EventBus()
     app.state.job_queue = JobQueue(
         pool=app.state.pool,
@@ -168,7 +168,7 @@ async def startup():
     app.state.circuit_breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=60)
 
     # Prompt cache (5 min TTL for static prompt portions)
-    app.state.prompt_cache = PromptCache(ttl=300)
+    app.state.prompt_cache = PromptCache(ttl=300, max_size=settings.prompt_cache_max_entries)
 
     # Feedback loop (automated re-runs with learnings)
     app.state.feedback_loop = FeedbackLoop()
@@ -219,6 +219,7 @@ async def startup():
         scheduler=app.state.scheduler,
         usage_store=app.state.usage_store,
         feedback_store=app.state.feedback_store,
+        prompt_cache=app.state.prompt_cache,
         interval_seconds=settings.cleanup_interval_seconds,
         job_retention_hours=settings.cleanup_job_retention_hours,
         feedback_retention_days=settings.cleanup_feedback_retention_days,
@@ -233,7 +234,10 @@ async def startup():
     await app.state.cleanup_worker.start()
 
     skills = list_skills()
-    logger.info("Clay Webhook OS v3.0 started — Autopilot Mode")
+
+    # Log RSS at startup for memory baseline
+    from app.core.cleanup_worker import _get_rss_mb
+    logger.info("Clay Webhook OS v3.0 started — Autopilot Mode (RSS: %.1fMB)", _get_rss_mb())
 
 
 @app.on_event("shutdown")

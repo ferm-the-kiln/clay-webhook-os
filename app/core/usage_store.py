@@ -11,6 +11,8 @@ logger = logging.getLogger("clay-webhook-os")
 
 # Retention: 90 days
 RETENTION_DAYS = 90
+MAX_IN_MEMORY_ENTRIES = 2000
+MAX_IN_MEMORY_ERRORS = 500
 
 
 class UsageStore:
@@ -32,8 +34,11 @@ class UsageStore:
                     entry = UsageEntry(**json.loads(line))
                     if entry.timestamp >= cutoff:
                         kept.append(entry)
+            # Cap to newest MAX_IN_MEMORY_ENTRIES
+            if len(kept) > MAX_IN_MEMORY_ENTRIES:
+                kept = kept[-MAX_IN_MEMORY_ENTRIES:]
             self._entries = kept
-            logger.info("[usage] Loaded %d entries", len(self._entries))
+            logger.info("[usage] Loaded %d entries (cap=%d)", len(self._entries), MAX_IN_MEMORY_ENTRIES)
 
         if self._errors_file.exists():
             kept = []
@@ -42,11 +47,17 @@ class UsageStore:
                     err = UsageError(**json.loads(line))
                     if err.timestamp >= cutoff:
                         kept.append(err)
+            # Cap to newest MAX_IN_MEMORY_ERRORS
+            if len(kept) > MAX_IN_MEMORY_ERRORS:
+                kept = kept[-MAX_IN_MEMORY_ERRORS:]
             self._errors = kept
-            logger.info("[usage] Loaded %d error events", len(self._errors))
+            logger.info("[usage] Loaded %d error events (cap=%d)", len(self._errors), MAX_IN_MEMORY_ERRORS)
 
     def record(self, entry: UsageEntry) -> None:
         self._entries.append(entry)
+        # Trim if over soft cap
+        if len(self._entries) > int(MAX_IN_MEMORY_ENTRIES * 1.5):
+            self._entries = self._entries[-MAX_IN_MEMORY_ENTRIES:]
         self._data_dir.mkdir(parents=True, exist_ok=True)
         with open(self._entries_file, "a") as f:
             f.write(json.dumps(entry.model_dump()) + "\n")
@@ -54,6 +65,9 @@ class UsageStore:
     def record_error(self, error_type: str, message: str) -> None:
         err = UsageError(error_type=error_type, message=message)
         self._errors.append(err)
+        # Trim if over soft cap
+        if len(self._errors) > int(MAX_IN_MEMORY_ERRORS * 1.5):
+            self._errors = self._errors[-MAX_IN_MEMORY_ERRORS:]
         self._data_dir.mkdir(parents=True, exist_ok=True)
         with open(self._errors_file, "a") as f:
             f.write(json.dumps(err.model_dump()) + "\n")

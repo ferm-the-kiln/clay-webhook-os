@@ -38,7 +38,7 @@ class TestSettingsDefaults:
 
     def test_cleanup_defaults(self):
         s = Settings()
-        assert s.cleanup_interval_seconds == 3600
+        assert s.cleanup_interval_seconds == 300
         assert s.cleanup_job_retention_hours == 24
         assert s.cleanup_feedback_retention_days == 90
         assert s.cleanup_usage_retention_days == 90
@@ -139,7 +139,7 @@ class TestDefaultValues:
 
     def test_max_workers_default(self):
         s = Settings(_env_file=None)
-        assert s.max_workers == 10
+        assert s.max_workers == 3
 
     def test_default_model(self, monkeypatch):
         monkeypatch.delenv("DEFAULT_MODEL", raising=False)
@@ -152,7 +152,7 @@ class TestDefaultValues:
 
     def test_cache_ttl_default(self):
         s = Settings(_env_file=None)
-        assert s.cache_ttl == 86400
+        assert s.cache_ttl == 3600
 
     def test_max_subscription_monthly_usd(self):
         s = Settings(_env_file=None)

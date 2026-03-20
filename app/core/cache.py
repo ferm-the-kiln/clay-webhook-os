@@ -1,12 +1,14 @@
 import hashlib
 import json
 import time
+from collections import OrderedDict
 
 
 class ResultCache:
-    def __init__(self, ttl: int = 3600):
-        self._store: dict[str, tuple[float, dict]] = {}
+    def __init__(self, ttl: int = 3600, max_size: int = 200):
+        self._store: OrderedDict[str, tuple[float, dict]] = OrderedDict()
         self._ttl = ttl
+        self._max_size = max_size
         self._hits: int = 0
         self._misses: int = 0
 
@@ -48,6 +50,7 @@ class ResultCache:
             self._misses += 1
             return None
         self._hits += 1
+        self._store.move_to_end(key)
         return result
 
     def put(self, skill: str, data: dict, instructions: str | None, result: dict, model: str | None = None) -> None:
@@ -55,6 +58,10 @@ class ResultCache:
             return
         key = self._key(skill, data, instructions, model)
         self._store[key] = (time.time(), result)
+        self._store.move_to_end(key)
+        # Evict oldest entries if over max size
+        while len(self._store) > self._max_size:
+            self._store.popitem(last=False)
 
     def clear(self) -> None:
         self._store.clear()

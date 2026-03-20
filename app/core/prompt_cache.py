@@ -2,6 +2,7 @@ import hashlib
 import logging
 import os
 import time
+from collections import OrderedDict
 
 logger = logging.getLogger("clay-webhook-os")
 
@@ -14,9 +15,10 @@ class PromptCache:
     TTL: 5 minutes (files rarely change mid-session).
     """
 
-    def __init__(self, ttl: int = 300):
+    def __init__(self, ttl: int = 300, max_size: int = 100):
         self._ttl = ttl
-        self._cache: dict[str, tuple[float, str]] = {}  # key → (timestamp, static_prompt)
+        self._max_size = max_size
+        self._cache: OrderedDict[str, tuple[float, str]] = OrderedDict()
         self._hits = 0
         self._misses = 0
 
@@ -45,12 +47,16 @@ class PromptCache:
             self._misses += 1
             return None
         self._hits += 1
+        self._cache.move_to_end(key)
         return prompt
 
     def put(self, skill_name: str, client_slug: str | None, file_paths: list[str], static_prompt: str) -> None:
         """Cache a static prompt."""
         key = self._make_key(skill_name, client_slug, file_paths)
         self._cache[key] = (time.time(), static_prompt)
+        self._cache.move_to_end(key)
+        while len(self._cache) > self._max_size:
+            self._cache.popitem(last=False)
 
     def get_stats(self) -> dict:
         total = self._hits + self._misses
@@ -61,6 +67,14 @@ class PromptCache:
             "hit_rate": round(self._hits / total, 3) if total > 0 else 0.0,
             "ttl": self._ttl,
         }
+
+    def evict_expired(self) -> int:
+        """Remove expired entries. Called by cleanup worker."""
+        now = time.time()
+        expired = [k for k, (ts, _) in self._cache.items() if now - ts > self._ttl]
+        for k in expired:
+            del self._cache[k]
+        return len(expired)
 
     def clear(self) -> None:
         self._cache.clear()
