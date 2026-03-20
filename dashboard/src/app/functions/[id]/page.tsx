@@ -12,6 +12,7 @@ import {
   fetchToolCategories,
   generateFunctionClayConfig,
   runFunction,
+  previewFunction,
 } from "@/lib/api";
 import type {
   FunctionDefinition,
@@ -20,6 +21,7 @@ import type {
   FunctionStep,
   ToolCategory,
   ToolDefinition,
+  PreviewStep,
 } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -54,6 +56,14 @@ export default function FunctionDetailPage() {
   const [testing, setTesting] = useState(false);
   const testInputsRef = useRef<Record<string, string>>({});
   testInputsRef.current = testInputs;
+
+  // Preview state (Phase 4)
+  const [preview, setPreview] = useState<{
+    steps: PreviewStep[];
+    unresolved_variables: string[];
+    summary: Record<string, number>;
+  } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
 
   // Editable fields
   const [name, setName] = useState("");
@@ -126,10 +136,21 @@ export default function FunctionDetailPage() {
     }
   }, [funcId, router]);
 
+  // Auto-load clay config when function loads
+  const loadClayConfig = useCallback(async () => {
+    try {
+      const config = await generateFunctionClayConfig(funcId);
+      setClayConfig(config);
+    } catch {
+      // Non-critical — config panel will show without API key
+    }
+  }, [funcId]);
+
   useEffect(() => {
     load();
+    loadClayConfig();
     fetchToolCategories().then(r => setToolCategories(r.categories)).catch(() => {});
-  }, [load]);
+  }, [load, loadClayConfig]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -201,12 +222,19 @@ export default function FunctionDetailPage() {
 
   const handleCopyClayConfig = () => {
     if (!func) return;
+    // Use the full config from the API (includes real API key, curl, etc.)
+    if (clayConfig) {
+      navigator.clipboard.writeText(JSON.stringify(clayConfig, null, 2));
+      toast.success("Full Clay config copied (includes API key)");
+      return;
+    }
+    // Fallback if config hasn't loaded yet
     const config = {
-      url: `{{API_URL}}/webhook/functions/${func.id}`,
+      url: `https://clay.nomynoms.com/webhook/functions/${func.id}`,
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": "{{API_KEY}}" },
+      headers: { "Content-Type": "application/json", "x-api-key": "(load config to get key)" },
       body: {
-        data: Object.fromEntries(func.inputs.map(i => [i.name, `{{${i.name}}}`])),
+        data: Object.fromEntries(func.inputs.map(i => [i.name, `/Column Name`])),
       },
     };
     navigator.clipboard.writeText(JSON.stringify(config, null, 2));
@@ -236,6 +264,25 @@ export default function FunctionDetailPage() {
       setTestResult({ error: true, message: e instanceof Error ? e.message : "Test failed" });
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handlePreview = async () => {
+    if (!func) return;
+    setPreviewing(true);
+    setPreview(null);
+    setTestResult(null);
+    try {
+      const result = await previewFunction(func.id, testInputsRef.current);
+      setPreview({
+        steps: result.steps,
+        unresolved_variables: result.unresolved_variables,
+        summary: result.summary,
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Preview failed");
+    } finally {
+      setPreviewing(false);
     }
   };
 
@@ -349,6 +396,9 @@ export default function FunctionDetailPage() {
                   testing={testing}
                   onRun={handleRunTest}
                   onClose={() => setTestOpen(false)}
+                  preview={preview}
+                  previewing={previewing}
+                  onPreview={handlePreview}
                 />
               </ErrorBoundary>
             </div>

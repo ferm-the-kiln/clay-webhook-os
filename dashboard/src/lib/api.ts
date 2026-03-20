@@ -923,11 +923,46 @@ export function runFunction(
 export function assembleFunction(body: {
   description: string;
   context?: string;
-}): Promise<{ suggestion: Record<string, unknown>; raw: string; duration_ms: number }> {
+}): Promise<{
+  suggestion: Record<string, unknown>;
+  reasoning: Record<string, unknown>;
+  raw: string;
+  duration_ms: number;
+}> {
   return apiFetch("/functions/assemble", {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+// Function preview (dry run)
+export function previewFunction(
+  functionId: string,
+  data: Record<string, string>
+): Promise<{
+  function: string;
+  function_name: string;
+  steps: Array<{
+    step_index: number;
+    tool: string;
+    tool_name: string;
+    executor: string;
+    resolved_params: Record<string, string>;
+    unresolved_variables: string[];
+    expected_outputs: string[];
+  }>;
+  unresolved_variables: string[];
+  summary: Record<string, number>;
+}> {
+  return apiFetch(`/functions/${functionId}/preview`, {
+    method: "POST",
+    body: JSON.stringify({ data }),
+  });
+}
+
+// Tool detail
+export function fetchToolDetail(toolId: string): Promise<Record<string, unknown>> {
+  return apiFetch(`/tools/${encodeURIComponent(toolId)}`);
 }
 
 // ── Pattern Mining ──────────────────────────────────────

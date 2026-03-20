@@ -96,6 +96,33 @@ class MoveFunctionRequest(BaseModel):
     folder: str = Field(..., description="Target folder name")
 
 
+class StepTrace(BaseModel):
+    step_index: int = Field(..., description="Zero-based step index")
+    tool: str = Field(..., description="Tool identifier")
+    tool_name: str = Field("", description="Human-readable tool name")
+    executor: str = Field("unknown", description="Executor type: native_api, skill, call_ai, ai_agent, ai_fallback")
+    status: str = Field("success", description="Step status: success, error, skipped")
+    duration_ms: int = Field(0, description="Step execution time in milliseconds")
+    resolved_params: dict[str, str] = Field(default_factory=dict, description="Parameters after template resolution")
+    output_keys: list[str] = Field(default_factory=list, description="Output keys produced by this step")
+    error_message: str | None = Field(None, description="Error message if step failed")
+    ai_prompt: str | None = Field(None, description="AI prompt used for fallback/agent steps")
+
+
+class PreviewStep(BaseModel):
+    step_index: int = Field(..., description="Zero-based step index")
+    tool: str = Field(..., description="Tool identifier")
+    tool_name: str = Field("", description="Human-readable tool name")
+    executor: str = Field("unknown", description="Expected executor type")
+    resolved_params: dict[str, str] = Field(default_factory=dict)
+    unresolved_variables: list[str] = Field(default_factory=list)
+    expected_outputs: list[str] = Field(default_factory=list)
+
+
+class PreviewRequest(BaseModel):
+    data: dict[str, str] = Field(default_factory=dict, description="Test data for variable resolution")
+
+
 class AssembleFunctionRequest(BaseModel):
     description: str = Field(..., description="Natural language description of desired function")
     context: str = Field("", description="Additional context about the use case")

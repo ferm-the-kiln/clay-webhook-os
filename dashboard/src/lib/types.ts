@@ -550,6 +550,47 @@ export interface ToolDefinition {
   inputs: { name: string; type: string }[];
   outputs: { key: string; type: string }[];
   model_tier?: string;
+  has_native_api?: boolean;
+  native_api_provider?: string;
+  execution_mode?: "native" | "ai_agent" | "ai_single";
+  ai_fallback_description?: string;
+}
+
+export interface StepTrace {
+  step_index: number;
+  tool: string;
+  tool_name: string;
+  executor: "native_api" | "skill" | "call_ai" | "ai_agent" | "ai_fallback" | "unknown";
+  status: "success" | "error" | "skipped";
+  duration_ms: number;
+  resolved_params: Record<string, string>;
+  output_keys: string[];
+  error_message?: string;
+  ai_prompt?: string;
+}
+
+export interface AssemblyReasoning {
+  thought_process?: string;
+  tools_considered?: { tool_id: string; name: string; why: string; selected: boolean }[];
+  confidence?: number;
+}
+
+export interface PreviewStep {
+  step_index: number;
+  tool: string;
+  tool_name: string;
+  executor: string;
+  resolved_params: Record<string, string>;
+  unresolved_variables: string[];
+  expected_outputs: string[];
+}
+
+export interface FunctionPreview {
+  function: string;
+  function_name: string;
+  steps: PreviewStep[];
+  unresolved_variables: string[];
+  summary: Record<string, number>;
 }
 
 export interface ToolCategory {
