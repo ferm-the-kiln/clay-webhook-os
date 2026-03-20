@@ -913,11 +913,13 @@ export function fetchToolCategories(): Promise<{ categories: ToolCategory[] }> {
 // Run function via webhook
 export function runFunction(
   functionId: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
   return apiFetch("/webhook", {
     method: "POST",
     body: JSON.stringify({ function: functionId, data }),
+    signal,
   });
 }
 

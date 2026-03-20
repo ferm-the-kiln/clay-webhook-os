@@ -139,7 +139,7 @@ class TestDefaultValues:
 
     def test_max_workers_default(self):
         s = Settings(_env_file=None)
-        assert s.max_workers == 3
+        assert s.max_workers == 6
 
     def test_default_model(self, monkeypatch):
         monkeypatch.delenv("DEFAULT_MODEL", raising=False)

@@ -91,6 +91,7 @@ export function useFunctionWorkbench(): UseFunctionWorkbenchReturn {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const [expandedCell, setExpandedCell] = useState<{ row: number; col: string } | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -201,84 +202,135 @@ export function useFunctionWorkbench(): UseFunctionWorkbenchReturn {
   const handleRun = useCallback(async () => {
     if (!csvData || !selectedFunction) return;
 
+    const abort = new AbortController();
+    abortRef.current = abort;
+
     setStep("run");
     setRunning(true);
     const totalRows = csvData.rows.length;
     setProgress({ done: 0, total: totalRows });
 
-    const newResults: ResultRow[] = csvData.rows.map((_, i) => ({
+    const initialResults: ResultRow[] = csvData.rows.map((_, i) => ({
       rowIndex: i,
       status: "pending" as RowStatus,
       input: {},
       output: null,
       error: null,
     }));
-    setResults(newResults);
+    setResults(initialResults);
 
-    for (let i = 0; i < totalRows; i++) {
-      const row = csvData.rows[i];
-      const input: Record<string, unknown> = {};
-      for (const mapping of mappings) {
-        input[mapping.functionInput] = row[mapping.csvColumn];
+    let completedCount = 0;
+    const MAX_CONCURRENT = 5;
+    let active = 0;
+    const waiting: (() => void)[] = [];
+    const limit = async <T,>(fn: () => Promise<T>): Promise<T> => {
+      if (active >= MAX_CONCURRENT) {
+        await new Promise<void>(resolve => waiting.push(resolve));
       }
+      active++;
+      try { return await fn(); }
+      finally { active--; waiting.shift()?.(); }
+    };
 
-      newResults[i].status = "running";
-      newResults[i].input = input;
-      setResults([...newResults]);
+    const promises = csvData.rows.map((row, i) =>
+      limit(async () => {
+        if (abort.signal.aborted) return;
 
-      try {
-        const result = await runFunction(selectedFunction.id, input);
-        if (result.error) {
-          newResults[i].status = "error";
-          newResults[i].error = String(result.error_message || "Unknown error");
-        } else {
-          newResults[i].status = "done";
-          newResults[i].output = result;
+        const input: Record<string, unknown> = {};
+        for (const mapping of mappings) {
+          input[mapping.functionInput] = row[mapping.csvColumn];
         }
-      } catch (e) {
-        newResults[i].status = "error";
-        newResults[i].error = e instanceof Error ? e.message : "Network error";
-      }
 
-      setProgress({ done: i + 1, total: totalRows });
-      setResults([...newResults]);
-    }
+        setResults(prev => prev.map((r, idx) =>
+          idx === i ? { ...r, status: "running" as RowStatus, input } : r
+        ));
 
+        try {
+          const result = await runFunction(selectedFunction.id, input, abort.signal);
+          if (result.error) {
+            setResults(prev => prev.map((r, idx) =>
+              idx === i ? { ...r, status: "error" as RowStatus, error: String(result.error_message || "Unknown error") } : r
+            ));
+          } else {
+            setResults(prev => prev.map((r, idx) =>
+              idx === i ? { ...r, status: "done" as RowStatus, output: result } : r
+            ));
+          }
+        } catch (e) {
+          if (abort.signal.aborted) return;
+          setResults(prev => prev.map((r, idx) =>
+            idx === i ? { ...r, status: "error" as RowStatus, error: e instanceof Error ? e.message : "Network error" } : r
+          ));
+        }
+
+        completedCount++;
+        setProgress({ done: completedCount, total: totalRows });
+      })
+    );
+
+    await Promise.all(promises);
+    abortRef.current = null;
     setRunning(false);
     setStep("results");
   }, [csvData, selectedFunction, mappings]);
 
   const handleRetryFailed = useCallback(async () => {
     if (!csvData || !selectedFunction) return;
+
+    const abort = new AbortController();
+    abortRef.current = abort;
     setRunning(true);
+
     const failedIndices = results.filter(r => r.status === "error").map(r => r.rowIndex);
-    const newResults = [...results];
 
-    for (const i of failedIndices) {
-      const row = csvData.rows[i];
-      const input: Record<string, unknown> = {};
-      for (const mapping of mappings) {
-        input[mapping.functionInput] = row[mapping.csvColumn];
+    const MAX_CONCURRENT = 5;
+    let active = 0;
+    const waiting: (() => void)[] = [];
+    const limit = async <T,>(fn: () => Promise<T>): Promise<T> => {
+      if (active >= MAX_CONCURRENT) {
+        await new Promise<void>(resolve => waiting.push(resolve));
       }
+      active++;
+      try { return await fn(); }
+      finally { active--; waiting.shift()?.(); }
+    };
 
-      newResults[i].status = "running";
-      setResults([...newResults]);
+    const promises = failedIndices.map(i =>
+      limit(async () => {
+        if (abort.signal.aborted) return;
 
-      try {
-        const result = await runFunction(selectedFunction.id, input);
-        if (result.error) {
-          newResults[i].status = "error";
-          newResults[i].error = String(result.error_message || "Unknown error");
-        } else {
-          newResults[i].status = "done";
-          newResults[i].output = result;
+        const row = csvData.rows[i];
+        const input: Record<string, unknown> = {};
+        for (const mapping of mappings) {
+          input[mapping.functionInput] = row[mapping.csvColumn];
         }
-      } catch (e) {
-        newResults[i].status = "error";
-        newResults[i].error = e instanceof Error ? e.message : "Network error";
-      }
-      setResults([...newResults]);
-    }
+
+        setResults(prev => prev.map((r, idx) =>
+          idx === i ? { ...r, status: "running" as RowStatus, input } : r
+        ));
+
+        try {
+          const result = await runFunction(selectedFunction.id, input, abort.signal);
+          if (result.error) {
+            setResults(prev => prev.map((r, idx) =>
+              idx === i ? { ...r, status: "error" as RowStatus, error: String(result.error_message || "Unknown error") } : r
+            ));
+          } else {
+            setResults(prev => prev.map((r, idx) =>
+              idx === i ? { ...r, status: "done" as RowStatus, output: result } : r
+            ));
+          }
+        } catch (e) {
+          if (abort.signal.aborted) return;
+          setResults(prev => prev.map((r, idx) =>
+            idx === i ? { ...r, status: "error" as RowStatus, error: e instanceof Error ? e.message : "Network error" } : r
+          ));
+        }
+      })
+    );
+
+    await Promise.all(promises);
+    abortRef.current = null;
     setRunning(false);
   }, [csvData, selectedFunction, mappings, results]);
 
@@ -332,6 +384,9 @@ export function useFunctionWorkbench(): UseFunctionWorkbenchReturn {
   }, []);
 
   const resetWorkbench = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setRunning(false);
     setStep("upload");
     setResults([]);
     setCsvData(null);

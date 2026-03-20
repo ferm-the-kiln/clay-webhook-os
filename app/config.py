@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     rate_limit_batch: int = 10
     rate_limit_pipeline: int = 20
     rate_limit_default: int = 120
-    max_workers: int = 3
+    max_workers: int = 6
     default_model: str = "opus"
     request_timeout: int = 120
     cache_ttl: int = 3600
