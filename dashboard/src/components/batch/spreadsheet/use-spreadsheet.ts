@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -25,6 +25,33 @@ export function useSpreadsheet(
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
   const [globalFilter, setGlobalFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  // Persist selection across data refreshes using a ref keyed by job ID
+  const selectionRef = useRef<Set<string>>(new Set());
+
+  // Sync ref -> state when jobs change (reconcile: keep IDs that still exist)
+  useEffect(() => {
+    const jobIds = new Set(jobs.map((j) => j.id));
+    // Remove stale IDs from ref
+    for (const id of selectionRef.current) {
+      if (!jobIds.has(id)) selectionRef.current.delete(id);
+    }
+    // Build RowSelectionState from ref
+    const newSelection: RowSelectionState = {};
+    for (const id of selectionRef.current) {
+      newSelection[id] = true;
+    }
+    setRowSelection(newSelection);
+  }, [jobs]);
+
+  // Keep ref in sync when user changes selection
+  const handleRowSelectionChange = (updater: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState)) => {
+    setRowSelection((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      selectionRef.current = new Set(Object.keys(next).filter((id) => next[id]));
+      return next;
+    });
+  };
 
   const columns = useMemo(
     () => buildColumns(csvHeaders, jobs),
@@ -52,7 +79,7 @@ export function useSpreadsheet(
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: handleRowSelectionChange,
     onColumnSizingChange: setColumnSizing,
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
@@ -85,10 +112,14 @@ export function useSpreadsheet(
         newSelection[row._job.id] = true;
       }
     }
+    selectionRef.current = new Set(Object.keys(newSelection));
     setRowSelection(newSelection);
   };
 
-  const clearSelection = () => setRowSelection({});
+  const clearSelection = () => {
+    selectionRef.current.clear();
+    setRowSelection({});
+  };
 
   return {
     table,

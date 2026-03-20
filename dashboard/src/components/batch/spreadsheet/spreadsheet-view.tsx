@@ -128,6 +128,7 @@ export function SpreadsheetView({
         onClearSelection={clearSelection}
         onDownloadAll={downloadCsv}
         totalRows={stats.total}
+        completedCount={stats.complete}
       />
 
       <div ref={parentRef} className="overflow-auto max-h-[600px]">

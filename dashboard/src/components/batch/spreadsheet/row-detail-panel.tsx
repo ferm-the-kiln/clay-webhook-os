@@ -1,16 +1,20 @@
 "use client";
 
 import type { Job } from "@/lib/types";
-import { formatDuration, formatRelativeTime } from "@/lib/utils";
+import { formatDuration, formatRelativeTime, formatCost, formatTokens } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { RotateCcw } from "lucide-react";
 
 export function RowDetailPanel({
   job,
   originalData,
+  onRetryRow,
 }: {
   job: Job;
   originalData: Record<string, string>;
+  onRetryRow?: (jobId: string) => void;
 }) {
   return (
     <div className="bg-clay-950 border-b border-clay-500 px-6 py-4">
@@ -36,17 +40,32 @@ export function RowDetailPanel({
           </div>
         </div>
 
-        {/* Result JSON */}
+        {/* Result / Error */}
         <div>
           <p className="text-xs text-clay-200 uppercase tracking-wider mb-2">
-            Result
+            {job.error ? "Error" : "Result"}
           </p>
           {job.result ? (
             <pre className="text-xs text-clay-300 font-[family-name:var(--font-mono)] max-h-48 overflow-auto whitespace-pre-wrap rounded bg-clay-800 p-2 border border-clay-500">
               {JSON.stringify(job.result, null, 2)}
             </pre>
           ) : job.error ? (
-            <p className="text-xs text-kiln-coral">{job.error}</p>
+            <div className="space-y-2">
+              <pre className="text-xs text-kiln-coral font-[family-name:var(--font-mono)] max-h-48 overflow-auto whitespace-pre-wrap rounded bg-kiln-coral/5 p-2 border border-kiln-coral/30">
+                {job.error}
+              </pre>
+              {onRetryRow && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onRetryRow(job.id)}
+                  className="h-7 bg-kiln-coral/10 text-kiln-coral border-kiln-coral/30 hover:bg-kiln-coral/20"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Retry this row
+                </Button>
+              )}
+            </div>
           ) : (
             <p className="text-xs text-clay-300">Pending...</p>
           )}
@@ -68,6 +87,22 @@ export function RowDetailPanel({
                 {job.duration_ms ? formatDuration(job.duration_ms) : "\u2014"}
               </span>
             </div>
+            {(job.input_tokens_est || job.output_tokens_est) && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-clay-200">Tokens:</span>
+                <span className="text-xs text-clay-300 font-[family-name:var(--font-mono)]">
+                  {formatTokens((job.input_tokens_est ?? 0) + (job.output_tokens_est ?? 0))}
+                </span>
+              </div>
+            )}
+            {job.cost_est_usd !== undefined && job.cost_est_usd > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-clay-200">Cost est:</span>
+                <span className="text-xs text-clay-300 font-[family-name:var(--font-mono)]">
+                  {formatCost(job.cost_est_usd)}
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <span className="text-xs text-clay-200">Job ID:</span>
               <span className="text-xs text-clay-200 font-[family-name:var(--font-mono)] truncate">

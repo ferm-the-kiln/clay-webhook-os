@@ -25,6 +25,7 @@ export function SpreadsheetToolbar({
   onClearSelection,
   onDownloadAll,
   totalRows,
+  completedCount,
 }: {
   statusFilter: string;
   onStatusFilterChange: (status: string) => void;
@@ -39,6 +40,7 @@ export function SpreadsheetToolbar({
   onClearSelection: () => void;
   onDownloadAll: () => void;
   totalRows: number;
+  completedCount?: number;
 }) {
   const hasSelection = selectedCount > 0;
 
@@ -136,7 +138,9 @@ export function SpreadsheetToolbar({
               className="h-7 text-xs bg-kiln-teal/10 text-kiln-teal border-kiln-teal/30 hover:bg-kiln-teal/20"
             >
               <Download className="h-3 w-3 mr-1" />
-              CSV ({totalRows})
+              {completedCount !== undefined && completedCount < totalRows
+                ? `Export ${completedCount} completed`
+                : `CSV (${totalRows})`}
             </Button>
           </div>
         </>

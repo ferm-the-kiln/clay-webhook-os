@@ -59,7 +59,7 @@ export function BatchProgress({
             <span className="text-clay-200">{total - processed}</span>
           </span>
         </div>
-        {done && costSummary && (
+        {costSummary && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t border-clay-500 text-xs text-clay-200">
             <span>
               Tokens:{" "}
@@ -85,6 +85,9 @@ export function BatchProgress({
                 {formatCost(costSummary.cost.net_savings_usd)}
               </span>
             </span>
+            {!done && (
+              <span className="text-clay-300 italic">(running estimate)</span>
+            )}
           </div>
         )}
       </CardContent>
