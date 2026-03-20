@@ -220,11 +220,10 @@ export function FunctionBuilder({
                 <label className="text-xs text-clay-300 mb-1 block">
                   Description
                 </label>
-                <textarea
+                <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
-                  className="w-full rounded-md bg-clay-900 border border-clay-600 text-clay-100 text-sm p-2.5 focus:outline-none focus:ring-1 focus:ring-kiln-teal"
                 />
               </div>
               <div>

@@ -465,13 +465,13 @@ function FunctionBuilderPanel({
               <p className="text-xs text-clay-300 mb-3">
                 Tell me what data you want in and what results you want out. I'll suggest the right tools and build the function for you.
               </p>
-              <textarea
+              <Textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder={"e.g., Given a company name, find their domain, look up their tech stack, find the VP of Sales email, and verify the email is valid."}
                 rows={5}
                 autoFocus
-                className="w-full rounded-md bg-clay-900 border border-clay-600 text-clay-100 text-sm p-3 placeholder:text-clay-300 focus:outline-none focus:ring-1 focus:ring-kiln-teal resize-none"
+                className="resize-none"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleAssemble();
                 }}
@@ -540,12 +540,11 @@ function FunctionBuilderPanel({
             </div>
             <div>
               <label className="text-xs font-medium text-clay-300 mb-1 block">Description</label>
-              <textarea
+              <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What does this function do?"
                 rows={2}
-                className="w-full rounded-md bg-clay-900 border border-clay-600 text-clay-100 text-sm p-2.5 placeholder:text-clay-300 focus:outline-none focus:ring-1 focus:ring-kiln-teal"
               />
             </div>
 

@@ -144,10 +144,10 @@ export function TouchCard({
             <div className="px-3 py-3">
               {editing ? (
                 <div className="space-y-2">
-                  <textarea
+                  <Textarea
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
-                    className="w-full min-h-[80px] resize-y bg-clay-950 border border-kiln-teal/30 rounded p-2 text-sm text-clay-200 leading-relaxed outline-none focus:border-kiln-teal"
+                    className="min-h-[80px] resize-y bg-clay-950 border-kiln-teal/30 leading-relaxed focus-visible:border-kiln-teal"
                     autoFocus
                   />
                   <div className="flex items-center gap-2">

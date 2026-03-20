@@ -411,10 +411,10 @@ export function EmailPreviewPanel({
               <div className="px-4 py-4">
                 {isEditing ? (
                   <div className="space-y-2">
-                    <textarea
+                    <Textarea
                       value={editedBody}
                       onChange={(e) => onSetEditedBody?.(e.target.value)}
-                      className="w-full min-h-[120px] resize-y bg-clay-950 border border-kiln-teal/30 rounded-lg p-3 text-sm text-clay-200 leading-relaxed outline-none focus:border-kiln-teal"
+                      className="min-h-[120px] resize-y bg-clay-950 border-kiln-teal/30 leading-relaxed focus-visible:border-kiln-teal"
                       autoFocus
                     />
                     <div className="flex items-center gap-2">
