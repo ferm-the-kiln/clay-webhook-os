@@ -19,7 +19,7 @@
 - [x] **UI-02**: Function selector — dropdown at top of chat to pick which function to run; shows function name, description, and expected inputs
 - [x] **UI-03**: Message thread — user/assistant message bubbles; assistant messages render structured results (formatted JSON, key-value pairs) not raw text
 - [x] **UI-04**: Chat input bar — text input at bottom with send button; supports pasting multi-line data (company lists, CSV rows)
-- [ ] **UI-05**: Session list — sidebar or dropdown showing past sessions with function name, date, row count; click to resume
+- [x] **UI-05**: Session list — sidebar or dropdown showing past sessions with function name, date, row count; click to resume
 
 ### Chat Frontend — Activity Panel
 
@@ -30,7 +30,7 @@
 
 ### Navigation & Access
 
-- [ ] **NAV-01**: Add "Chat" to sidebar navigation (between Functions and Workbench, or as a top-level item)
+- [x] **NAV-01**: Add "Chat" to sidebar navigation (between Functions and Workbench, or as a top-level item)
 - [ ] **AUTH-01**: Internal access — API key authentication (existing middleware)
 - [ ] **AUTH-02**: Client access — share token authentication reusing portal's token system; client sessions scoped to their profile
 
@@ -74,12 +74,12 @@
 | UI-02 | Phase 2 | Complete |
 | UI-03 | Phase 2 | Complete |
 | UI-04 | Phase 2 | Complete |
-| UI-05 | Phase 2 | Pending |
+| UI-05 | Phase 2 | Complete |
 | ACT-01 | Phase 3 | Pending |
 | ACT-02 | Phase 3 | Pending |
 | ACT-03 | Phase 3 | Pending |
 | ACT-04 | Phase 3 | Pending |
-| NAV-01 | Phase 2 | Pending |
+| NAV-01 | Phase 2 | Complete |
 | AUTH-01 | Phase 4 | Pending |
 | AUTH-02 | Phase 4 | Pending |
 
