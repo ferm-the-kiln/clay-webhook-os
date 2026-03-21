@@ -29,12 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. SSE events include: function_started, row_processing, row_complete, row_error, function_complete — each with step-level detail
   4. Batch data (multiple records in one message) processes all rows with progress events ("Processing 12/50")
   5. Session history is retrievable via GET — shows all messages with their results
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 01-01: Channel store — session + message persistence
-- [ ] 01-02: Channel orchestrator — message parsing, function execution, result formatting
-- [ ] 01-03: Chat API router + SSE streaming endpoints
+- [ ] 01-01-PLAN.md — Pydantic models + ChannelStore (file-based session/message persistence)
+- [ ] 01-02-PLAN.md — ChannelOrchestrator (function execution bridge, batch processing, SSE event generation)
+- [ ] 01-03-PLAN.md — Channels API router (5 endpoints + SSE streaming) + main.py wiring
 
 ### Phase 2: Chat Frontend — Core UI
 **Goal**: A functional `/chat` page where users can pick a function, type/paste data, send it, and see responses in a message thread
@@ -92,7 +92,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Chat Backend | 0/3 | Pending | — |
+| 1. Chat Backend | 0/3 | Planned | — |
 | 2. Chat Frontend — Core UI | 0/3 | Pending | — |
 | 3. Activity Panel + Results | 0/3 | Pending | — |
 | 4. Client Access + Polish | 0/2 | Pending | — |
