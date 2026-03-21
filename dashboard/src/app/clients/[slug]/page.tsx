@@ -191,6 +191,7 @@ export default function ClientPortalPage() {
           <SOPList
             slug={slug}
             sops={portal.sops}
+            sopAcks={portal.sop_acks}
             onCreated={loadPortal}
             onUpdated={loadPortal}
             onDelete={handleDeleteSOP}
@@ -201,6 +202,7 @@ export default function ClientPortalPage() {
           <div className="space-y-4">
             <UpdateComposer slug={slug} onPosted={loadPortal} />
             <UpdateFeed
+              slug={slug}
               updates={portal.recent_updates}
               onTogglePin={handleTogglePin}
               onDelete={handleDeleteUpdate}

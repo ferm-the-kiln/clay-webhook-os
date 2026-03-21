@@ -1,18 +1,30 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Search, Plus } from "lucide-react";
+import { Users, Search, Plus, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchPortals } from "@/lib/api";
 import { ClientCard } from "@/components/portal/client-card";
 import { NewClientDialog } from "@/components/portal/new-client-dialog";
 import type { PortalOverview } from "@/lib/types";
 
+type SortKey = "name" | "activity" | "health";
+
+function healthScore(p: PortalOverview): number {
+  let score = 0;
+  if (p.overdue_action_count > 0) score += 100 + p.overdue_action_count;
+  if (p.days_since_last_update !== null && p.days_since_last_update >= 7) score += 50;
+  if (p.last_viewed_at === null) score += 25;
+  if (p.unacked_sop_count > 0) score += 10;
+  return score;
+}
+
 export default function ClientsPage() {
   const [portals, setPortals] = useState<PortalOverview[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortKey>("health");
   const [newClientOpen, setNewClientOpen] = useState(false);
 
   useEffect(() => {
@@ -31,7 +43,19 @@ export default function ClientsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "health") return healthScore(b) - healthScore(a);
+    if (sortBy === "activity") return (b.last_activity ?? 0) - (a.last_activity ?? 0);
+    return a.name.localeCompare(b.name);
+  });
+
   const statuses = ["all", ...new Set(portals.map((p) => p.status))];
+
+  const cycleSortBy = () => {
+    const order: SortKey[] = ["health", "activity", "name"];
+    const idx = order.indexOf(sortBy);
+    setSortBy(order[(idx + 1) % order.length]);
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -57,7 +81,7 @@ export default function ClientsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-clay-500" />
           <input
@@ -84,6 +108,15 @@ export default function ClientsPage() {
             </button>
           ))}
         </div>
+
+        <button
+          onClick={cycleSortBy}
+          className="flex items-center gap-1.5 text-xs text-clay-400 hover:text-clay-200 bg-clay-800 border border-clay-600 rounded-lg px-3 py-1.5"
+          title={`Sort by ${sortBy}`}
+        >
+          <ArrowUpDown className="h-3 w-3" />
+          {sortBy === "health" ? "Urgency" : sortBy === "activity" ? "Recent" : "Name"}
+        </button>
       </div>
 
       {/* Content */}
@@ -96,7 +129,7 @@ export default function ClientsPage() {
             </div>
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="text-center py-16">
           <Users className="h-12 w-12 text-clay-600 mx-auto mb-3" />
           <p className="text-clay-400">
@@ -107,7 +140,7 @@ export default function ClientsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((portal) => (
+          {sorted.map((portal) => (
             <ClientCard key={portal.slug} portal={portal} />
           ))}
         </div>

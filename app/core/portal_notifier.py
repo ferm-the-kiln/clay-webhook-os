@@ -90,6 +90,39 @@ class PortalNotifier:
         ]
         await self._send(slug, blocks, f"SOP updated: {sop_title}")
 
+    async def notify_comment_posted(self, slug: str, update_title: str, comment_body: str, author: str) -> None:
+        """Notify when a comment is posted on an update."""
+        client_name = self._store._client_name(slug)
+        preview = comment_body[:200] + ("..." if len(comment_body) > 200 else "")
+        blocks = [
+            self._header(f"New Comment — {client_name}"),
+            self._section(
+                f":speech_balloon: *{author}* commented on *{update_title}*\n"
+                f"_{preview}_"
+            ),
+            self._portal_link(slug),
+        ]
+        await self._send(slug, blocks, f"New comment by {author} on {update_title}")
+
+    async def notify_due_date_reminder(self, slug: str, upcoming: list[dict], overdue: list[dict]) -> None:
+        """Send a digest of upcoming and overdue actions for a client."""
+        client_name = self._store._client_name(slug)
+        parts = []
+        if overdue:
+            parts.append(f":rotating_light: *{len(overdue)} overdue action{'s' if len(overdue) != 1 else ''}*")
+            for a in overdue[:5]:
+                parts.append(f"  • {a['title']} (due {a.get('due_date', '?')})")
+        if upcoming:
+            parts.append(f":clock3: *{len(upcoming)} due within 24h*")
+            for a in upcoming[:5]:
+                parts.append(f"  • {a['title']} (due {a.get('due_date', '?')})")
+        blocks = [
+            self._header(f"Action Reminder — {client_name}"),
+            self._section("\n".join(parts)),
+            self._portal_link(slug),
+        ]
+        await self._send(slug, blocks, f"Action reminder for {client_name}: {len(overdue)} overdue, {len(upcoming)} upcoming")
+
     # ── Block Kit Helpers ─────────────────────────────────
 
     def _header(self, text: str) -> dict:

@@ -4,6 +4,8 @@ import { Pin, PinOff, Trash2, Milestone, Package, StickyNote, Bell } from "lucid
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PortalUpdate } from "@/lib/types";
+import { MarkdownContent } from "./markdown-content";
+import { CommentThread } from "./comment-thread";
 
 const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string }> = {
   update: { icon: Bell, color: "text-blue-400 bg-blue-500/10" },
@@ -13,12 +15,13 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string }> = 
 };
 
 interface UpdateFeedProps {
+  slug: string;
   updates: PortalUpdate[];
   onTogglePin: (updateId: string) => void;
   onDelete: (updateId: string) => void;
 }
 
-export function UpdateFeed({ updates, onTogglePin, onDelete }: UpdateFeedProps) {
+export function UpdateFeed({ slug, updates, onTogglePin, onDelete }: UpdateFeedProps) {
   if (updates.length === 0) {
     return (
       <div className="text-center py-8 text-clay-400">
@@ -57,14 +60,13 @@ export function UpdateFeed({ updates, onTogglePin, onDelete }: UpdateFeedProps) 
                   <h4 className="text-sm font-medium text-clay-100">{update.title}</h4>
                   {update.pinned && <Pin className="h-3 w-3 text-amber-400" />}
                 </div>
-                {update.body && (
-                  <p className="text-sm text-clay-300 whitespace-pre-wrap">{update.body}</p>
-                )}
+                {update.body && <MarkdownContent content={update.body} />}
                 <div className="flex items-center gap-1 mt-2">
                   <span className="text-[10px] text-clay-500">
                     {new Date(update.created_at * 1000).toLocaleString()}
                   </span>
                 </div>
+                <CommentThread slug={slug} updateId={update.id} />
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <Button

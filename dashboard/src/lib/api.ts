@@ -31,6 +31,7 @@ import type {
   PipelineTestResult,
   PlayDefinition,
   PortalAction,
+  PortalComment,
   PortalDetail,
   PortalMedia,
   PortalMeta,
@@ -38,6 +39,7 @@ import type {
   PortalSOP,
   PortalSyncStatus,
   PortalUpdate,
+  UpdateTemplate,
   PromptPreview,
   PublicPortalView,
   PushResult,
@@ -1191,7 +1193,7 @@ export function fetchPortal(slug: string): Promise<PortalDetail> {
 
 export function updatePortal(
   slug: string,
-  body: { status?: string; notes?: string; slack_webhook_url?: string }
+  body: { status?: string; notes?: string; slack_webhook_url?: string; notification_emails?: string[] }
 ): Promise<PortalMeta> {
   return apiFetch(`/portal/${slug}`, {
     method: "PUT",
@@ -1290,7 +1292,7 @@ export function fetchActions(slug: string): Promise<{ actions: PortalAction[]; t
 
 export function createAction(
   slug: string,
-  body: { title: string; description?: string; owner?: string; due_date?: string | null; priority?: string }
+  body: { title: string; description?: string; owner?: string; due_date?: string | null; priority?: string; recurrence?: string }
 ): Promise<PortalAction> {
   return apiFetch(`/portal/${slug}/actions`, {
     method: "POST",
@@ -1315,6 +1317,52 @@ export function toggleAction(slug: string, actionId: string): Promise<PortalActi
 
 export function deleteAction(slug: string, actionId: string): Promise<{ ok: boolean }> {
   return apiFetch(`/portal/${slug}/actions/${actionId}`, { method: "DELETE" });
+}
+
+// Comments
+export function fetchComments(
+  slug: string,
+  updateId: string
+): Promise<{ comments: PortalComment[]; total: number }> {
+  return apiFetch(`/portal/${slug}/updates/${updateId}/comments`);
+}
+
+export function postComment(
+  slug: string,
+  updateId: string,
+  body: { body: string; author: string }
+): Promise<PortalComment> {
+  return apiFetch(`/portal/${slug}/updates/${updateId}/comments`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteComment(
+  slug: string,
+  updateId: string,
+  commentId: string
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/portal/${slug}/updates/${updateId}/comments/${commentId}`, {
+    method: "DELETE",
+  });
+}
+
+// SOP Acknowledgment
+export function acknowledgeSOP(
+  slug: string,
+  sopId: string,
+  user: string
+): Promise<{ sop_id: string; acknowledged_at: number; acknowledged_by: string }> {
+  return apiFetch(`/portal/${slug}/sops/${sopId}/acknowledge`, {
+    method: "POST",
+    body: JSON.stringify({ user }),
+  });
+}
+
+// Update Templates
+export function fetchUpdateTemplates(): Promise<{ templates: UpdateTemplate[]; total: number }> {
+  return apiFetch("/portal/templates/updates");
 }
 
 // SOP Templates

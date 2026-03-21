@@ -170,6 +170,28 @@ async def startup():
     from app.core.portal_notifier import PortalNotifier
     app.state.portal_notifier = PortalNotifier(app.state.portal_store)
 
+    # Email notifier (email notifications for portal events)
+    from app.core.email_notifier import EmailNotifier
+    app.state.email_notifier = EmailNotifier(
+        portal_store=app.state.portal_store,
+        smtp_host=getattr(settings, "smtp_host", ""),
+        smtp_port=getattr(settings, "smtp_port", 587),
+        smtp_user=getattr(settings, "smtp_user", ""),
+        smtp_pass=getattr(settings, "smtp_pass", ""),
+        smtp_from=getattr(settings, "smtp_from", ""),
+    )
+    if app.state.email_notifier.available:
+        logger.info("  Email notifications: enabled")
+    else:
+        logger.info("  Email notifications: disabled (no SMTP config)")
+
+    # Reminder worker (due date notifications every 6h)
+    from app.core.reminder_worker import ReminderWorker
+    app.state.reminder_worker_portal = ReminderWorker(
+        portal_store=app.state.portal_store,
+        portal_notifier=app.state.portal_notifier,
+    )
+
     # Google Sheets integration (graceful degradation if gws not installed)
     from app.core.sheets_client import SheetsClient
     from app.core.drive_sync import DriveSync
@@ -262,6 +284,7 @@ async def startup():
     await app.state.retry_worker.start()
     await app.state.subscription_monitor.start()
     await app.state.cleanup_worker.start()
+    await app.state.reminder_worker_portal.start()
 
     skills = list_skills()
 
@@ -290,6 +313,10 @@ async def shutdown():
     if hasattr(app.state, "cleanup_worker"):
         await app.state.cleanup_worker.stop()
         logger.info("  Cleanup worker stopped")
+
+    if hasattr(app.state, "reminder_worker_portal"):
+        await app.state.reminder_worker_portal.stop()
+        logger.info("  Portal reminder worker stopped")
 
     if hasattr(app.state, "portal_notifier"):
         await app.state.portal_notifier.close()

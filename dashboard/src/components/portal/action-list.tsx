@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, CheckSquare, Square, Calendar, User } from "lucide-react";
+import { Plus, Pencil, Trash2, CheckSquare, Square, Calendar, User, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PortalAction } from "@/lib/types";
@@ -131,12 +131,20 @@ export function ActionList({ slug, actions, onCreated, onUpdated, onToggle, onDe
                   <p className="text-xs text-clay-400 mt-0.5 line-clamp-1">{action.description}</p>
                 )}
 
-                {action.due_date && (
-                  <span className="text-[10px] text-clay-500 flex items-center gap-1 mt-1">
-                    <Calendar className="h-3 w-3" />
-                    {action.due_date}
-                  </span>
-                )}
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  {action.due_date && (
+                    <span className="text-[10px] text-clay-500 flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {action.due_date}
+                    </span>
+                  )}
+                  {action.recurrence && action.recurrence !== "none" && (
+                    <span className="text-[10px] text-clay-500 flex items-center gap-1">
+                      <Repeat className="h-3 w-3" />
+                      {action.recurrence}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Actions */}

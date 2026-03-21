@@ -631,6 +631,10 @@ export interface PortalOverview {
   open_client_actions: number;
   last_activity: number | null;
   has_gws_sync: boolean;
+  overdue_action_count: number;
+  days_since_last_update: number | null;
+  last_viewed_at: number | null;
+  unacked_sop_count: number;
 }
 
 export interface PortalMeta {
@@ -643,6 +647,7 @@ export interface PortalMeta {
   share_token: string | null;
   share_token_created_at: number | null;
   slack_webhook_url: string | null;
+  notification_emails: string[];
   created_at: number;
   updated_at: number;
 }
@@ -654,6 +659,8 @@ export interface PortalSOP {
   content: string;
   created_at: number;
   updated_at: number;
+  acknowledged_at?: number;
+  acknowledged_by?: string;
 }
 
 export interface PortalUpdate {
@@ -677,6 +684,27 @@ export interface PortalMedia {
   created_at: number;
 }
 
+export interface ViewStats {
+  last_viewed_at: number | null;
+  view_count_7d: number;
+  view_count_30d: number;
+}
+
+export interface PortalComment {
+  id: string;
+  update_id: string;
+  body: string;
+  author: string;
+  created_at: number;
+}
+
+export interface UpdateTemplate {
+  id: string;
+  title: string;
+  type: string;
+  body: string;
+}
+
 export interface PortalDetail {
   slug: string;
   name: string;
@@ -685,12 +713,16 @@ export interface PortalDetail {
   recent_updates: PortalUpdate[];
   media: PortalMedia[];
   actions: PortalAction[];
+  view_stats: ViewStats;
+  sop_acks: Record<string, { acknowledged_at: number; acknowledged_by: string }>;
 }
 
 // Action Items
 export type ActionOwner = "internal" | "client";
 export type ActionStatus = "open" | "in_progress" | "done";
 export type ActionPriority = "high" | "normal" | "low";
+
+export type ActionRecurrence = "none" | "weekly" | "biweekly" | "monthly";
 
 export interface PortalAction {
   id: string;
@@ -700,6 +732,7 @@ export interface PortalAction {
   due_date: string | null;
   status: ActionStatus;
   priority: ActionPriority;
+  recurrence: ActionRecurrence | null;
   created_at: number;
   updated_at: number;
 }

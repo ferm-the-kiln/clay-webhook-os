@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from app.models.portal import (
     CreateActionRequest,
+    CreateCommentRequest,
     CreateSOPRequest,
     CreateUpdateRequest,
     OnboardRequest,
@@ -40,6 +41,13 @@ async def list_sop_templates(request: Request):
     return {"templates": templates, "total": len(templates)}
 
 
+@router.get("/portal/templates/updates")
+async def list_update_templates(request: Request):
+    store = request.app.state.portal_store
+    templates = store.list_update_templates()
+    return {"templates": templates, "total": len(templates)}
+
+
 @router.post("/portal/onboard")
 async def onboard_client(request: Request, body: OnboardRequest):
     store = request.app.state.portal_store
@@ -59,6 +67,8 @@ async def get_portal(request: Request, slug: str):
     portal = store.get_portal(slug)
     if not portal:
         return JSONResponse(status_code=404, content={"error": True, "error_message": f"Client '{slug}' not found"})
+    # Record view
+    store.record_view(slug, source="dashboard")
     return portal
 
 
@@ -115,12 +125,15 @@ async def get_sop(request: Request, slug: str, sop_id: str):
 async def update_sop(request: Request, slug: str, sop_id: str, body: UpdateSOPRequest):
     store = request.app.state.portal_store
     notifier = getattr(request.app.state, "portal_notifier", None)
+    email_notifier = getattr(request.app.state, "email_notifier", None)
     updates = body.model_dump(exclude_none=True)
     sop = store.update_sop(slug, sop_id, updates)
     if not sop:
         return JSONResponse(status_code=404, content={"error": True, "error_message": f"SOP '{sop_id}' not found"})
     if notifier:
         asyncio.create_task(notifier.notify_sop_updated(slug, sop["title"]))
+    if email_notifier:
+        asyncio.create_task(email_notifier.notify_sop_updated(slug, sop["title"]))
     return sop
 
 
@@ -146,6 +159,7 @@ async def list_updates(request: Request, slug: str, limit: int = 50, offset: int
 async def create_update(request: Request, slug: str, body: CreateUpdateRequest):
     store = request.app.state.portal_store
     notifier = getattr(request.app.state, "portal_notifier", None)
+    email_notifier = getattr(request.app.state, "email_notifier", None)
     update = store.create_update(
         slug, type_=body.type, title=body.title, body=body.body, media_ids=body.media_ids
     )
@@ -166,6 +180,13 @@ async def create_update(request: Request, slug: str, body: CreateUpdateRequest):
             asyncio.create_task(notifier.notify_deliverable_posted(slug, body.title, body.body))
         elif body.type in ("milestone", "update"):
             asyncio.create_task(notifier.notify_update_posted(slug, body.type, body.title, body.body))
+
+    # Fire email notifications
+    if email_notifier:
+        if body.type == "deliverable":
+            asyncio.create_task(email_notifier.notify_deliverable(slug, body.title, body.body))
+        elif body.type in ("milestone", "update"):
+            asyncio.create_task(email_notifier.notify_update(slug, body.type, body.title, body.body))
     return update
 
 
@@ -200,6 +221,7 @@ async def list_actions(request: Request, slug: str):
 async def create_action(request: Request, slug: str, body: CreateActionRequest):
     store = request.app.state.portal_store
     notifier = getattr(request.app.state, "portal_notifier", None)
+    email_notifier = getattr(request.app.state, "email_notifier", None)
     action = store.create_action(
         slug,
         title=body.title,
@@ -207,9 +229,12 @@ async def create_action(request: Request, slug: str, body: CreateActionRequest):
         owner=body.owner,
         due_date=body.due_date,
         priority=body.priority,
+        recurrence=body.recurrence,
     )
     if notifier and body.owner == "client":
         asyncio.create_task(notifier.notify_action_assigned(slug, action))
+    if email_notifier and body.owner == "client":
+        asyncio.create_task(email_notifier.notify_action(slug, action))
     return action
 
 
@@ -290,6 +315,60 @@ async def delete_media(request: Request, slug: str, media_id: str):
     if not store.delete_media(slug, media_id):
         return JSONResponse(status_code=404, content={"error": True, "error_message": f"Media '{media_id}' not found"})
     return {"ok": True}
+
+
+# ── Comments ──────────────────────────────────────────────
+
+
+@router.get("/portal/{slug}/updates/{update_id}/comments")
+async def list_comments(request: Request, slug: str, update_id: str):
+    store = request.app.state.portal_store
+    comments = store.list_comments(slug, update_id)
+    return {"comments": comments, "total": len(comments)}
+
+
+@router.post("/portal/{slug}/updates/{update_id}/comments")
+async def post_comment(request: Request, slug: str, update_id: str, body: CreateCommentRequest):
+    store = request.app.state.portal_store
+    notifier = getattr(request.app.state, "portal_notifier", None)
+    email_notifier = getattr(request.app.state, "email_notifier", None)
+    comment = store.add_comment(slug, update_id, body.body, body.author)
+
+    # Find the update title for notifications
+    updates = store.list_updates(slug, limit=100)
+    update_title = update_id
+    for u in updates:
+        if u.get("id") == update_id:
+            update_title = u.get("title", update_id)
+            break
+
+    if notifier:
+        asyncio.create_task(notifier.notify_comment_posted(slug, update_title, body.body, body.author))
+    if email_notifier:
+        asyncio.create_task(email_notifier.notify_comment(slug, update_title, body.body, body.author))
+    return comment
+
+
+@router.delete("/portal/{slug}/updates/{update_id}/comments/{comment_id}")
+async def delete_comment(request: Request, slug: str, update_id: str, comment_id: str):
+    store = request.app.state.portal_store
+    if not store.delete_comment(slug, update_id, comment_id):
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Comment '{comment_id}' not found"})
+    return {"ok": True}
+
+
+# ── SOP Acknowledgment ───────────────────────────────────
+
+
+@router.post("/portal/{slug}/sops/{sop_id}/acknowledge")
+async def acknowledge_sop(request: Request, slug: str, sop_id: str, body: dict):
+    store = request.app.state.portal_store
+    user = body.get("user", "anonymous")
+    sop = store.get_sop(slug, sop_id)
+    if not sop:
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"SOP '{sop_id}' not found"})
+    ack = store.acknowledge_sop(slug, sop_id, user)
+    return ack
 
 
 # ── Share Links ───────────────────────────────────────────

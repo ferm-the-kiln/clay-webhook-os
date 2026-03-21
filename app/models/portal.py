@@ -44,6 +44,21 @@ class UpdateResponse(BaseModel):
     created_at: float
 
 
+# ── Comment Models ────────────────────────────────────────
+
+class CreateCommentRequest(BaseModel):
+    body: str = Field(..., description="Comment body (supports markdown)")
+    author: str = Field(..., description="Comment author name")
+
+
+class PortalComment(BaseModel):
+    id: str
+    update_id: str
+    body: str
+    author: str
+    created_at: float
+
+
 # ── Action Item Models ────────────────────────────────────
 
 class CreateActionRequest(BaseModel):
@@ -52,6 +67,7 @@ class CreateActionRequest(BaseModel):
     owner: str = Field("internal", description="Owner: internal or client")
     due_date: str | None = Field(None, description="ISO date YYYY-MM-DD")
     priority: str = Field("normal", description="Priority: high, normal, low")
+    recurrence: str | None = Field(None, description="Recurrence: none, weekly, biweekly, monthly")
 
 
 class UpdateActionRequest(BaseModel):
@@ -61,6 +77,7 @@ class UpdateActionRequest(BaseModel):
     due_date: str | None = None
     priority: str | None = None
     status: str | None = None
+    recurrence: str | None = None
 
 
 # ── Media Models ──────────────────────────────────────────
@@ -76,12 +93,29 @@ class MediaResponse(BaseModel):
     created_at: float
 
 
+# ── View Stats ────────────────────────────────────────────
+
+class ViewStats(BaseModel):
+    last_viewed_at: float | None = None
+    view_count_7d: int = 0
+    view_count_30d: int = 0
+
+
+# ── SOP Acknowledgment ───────────────────────────────────
+
+class SOPAcknowledgment(BaseModel):
+    sop_id: str
+    acknowledged_at: float
+    acknowledged_by: str
+
+
 # ── Portal Metadata ───────────────────────────────────────
 
 class UpdatePortalRequest(BaseModel):
     status: str | None = Field(None, description="Client status: active, onboarding, paused, churned")
     notes: str | None = Field(None, description="Internal notes")
     slack_webhook_url: str | None = Field(None, description="Slack incoming webhook URL")
+    notification_emails: list[str] | None = Field(None, description="Email addresses for notifications")
 
 
 class PortalMeta(BaseModel):
@@ -93,6 +127,7 @@ class PortalMeta(BaseModel):
     last_synced_at: float | None = None
     share_token: str | None = None
     share_token_created_at: float | None = None
+    notification_emails: list[str] = Field(default_factory=list)
     created_at: float = 0.0
     updated_at: float = 0.0
 
@@ -117,3 +152,7 @@ class PortalOverview(BaseModel):
     open_client_actions: int = 0
     last_activity: float | None
     has_gws_sync: bool
+    overdue_action_count: int = 0
+    days_since_last_update: int | None = None
+    last_viewed_at: float | None = None
+    unacked_sop_count: int = 0

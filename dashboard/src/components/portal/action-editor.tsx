@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Save, X } from "lucide-react";
 import { createAction, updateAction } from "@/lib/api";
-import type { PortalAction, ActionOwner, ActionPriority } from "@/lib/types";
+import type { PortalAction, ActionOwner, ActionPriority, ActionRecurrence } from "@/lib/types";
 import { toast } from "sonner";
 
 const OWNERS = [
@@ -16,6 +16,13 @@ const PRIORITIES = [
   { id: "high", label: "High" },
   { id: "normal", label: "Normal" },
   { id: "low", label: "Low" },
+];
+
+const RECURRENCES = [
+  { id: "none", label: "No repeat" },
+  { id: "weekly", label: "Weekly" },
+  { id: "biweekly", label: "Biweekly" },
+  { id: "monthly", label: "Monthly" },
 ];
 
 interface ActionEditorProps {
@@ -31,6 +38,7 @@ export function ActionEditor({ slug, action, onSaved, onCancel }: ActionEditorPr
   const [owner, setOwner] = useState<ActionOwner>(action?.owner || "internal");
   const [priority, setPriority] = useState<ActionPriority>(action?.priority || "normal");
   const [dueDate, setDueDate] = useState(action?.due_date || "");
+  const [recurrence, setRecurrence] = useState<ActionRecurrence>(action?.recurrence || "none");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -47,6 +55,7 @@ export function ActionEditor({ slug, action, onSaved, onCancel }: ActionEditorPr
           owner,
           priority,
           due_date: dueDate || null,
+          recurrence: recurrence === "none" ? null : recurrence,
         });
         toast.success("Action updated");
       } else {
@@ -56,6 +65,7 @@ export function ActionEditor({ slug, action, onSaved, onCancel }: ActionEditorPr
           owner,
           priority,
           due_date: dueDate || null,
+          recurrence: recurrence === "none" ? undefined : recurrence,
         });
         toast.success("Action created");
       }
@@ -117,6 +127,18 @@ export function ActionEditor({ slug, action, onSaved, onCancel }: ActionEditorPr
           onChange={(e) => setDueDate(e.target.value)}
           className="bg-clay-900 border border-clay-600 rounded-md px-3 py-1.5 text-sm text-clay-100 focus:outline-none focus:border-kiln-teal"
         />
+
+        <select
+          value={recurrence}
+          onChange={(e) => setRecurrence(e.target.value as ActionRecurrence)}
+          className="bg-clay-900 border border-clay-600 rounded-md px-3 py-1.5 text-sm text-clay-100 focus:outline-none focus:border-kiln-teal"
+        >
+          {RECURRENCES.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex items-center gap-2 justify-end">

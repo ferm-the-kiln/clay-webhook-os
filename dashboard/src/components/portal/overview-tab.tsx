@@ -19,12 +19,13 @@ import {
   ChevronRight,
   Check,
   Rocket,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { updatePortal } from "@/lib/api";
 import { toast } from "sonner";
-import type { PortalDetail, PortalAction } from "@/lib/types";
+import type { PortalDetail, PortalAction, ViewStats } from "@/lib/types";
 import type { PortalTab } from "./portal-tabs";
 import { NotificationSettings } from "./notification-settings";
 
@@ -111,6 +112,51 @@ function SummaryBar({
           <p className="text-[10px] text-clay-500 mt-0.5">{item.sub}</p>
         </button>
       ))}
+    </div>
+  );
+}
+
+function PortalInsights({
+  portal,
+  onTabChange,
+}: {
+  portal: PortalDetail;
+  onTabChange?: (tab: PortalTab) => void;
+}) {
+  const viewStats = portal.view_stats;
+  const sopAcks = portal.sop_acks || {};
+  const ackedCount = portal.sops.filter((s) => s.id in sopAcks).length;
+  const totalSops = portal.sops.length;
+
+  return (
+    <div className="flex flex-wrap gap-3">
+      {/* View stats */}
+      <div className="flex items-center gap-2 text-xs text-clay-400 bg-clay-800 border border-clay-700 rounded-lg px-3 py-2">
+        <Eye className="h-3.5 w-3.5" />
+        {viewStats?.last_viewed_at ? (
+          <span>
+            Last viewed {formatRelativeTime(viewStats.last_viewed_at)} · {viewStats.view_count_7d} views this week
+          </span>
+        ) : (
+          <span>Never viewed</span>
+        )}
+      </div>
+
+      {/* SOP acknowledgment summary */}
+      {totalSops > 0 && (
+        <button
+          onClick={() => onTabChange?.("sops")}
+          className="flex items-center gap-2 text-xs bg-clay-800 border border-clay-700 rounded-lg px-3 py-2 hover:border-clay-500 transition-colors"
+        >
+          <FileText className="h-3.5 w-3.5 text-clay-400" />
+          <span className={ackedCount === totalSops ? "text-emerald-400" : "text-clay-400"}>
+            {ackedCount} of {totalSops} SOPs acknowledged
+          </span>
+          {ackedCount < totalSops && (
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          )}
+        </button>
+      )}
     </div>
   );
 }
@@ -504,13 +550,14 @@ export function OverviewTab({ portal, slug, onPortalUpdated, onTabChange, onTogg
       {/* ── Left column ── */}
       <div className="space-y-6 min-w-0">
         <SummaryBar portal={portal} onTabChange={onTabChange} />
+        <PortalInsights portal={portal} onTabChange={onTabChange} />
         <QuickActions onTabChange={onTabChange} />
         <OnboardingChecklist portal={portal} onTabChange={onTabChange} />
         <ActivityTimeline portal={portal} onTabChange={onTabChange} />
       </div>
 
-      {/* ── Right sidebar ── */}
-      <div className="space-y-4 lg:order-none order-first">
+      {/* ── Right sidebar (stacks below on mobile) ── */}
+      <div className="space-y-4 lg:order-none order-last">
         <WaitingOnClient actions={clientActions} onToggle={onToggleAction} />
         <SidebarActions
           actions={portal.actions}
@@ -525,6 +572,7 @@ export function OverviewTab({ portal, slug, onPortalUpdated, onTabChange, onTogg
         <NotificationSettings
           slug={slug}
           slackWebhookUrl={portal.meta.slack_webhook_url ?? null}
+          notificationEmails={portal.meta.notification_emails ?? []}
           onSaved={() => onPortalUpdated?.()}
           compact
         />
