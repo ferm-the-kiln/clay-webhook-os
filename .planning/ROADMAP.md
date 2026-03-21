@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md — Pydantic models + ChannelStore (file-based session/message persistence)
-- [ ] 01-02-PLAN.md — ChannelOrchestrator (function execution bridge, batch processing, SSE event generation)
+- [x] 01-02-PLAN.md — ChannelOrchestrator (function execution bridge, batch processing, SSE event generation)
 - [ ] 01-03-PLAN.md — Channels API router (5 endpoints + SSE streaming) + main.py wiring
 
 ### Phase 2: Chat Frontend — Core UI

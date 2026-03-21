@@ -68,6 +68,10 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
   }, []);
 
   const handlePost = async () => {
+    if (!authorName.trim()) {
+      toast.error("Name is required");
+      return;
+    }
     if (!title.trim()) {
       toast.error("Title is required");
       return;
@@ -221,7 +225,7 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
         <Button
           size="sm"
           onClick={handlePost}
-          disabled={posting || !title.trim()}
+          disabled={posting || !authorName.trim() || !title.trim()}
           className="bg-kiln-teal text-clay-900 hover:bg-kiln-teal/90 gap-1.5"
         >
           {posting ? (

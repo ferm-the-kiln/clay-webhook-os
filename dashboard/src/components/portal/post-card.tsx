@@ -118,7 +118,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               <Icon className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-2">
                 <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium uppercase", config.color)}>
                   {config.label}
                 </span>
@@ -140,7 +140,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
 
               {/* Author */}
               {(update.author_name || update.author_org) && (
-                <div className="mb-2">
+                <div className="mb-3">
                   <AuthorAvatar update={update} clientName={clientName} />
                 </div>
               )}
@@ -213,7 +213,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               )}
 
               {/* Timestamp + comments */}
-              <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-3 mt-3">
                 <span className="text-[10px] text-clay-500">
                   {new Date(update.created_at * 1000).toLocaleString()}
                 </span>
