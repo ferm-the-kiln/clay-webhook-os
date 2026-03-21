@@ -47,12 +47,12 @@ Plans:
   4. Assistant responses render structured results (key-value pairs, formatted JSON) not raw text
   5. Session list shows past sessions — clicking one loads its message history
   6. "Chat" appears in sidebar navigation
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 02-01: Chat page layout, types, and API client functions
-- [ ] 02-02: Message thread, chat input, and function selector components
-- [ ] 02-03: Session management — list, create, resume, sidebar nav update
+- [ ] 02-01-PLAN.md — Channel types, API client functions, chat page scaffold, ResultCard component
+- [ ] 02-02-PLAN.md — useChat hook, message thread, chat input, function picker, page wiring
+- [ ] 02-03-PLAN.md — Session list panel, sidebar navigation update with Chat item
 
 ### Phase 3: Activity Panel + Results
 **Goal**: The activity panel shows real-time execution traces and a results table that fills row by row as processing completes
@@ -92,7 +92,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Chat Backend | 0/3 | Planned | — |
-| 2. Chat Frontend — Core UI | 0/3 | Pending | — |
+| 1. Chat Backend | 3/3 | Complete | 2026-03-21 |
+| 2. Chat Frontend — Core UI | 0/3 | Planned | — |
 | 3. Activity Panel + Results | 0/3 | Pending | — |
 | 4. Client Access + Polish | 0/2 | Pending | — |

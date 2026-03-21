@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, forwardRef } from "react";
-import { Pin, PinOff, Trash2, MoreVertical, FileIcon, Film, ChevronDown, ChevronUp, X, FileText } from "lucide-react";
+import { useState, forwardRef, useCallback } from "react";
+import {
+  Pin, PinOff, Trash2, MoreVertical, FileIcon, Film,
+  ChevronDown, ChevronUp, X, FileText, Milestone, Package,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,12 +20,20 @@ import { CommentThread } from "./comment-thread";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
 
-const TYPE_CONFIG: Record<string, { label: string; textColor: string; border: string }> = {
-  update: { label: "Update", textColor: "text-blue-400", border: "border-l-blue-400" },
-  milestone: { label: "Milestone", textColor: "text-emerald-400", border: "border-l-emerald-400" },
-  deliverable: { label: "Deliverable", textColor: "text-purple-400", border: "border-l-purple-400" },
-  note: { label: "Note", textColor: "text-amber-400", border: "border-l-clay-600" },
+const TYPE_CONFIG: Record<string, {
+  label: string;
+  textColor: string;
+  border: string;
+  bg: string;
+  icon?: React.ElementType;
+}> = {
+  update: { label: "Update", textColor: "text-blue-400", border: "border-l-blue-400", bg: "" },
+  milestone: { label: "Milestone", textColor: "text-emerald-400", border: "border-l-emerald-400", bg: "bg-emerald-500/[0.03]", icon: Milestone },
+  deliverable: { label: "Deliverable", textColor: "text-purple-400", border: "border-l-purple-400", bg: "bg-purple-500/[0.03]", icon: Package },
+  note: { label: "Note", textColor: "text-amber-400", border: "border-l-clay-600", bg: "" },
 };
+
+const REACTIONS = ["👍", "🔥", "👀", "✅"];
 
 function isImage(mime: string) {
   return mime.startsWith("image/");
@@ -54,6 +66,17 @@ function formatRelativeTime(epochSeconds: number): string {
   return date.getFullYear() === currentYear ? `${month} ${day}` : `${month} ${day}, ${date.getFullYear()}`;
 }
 
+function getReactions(updateId: string): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(`reactions:${updateId}`) || "{}");
+  } catch { return {}; }
+}
+
+function setReactions(updateId: string, reactions: Record<string, boolean>) {
+  localStorage.setItem(`reactions:${updateId}`, JSON.stringify(reactions));
+}
+
 interface PostCardProps {
   slug: string;
   update: PortalUpdate;
@@ -62,23 +85,26 @@ interface PostCardProps {
   onDelete: (id: string) => void;
   highlighted?: boolean;
   clientName?: string;
+  isNew?: boolean;
+  isFocused?: boolean;
 }
 
 export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
-  function PostCard({ slug, update, media, onTogglePin, onDelete, highlighted, clientName }, ref) {
+  function PostCard({ slug, update, media, onTogglePin, onDelete, highlighted, clientName, isNew, isFocused }, ref) {
     const [expanded, setExpanded] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [reactions, setReactionsState] = useState<Record<string, boolean>>(() => getReactions(update.id));
 
     const config = TYPE_CONFIG[update.type] || TYPE_CONFIG.update;
+    const TypeIcon = config.icon;
 
-    // Resolve media attached to this post
     const attachedMedia = media.filter((m) => update.media_ids?.includes(m.id));
 
-    // Determine if body is long (> 4 lines / ~300 chars)
     const isLong = update.body && update.body.length > 300;
+    const isShortBody = update.body && update.body.length <= 80 && !update.body.includes("\n");
     const showBody = update.body && (expanded || !isLong);
+    const hasBody = !!update.body;
 
-    // Build metadata segments
     const isInternal = !update.author_org || update.author_org === "internal";
     const orgLabel = isInternal ? "The Kiln" : (clientName || "Client");
     const hasAuthor = update.author_name || update.author_org;
@@ -87,86 +113,136 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
       timeStyle: "short",
     });
 
+    const activeReactions = REACTIONS.filter((r) => reactions[r]);
+
+    const toggleReaction = useCallback((emoji: string) => {
+      setReactionsState((prev) => {
+        const next = { ...prev, [emoji]: !prev[emoji] };
+        setReactions(update.id, next);
+        return next;
+      });
+    }, [update.id]);
+
+    const handleBodyClick = useCallback(() => {
+      if (isLong) setExpanded((e) => !e);
+    }, [isLong]);
+
     return (
       <>
         <div
           ref={ref}
+          tabIndex={0}
           className={cn(
-            "rounded-lg border-l-4 bg-clay-800 p-3 transition-all",
+            "rounded-lg border-l-4 bg-clay-800 transition-all group outline-none",
+            hasBody ? "px-4 py-3.5" : "px-4 py-3",
             config.border,
+            config.bg,
             update.pinned && "ring-1 ring-amber-500/20 bg-amber-500/[0.03]",
-            highlighted && "ring-2 ring-kiln-teal/50 animate-pulse"
+            highlighted && "ring-2 ring-kiln-teal/50 animate-pulse",
+            isFocused && "ring-2 ring-kiln-teal/40",
           )}
         >
+          {/* Pinned label */}
+          {update.pinned && (
+            <div className="flex items-center gap-1.5 mb-2">
+              <Pin className="h-3 w-3 text-amber-400" />
+              <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wide">Pinned</span>
+            </div>
+          )}
+
+          {/* New indicator */}
+          {isNew && (
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-kiln-teal animate-pulse" />
+              <span className="text-[10px] font-semibold text-kiln-teal uppercase tracking-wide">New</span>
+            </div>
+          )}
+
           {/* Title row + kebab */}
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <h4 className="text-base font-semibold text-clay-50 truncate">{update.title}</h4>
-                {update.pinned && <Pin className="h-3 w-3 text-amber-400 shrink-0" />}
+              <div className="flex items-center gap-2">
+                {TypeIcon && <TypeIcon className={cn("h-4 w-4 shrink-0", config.textColor)} />}
+                <h4 className="text-lg font-semibold text-clay-50 truncate">{update.title}</h4>
               </div>
 
-              {/* Org badge — high visibility */}
-              {hasAuthor && (
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span
-                    className={cn(
-                      "text-xs font-semibold px-2 py-0.5 rounded-full",
-                      isInternal
-                        ? "bg-kiln-teal/15 text-kiln-teal"
-                        : "bg-purple-500/15 text-purple-400"
+              {/* Metadata line: org badge + author + type + time + inline short body */}
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                {hasAuthor && (
+                  <>
+                    <span
+                      className={cn(
+                        "text-xs font-semibold px-2.5 py-0.5 rounded-full",
+                        isInternal
+                          ? "bg-kiln-teal/15 text-kiln-teal"
+                          : "bg-purple-500/15 text-purple-400"
+                      )}
+                    >
+                      {orgLabel}
+                    </span>
+                    {update.author_name && (
+                      <span className="text-xs text-clay-300">{update.author_name}</span>
                     )}
-                  >
-                    {orgLabel}
-                  </span>
-                  {update.author_name && (
-                    <span className="text-xs text-clay-300">{update.author_name}</span>
-                  )}
-                </div>
-              )}
-
-              {/* Metadata line: type + relative time */}
-              <div className="flex items-center gap-1 mt-1 text-xs text-clay-400">
-                <span className={cn("text-[11px] font-medium", config.textColor)}>
+                    <span className="text-clay-600">·</span>
+                  </>
+                )}
+                <span className={cn("text-xs font-medium", config.textColor)}>
                   {config.label}
                 </span>
                 <span className="text-clay-600">·</span>
-                <span className="text-[11px] text-clay-500" title={fullDate}>
+                <span className="text-xs text-clay-400" title={fullDate}>
                   {formatRelativeTime(update.created_at)}
                 </span>
+                {isShortBody && (
+                  <>
+                    <span className="text-clay-600">·</span>
+                    <span className="text-xs text-clay-300 truncate">{update.body}</span>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Kebab menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-clay-500 hover:text-clay-200 shrink-0 -mt-0.5">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-clay-800 border-clay-700">
-                <DropdownMenuItem onClick={() => onTogglePin(update.id)} className="text-xs text-clay-200">
-                  {update.pinned ? <PinOff className="h-3.5 w-3.5 mr-2" /> : <Pin className="h-3.5 w-3.5 mr-2" />}
-                  {update.pinned ? "Unpin" : "Pin to top"}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDelete(update.id)} className="text-xs text-red-400">
-                  <Trash2 className="h-3.5 w-3.5 mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Kebab menu — hidden until hover */}
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-clay-500 hover:text-clay-200 shrink-0">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-clay-800 border-clay-700">
+                  <DropdownMenuItem onClick={() => onTogglePin(update.id)} className="text-xs text-clay-200">
+                    {update.pinned ? <PinOff className="h-3.5 w-3.5 mr-2" /> : <Pin className="h-3.5 w-3.5 mr-2" />}
+                    {update.pinned ? "Unpin" : "Pin to top"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onDelete(update.id)} className="text-xs text-red-400">
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
-          {/* Body */}
-          {update.body && (
-            <div className={cn("mt-2", !showBody && "line-clamp-4")}>
-              <MarkdownContent content={update.body} />
-            </div>
+          {/* Body — click to expand, animated */}
+          {update.body && !isShortBody && (
+            <AnimatePresence initial={false}>
+              <motion.div
+                className={cn("mt-3", isLong && "cursor-pointer")}
+                onClick={handleBodyClick}
+                animate={{ height: "auto" }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className={cn(!showBody && "line-clamp-4")}>
+                  <MarkdownContent content={update.body} />
+                </div>
+              </motion.div>
+            </AnimatePresence>
           )}
           {isLong && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-1 mt-1 text-[11px] text-clay-400 hover:text-clay-200"
+              className="flex items-center gap-1 mt-1.5 text-xs text-clay-400 hover:text-clay-200 transition-colors"
             >
               {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               {expanded ? "Show less" : "Show more"}
@@ -176,7 +252,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           {/* Inline media */}
           {attachedMedia.length > 0 && (
             <div className={cn(
-              "mt-2 gap-2",
+              "mt-3 gap-2",
               attachedMedia.length === 1 ? "block" : "grid grid-cols-2"
             )}>
               {attachedMedia.slice(0, 4).map((m) => {
@@ -224,25 +300,46 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             </div>
           )}
 
+          {/* Quick reactions — show on hover or if any are active */}
+          <div className={cn(
+            "flex items-center gap-1 mt-3 transition-opacity",
+            activeReactions.length > 0 ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}>
+            {REACTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => toggleReaction(emoji)}
+                className={cn(
+                  "h-7 px-2 rounded-full text-sm transition-all",
+                  reactions[emoji]
+                    ? "bg-kiln-teal/15 ring-1 ring-kiln-teal/30 scale-110"
+                    : "bg-clay-700/50 hover:bg-clay-700"
+                )}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+
           {/* Action row: comments + google doc */}
-          <div className="flex items-center gap-3 mt-2">
+          <div className="flex items-center gap-3 mt-2 pt-2 border-t border-clay-700/50">
             <CommentThread slug={slug} updateId={update.id} />
             {update.google_doc_url && (
               <a
                 href={update.google_doc_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-[11px] text-blue-400/60 hover:text-blue-400 transition-colors ml-auto"
+                className="flex items-center gap-1 text-xs text-blue-400/60 hover:text-blue-400 transition-colors ml-auto"
                 title="Open in Google Docs"
               >
-                <FileText className="h-3 w-3" />
+                <FileText className="h-3.5 w-3.5" />
                 <span>Google Doc</span>
               </a>
             )}
           </div>
         </div>
 
-        {/* Lightbox for inline images */}
+        {/* Lightbox */}
         {previewUrl && (
           <div
             className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8"

@@ -77,10 +77,17 @@ export function CommentThread({ slug, updateId, initialCount = 0 }: CommentThrea
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 text-[11px] text-clay-400 hover:text-clay-200 transition-colors"
+        className="flex items-center gap-1.5 text-xs text-clay-400 hover:text-clay-200 transition-colors"
       >
-        <MessageCircle className="h-3 w-3" />
-        {count > 0 ? `${count} comment${count !== 1 ? "s" : ""}` : "Comment"}
+        <MessageCircle className="h-3.5 w-3.5" />
+        {count > 0 ? (
+          <>
+            <span className="min-w-[1.25rem] h-5 px-1 rounded-full bg-kiln-teal/15 text-kiln-teal text-[10px] font-semibold inline-flex items-center justify-center">
+              {count}
+            </span>
+            <span>comment{count !== 1 ? "s" : ""}</span>
+          </>
+        ) : "Comment"}
       </button>
 
       {open && (
