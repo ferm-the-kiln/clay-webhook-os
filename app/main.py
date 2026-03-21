@@ -14,6 +14,8 @@ from app.core.dedup import RequestDeduplicator
 from app.core.destination_store import DestinationStore
 from app.core.event_bus import EventBus
 from app.core.execution_history import ExecutionHistory
+from app.core.channel_store import ChannelStore
+from app.core.channel_orchestrator import ChannelOrchestrator
 from app.core.experiment_store import ExperimentStore
 from app.core.feedback_loop import FeedbackLoop
 from app.core.feedback_store import FeedbackStore
@@ -35,6 +37,7 @@ from app.middleware.error_handler import ErrorHandlerMiddleware
 from app.middleware.rate_limiter import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routers import (
+    channels,
     context,
     datasets,
     destinations,
@@ -96,6 +99,7 @@ app.include_router(functions.router)
 app.include_router(evals.router)
 app.include_router(sheets.router)
 app.include_router(portal.router)
+app.include_router(channels.router)
 
 
 @app.on_event("startup")
@@ -158,6 +162,16 @@ async def startup():
 
     # Execution history (function run records)
     app.state.execution_history = ExecutionHistory(data_dir=settings.data_dir)
+
+    # Channel store (chat session persistence)
+    app.state.channel_store = ChannelStore(data_dir=settings.data_dir)
+    app.state.channel_store.load()
+
+    # Channel orchestrator (chat function execution)
+    app.state.channel_orchestrator = ChannelOrchestrator(
+        function_store=app.state.function_store,
+        pool=app.state.pool,
+    )
 
     # Portal store (client engagement hubs)
     from app.core.portal_store import PortalStore
