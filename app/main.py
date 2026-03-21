@@ -201,10 +201,13 @@ async def startup():
         # Portal sync (pushes portal content to Google Docs)
         from app.core.portal_sync import PortalSync
         app.state.portal_sync = PortalSync(sheets_client, app.state.portal_store)
+        from app.core.portal_doc_sync import PortalDocSync
+        app.state.portal_doc_sync = PortalDocSync(sheets_client, app.state.portal_store)
         logger.info("  Google Sheets: enabled")
     else:
         app.state.drive_sync = None
         app.state.portal_sync = None
+        app.state.portal_doc_sync = None
         logger.info("  Google Sheets: disabled (gws CLI not found)")
 
     # Skill version store

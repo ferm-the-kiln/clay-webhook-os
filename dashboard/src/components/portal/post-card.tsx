@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, forwardRef } from "react";
-import { Pin, PinOff, Trash2, MoreVertical, Milestone, Package, StickyNote, Bell, FileIcon, Film, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Pin, PinOff, Trash2, MoreVertical, Milestone, Package, StickyNote, Bell, FileIcon, Film, ChevronDown, ChevronUp, X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -84,6 +84,18 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                 </span>
                 <h4 className="text-sm font-medium text-clay-100 truncate">{update.title}</h4>
                 {update.pinned && <Pin className="h-3 w-3 text-amber-400 shrink-0" />}
+                {update.google_doc_url && (
+                  <a
+                    href={update.google_doc_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto text-clay-400 hover:text-kiln-teal flex items-center gap-1 text-[10px] shrink-0"
+                    title="Open in Google Docs"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    <span className="hidden sm:inline">Doc</span>
+                  </a>
+                )}
               </div>
 
               {/* Body */}

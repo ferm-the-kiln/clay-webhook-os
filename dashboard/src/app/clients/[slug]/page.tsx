@@ -98,9 +98,39 @@ export default function ClientPortalPage() {
   };
 
   const handleToggleAction = async (actionId: string) => {
-    try { await toggleAction(slug, actionId); loadPortal(); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Failed to toggle action"); }
+    // Optimistic update
+    if (portal) {
+      setPortal({
+        ...portal,
+        actions: portal.actions.map((a) =>
+          a.id === actionId
+            ? { ...a, status: a.status === "done" ? "open" as const : "done" as const }
+            : a
+        ),
+      });
+    }
+    try {
+      await toggleAction(slug, actionId);
+      loadPortal();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to toggle action");
+      loadPortal(); // revert
+    }
   };
+
+  // Keyboard shortcut: N to open composer
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
+        e.preventDefault();
+        setComposerOpen(true);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // ── Loading / empty states ──
 

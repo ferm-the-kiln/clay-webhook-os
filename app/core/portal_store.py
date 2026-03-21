@@ -356,6 +356,34 @@ updated_at: {now}
         atomic_write_text(path, "\n".join(new_lines) + "\n")
         return updated_entry
 
+    def update_entry_field(self, slug: str, update_id: str, field: str, value) -> dict | None:
+        """Update a single field on a JSONL update entry. Returns updated entry or None."""
+        path = self._portal_dir(slug) / "updates" / "updates.jsonl"
+        if not path.exists():
+            return None
+
+        lines = path.read_text().splitlines()
+        updated_entry = None
+        new_lines = []
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                new_lines.append(line)
+                continue
+            if entry.get("id") == update_id:
+                entry[field] = value
+                updated_entry = entry
+            new_lines.append(json.dumps(entry))
+
+        if updated_entry is None:
+            return None
+
+        atomic_write_text(path, "\n".join(new_lines) + "\n")
+        return updated_entry
+
     def delete_update(self, slug: str, update_id: str) -> bool:
         path = self._portal_dir(slug) / "updates" / "updates.jsonl"
         if not path.exists():
@@ -1000,7 +1028,9 @@ updated_at: {now}
             "slug": slug,
             "name": self._client_name(slug),
             "status": meta.get("status", "active"),
+            "brand_color": meta.get("brand_color"),
             "sops": sops,
             "recent_updates": updates,
             "actions": actions,
+            "sop_acks": self.get_sop_acks(slug),
         }

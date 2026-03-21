@@ -135,6 +135,55 @@ class SheetsClient:
         )
         return result.get("files", [])
 
+    # ── File management ─────────────────────────────────────
+
+    async def move_file_to_folder(self, file_id: str, folder_id: str) -> None:
+        """Move a file into a Drive folder (remove from root)."""
+        await self._run_gws(
+            "drive", "files", "update",
+            "--fileId", file_id,
+            "--params", json.dumps({"addParents": folder_id, "removeParents": "root"}),
+        )
+
+    async def share_file(self, file_id: str, email: str, role: str = "reader") -> None:
+        """Share a Drive file/folder with an email address."""
+        await self._run_gws(
+            "drive", "permissions", "create",
+            "--params", json.dumps({"fileId": file_id}),
+            "--json", json.dumps({
+                "type": "user",
+                "role": role,
+                "emailAddress": email,
+            }),
+        )
+
+    # ── Google Docs management ────────────────────────────────
+
+    async def create_document(self, title: str) -> str:
+        """Create a blank Google Doc. Returns document ID."""
+        result = await self._run_gws(
+            "docs", "documents", "create",
+            "--json", json.dumps({"title": title}),
+        )
+        doc_id = result.get("documentId", "")
+        if not doc_id:
+            raise RuntimeError(f"Failed to create document '{title}': {result}")
+        logger.info("[sheets] Created Google Doc '%s' (id=%s)", title, doc_id)
+        return doc_id
+
+    async def write_document_text(self, doc_id: str, text: str) -> None:
+        """Append plain text to a Google Doc."""
+        await self._run_gws(
+            "docs", "+write",
+            "--document", doc_id,
+            "--text", text,
+        )
+
+    @staticmethod
+    def get_document_url(doc_id: str) -> str:
+        """Return the web URL for a Google Doc."""
+        return f"https://docs.google.com/document/d/{doc_id}/edit"
+
     # ── Sheet creation ───────────────────────────────────────
 
     async def create_spreadsheet(self, title: str, folder_id: str | None = None) -> str:
@@ -150,11 +199,7 @@ class SheetsClient:
 
         # Move to folder if specified
         if folder_id:
-            await self._run_gws(
-                "drive", "files", "update",
-                "--fileId", spreadsheet_id,
-                "--params", json.dumps({"addParents": folder_id, "removeParents": "root"}),
-            )
+            await self.move_file_to_folder(spreadsheet_id, folder_id)
 
         logger.info("[sheets] Created spreadsheet '%s' (id=%s)", title, spreadsheet_id)
         return spreadsheet_id

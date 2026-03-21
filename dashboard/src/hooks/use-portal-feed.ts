@@ -1,11 +1,12 @@
 import { useState, useMemo, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import type { PortalUpdate } from "@/lib/types";
 
 interface UsePortalFeedReturn {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   highlightedPostId: string | null;
-  highlightPost: (id: string) => void;
+  highlightPost: (id: string, title?: string) => void;
   clearHighlight: () => void;
   filteredUpdates: PortalUpdate[];
   postRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
@@ -28,12 +29,17 @@ export function usePortalFeed(updates: PortalUpdate[]): UsePortalFeedReturn {
     );
   }, [updates, searchQuery]);
 
-  const highlightPost = useCallback((id: string) => {
+  const highlightPost = useCallback((id: string, title?: string) => {
     setHighlightedPostId(id);
     // Scroll to the post
     const el = postRefs.current[id];
     if (el) {
+      const rect = el.getBoundingClientRect();
+      const isOffScreen = rect.top < 0 || rect.bottom > window.innerHeight;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (isOffScreen && title) {
+        toast(`Jumped to: ${title}`, { duration: 2000 });
+      }
     }
     // Auto-clear after 3 seconds
     if (timerRef.current) clearTimeout(timerRef.current);

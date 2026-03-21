@@ -7,12 +7,14 @@ import {
   Milestone,
   Package,
   StickyNote,
-  Rocket,
-  Check,
+  Eye,
+  FileText,
+  MessageSquare,
+  Image,
+  CheckSquare,
 } from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
-import type { PortalDetail, PortalAction } from "@/lib/types";
-import { InlineNotes } from "./inline-notes";
+import type { PortalDetail } from "@/lib/types";
 import { NotificationSettings } from "./notification-settings";
 
 const TIMELINE_COLORS: Record<string, { dot: string; icon: React.ElementType }> = {
@@ -22,60 +24,11 @@ const TIMELINE_COLORS: Record<string, { dot: string; icon: React.ElementType }> 
   note: { dot: "bg-amber-400", icon: StickyNote },
 };
 
-// ── Onboarding checklist (reused from original page) ──
-
-function OnboardingChecklist({ portal }: { portal: PortalDetail }) {
-  const checks = [
-    { label: "Create a SOP", done: portal.sops.length > 0 },
-    { label: "Post an update", done: portal.recent_updates.length > 0 },
-    { label: "Upload a file", done: portal.media.length > 0 },
-    { label: "Add an action", done: portal.actions.length > 0 },
-    { label: "Connect Slack", done: !!portal.meta.slack_webhook_url },
-  ];
-
-  const completedCount = checks.filter((c) => c.done).length;
-  if (completedCount === checks.length) return null;
-
-  const pct = (completedCount / checks.length) * 100;
-
-  return (
-    <div className="rounded-xl border border-clay-700 bg-clay-800 p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Rocket className="h-4 w-4 text-kiln-teal" />
-        <h3 className="text-sm font-semibold text-clay-100">Getting Started</h3>
-        <span className="text-[10px] text-clay-500 ml-auto">{completedCount}/{checks.length}</span>
-      </div>
-      <div className="h-1.5 rounded-full bg-clay-700 mb-3">
-        <div className="h-full rounded-full bg-kiln-teal transition-all" style={{ width: `${pct}%` }} />
-      </div>
-      <div className="space-y-1.5">
-        {checks.map((check) => (
-          <div
-            key={check.label}
-            className={cn(
-              "flex items-center gap-2 rounded px-2 py-1.5 text-xs",
-              check.done ? "text-clay-500" : "text-clay-300"
-            )}
-          >
-            <span className={cn(
-              "h-4 w-4 rounded-full border flex items-center justify-center shrink-0",
-              check.done ? "border-kiln-teal bg-kiln-teal/20" : "border-clay-600"
-            )}>
-              {check.done && <Check className="h-2.5 w-2.5 text-kiln-teal" />}
-            </span>
-            <span className={check.done ? "line-through" : ""}>{check.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Main sidebar ──
 
 interface TimelineSidebarProps {
   portal: PortalDetail;
-  onSelectUpdate: (updateId: string) => void;
+  onSelectUpdate: (updateId: string, title?: string) => void;
   activeUpdateId: string | null;
   slug: string;
   onToggleAction: (actionId: string) => void;
@@ -89,36 +42,99 @@ export function TimelineSidebar({
   slug,
   onPortalUpdated,
 }: TimelineSidebarProps) {
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(
+    new Set(["update", "milestone", "deliverable", "note"])
+  );
+
   const updates = [...portal.recent_updates].sort((a, b) => b.created_at - a.created_at);
+  const visibleUpdates = updates.filter((u) => activeFilters.has(u.type));
+
+  function toggleFilter(type: string) {
+    const next = new Set(activeFilters);
+    if (next.has(type)) {
+      if (next.size > 1) next.delete(type);
+    } else {
+      next.add(type);
+    }
+    setActiveFilters(next);
+  }
 
   return (
     <div className="sticky top-4 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
+      {/* Client view status + quick stats */}
+      <div className="space-y-2 px-1">
+        <div className="flex items-center gap-2">
+          <Eye className="h-3.5 w-3.5 text-clay-500" />
+          <span className="text-[11px] text-clay-400">
+            {portal.view_stats?.last_viewed_at
+              ? `Client viewed ${formatRelativeTime(portal.view_stats.last_viewed_at)}`
+              : "Client hasn\u2019t viewed yet"}
+          </span>
+        </div>
+        <div className="flex items-center gap-4 text-[11px] text-clay-400">
+          <span className="flex items-center gap-1" title="SOPs">
+            <FileText className="h-3 w-3" />{portal.sops.length}
+          </span>
+          <span className="flex items-center gap-1" title="Updates">
+            <MessageSquare className="h-3 w-3" />{portal.recent_updates.length}
+          </span>
+          <span className="flex items-center gap-1" title="Files">
+            <Image className="h-3 w-3" />{portal.media.length}
+          </span>
+          <span className="flex items-center gap-1" title="Actions">
+            <CheckSquare className="h-3 w-3" />{portal.actions.length}
+          </span>
+        </div>
+      </div>
+
       {/* Timeline */}
       <div className="rounded-xl border border-clay-700 bg-clay-800 p-4">
         <h3 className="text-xs font-semibold text-clay-200 mb-3 flex items-center gap-2">
           <Clock className="h-3.5 w-3.5 text-clay-400" />
           Timeline
           <span className="text-[10px] bg-clay-700 text-clay-400 px-1.5 py-0.5 rounded-full ml-auto">
-            {updates.length}
+            {visibleUpdates.length}
           </span>
         </h3>
 
-        {updates.length === 0 ? (
-          <p className="text-xs text-clay-500 text-center py-4">No activity yet.</p>
+        {/* Type filters */}
+        <div className="flex items-center gap-2 mb-3">
+          {Object.entries(TIMELINE_COLORS).map(([type, { dot }]) => (
+            <button
+              key={type}
+              onClick={() => toggleFilter(type)}
+              className={cn(
+                "h-3 w-3 rounded-full transition-opacity",
+                dot,
+                !activeFilters.has(type) && "opacity-20"
+              )}
+              title={type.charAt(0).toUpperCase() + type.slice(1)}
+            />
+          ))}
+        </div>
+
+        {visibleUpdates.length === 0 ? (
+          <div className="text-center py-6 space-y-2">
+            <Clock className="h-8 w-8 text-clay-600 mx-auto" />
+            <p className="text-xs text-clay-400 font-medium">No activity yet</p>
+            <p className="text-[10px] text-clay-500">
+              Create your first post to start<br />building the timeline.
+            </p>
+          </div>
         ) : (
           <div className="relative pl-5">
             {/* Vertical line */}
             <div className="absolute left-[7px] top-1 bottom-1 w-px bg-clay-700" />
 
             <div className="space-y-2.5">
-              {updates.map((update) => {
+              {visibleUpdates.map((update) => {
                 const config = TIMELINE_COLORS[update.type] || TIMELINE_COLORS.update;
                 const isActive = update.id === activeUpdateId;
 
                 return (
                   <button
                     key={update.id}
-                    onClick={() => onSelectUpdate(update.id)}
+                    onClick={() => onSelectUpdate(update.id, update.title)}
                     className={cn(
                       "relative flex items-start gap-2 w-full text-left rounded-md px-2 py-1.5 -ml-2 transition-colors",
                       isActive ? "bg-clay-750" : "hover:bg-clay-750/50"
@@ -145,9 +161,6 @@ export function TimelineSidebar({
         )}
       </div>
 
-      {/* Internal Notes */}
-      <InlineNotes notes={portal.meta.notes} slug={slug} onSaved={onPortalUpdated} />
-
       {/* Notification Settings */}
       <NotificationSettings
         slug={slug}
@@ -156,9 +169,6 @@ export function TimelineSidebar({
         onSaved={onPortalUpdated}
         compact
       />
-
-      {/* Onboarding Checklist */}
-      <OnboardingChecklist portal={portal} />
     </div>
   );
 }

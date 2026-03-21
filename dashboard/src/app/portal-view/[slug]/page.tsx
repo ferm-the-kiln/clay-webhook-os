@@ -14,7 +14,9 @@ import {
   ChevronRight,
   User,
   ShieldAlert,
+  CheckCircle,
 } from "lucide-react";
+import { formatRelativeTime } from "@/lib/utils";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-500/15 text-emerald-400",
@@ -92,7 +94,10 @@ export default function PublicPortalPage() {
     <div className="min-h-screen bg-clay-900">
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
         {/* Header */}
-        <div className="space-y-2">
+        <div
+          className="space-y-2"
+          style={portal.brand_color ? { borderTop: `3px solid ${portal.brand_color}`, paddingTop: "1rem" } : undefined}
+        >
           <h1 className="text-2xl font-bold text-clay-100">{portal.name}</h1>
           <span
             className={cn(
@@ -124,9 +129,15 @@ export default function PublicPortalPage() {
                       <ChevronRight className="h-4 w-4 text-clay-400 shrink-0" />
                     )}
                     <span className="flex-1 text-sm font-medium text-clay-100">{sop.title}</span>
+                    {portal.sop_acks?.[sop.id] && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium flex items-center gap-1 shrink-0">
+                        <CheckCircle className="h-2.5 w-2.5" />
+                        Acknowledged {formatRelativeTime(portal.sop_acks[sop.id].acknowledged_at)}
+                      </span>
+                    )}
                     <span
                       className={cn(
-                        "text-[10px] px-2 py-0.5 rounded-full font-medium",
+                        "text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0",
                         CATEGORY_COLORS[sop.category] || CATEGORY_COLORS.general
                       )}
                     >
@@ -153,6 +164,24 @@ export default function PublicPortalPage() {
               <CheckSquare className="h-4 w-4" />
               Action Items ({openActions.length} open)
             </h2>
+            {portal.actions.length > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-clay-500">
+                    {doneActions.length} of {portal.actions.length} complete
+                  </span>
+                  <span className="text-[10px] text-clay-500">
+                    {Math.round((doneActions.length / portal.actions.length) * 100)}%
+                  </span>
+                </div>
+                <div className="h-1.5 bg-clay-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-400 rounded-full transition-all duration-300"
+                    style={{ width: `${(doneActions.length / portal.actions.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               {[...openActions, ...doneActions].map((action) => (
                 <div

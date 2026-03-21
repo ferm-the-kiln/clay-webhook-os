@@ -28,6 +28,34 @@ export function UpdateComposer({ slug, onPosted }: UpdateComposerProps) {
   const [templates, setTemplates] = useState<UpdateTemplate[]>([]);
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
 
+  // Restore draft from localStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(`portal-draft-${slug}`);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft.type) setType(draft.type);
+        if (draft.title) setTitle(draft.title);
+        if (draft.body) setBody(draft.body);
+      }
+    } catch { /* ignore */ }
+  }, [slug]);
+
+  // Auto-save draft (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        if (title || body) {
+          localStorage.setItem(`portal-draft-${slug}`, JSON.stringify({ type, title, body }));
+        } else {
+          localStorage.removeItem(`portal-draft-${slug}`);
+        }
+      } catch { /* ignore */ }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [slug, type, title, body]);
+
   useEffect(() => {
     fetchUpdateTemplates()
       .then((res) => setTemplates(res.templates))
@@ -51,6 +79,7 @@ export function UpdateComposer({ slug, onPosted }: UpdateComposerProps) {
       setTitle("");
       setBody("");
       setType("update");
+      try { localStorage.removeItem(`portal-draft-${slug}`); } catch { /* ignore */ }
       onPosted();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to post update");

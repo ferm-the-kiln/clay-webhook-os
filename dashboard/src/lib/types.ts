@@ -671,6 +671,7 @@ export interface PortalUpdate {
   pinned: boolean;
   media_ids: string[];
   created_at: number;
+  google_doc_url?: string;
 }
 
 export interface PortalMedia {
@@ -765,9 +766,11 @@ export interface PublicPortalView {
   slug: string;
   name: string;
   status: string;
+  brand_color?: string;
   sops: PortalSOP[];
   recent_updates: PortalUpdate[];
   actions: PortalAction[];
+  sop_acks?: Record<string, { acknowledged_at: number; acknowledged_by: string }>;
 }
 
 export interface PortalSyncStatus {

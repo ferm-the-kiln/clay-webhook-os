@@ -187,6 +187,12 @@ async def create_update(request: Request, slug: str, body: CreateUpdateRequest):
             asyncio.create_task(email_notifier.notify_deliverable(slug, body.title, body.body))
         elif body.type in ("milestone", "update"):
             asyncio.create_task(email_notifier.notify_update(slug, body.type, body.title, body.body))
+
+    # Fire Google Doc sync (async, fire-and-forget)
+    doc_sync = getattr(request.app.state, "portal_doc_sync", None)
+    if doc_sync and doc_sync.available:
+        asyncio.create_task(doc_sync.sync_post(slug, update))
+
     return update
 
 
