@@ -2,58 +2,49 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-19)
+See: .planning/PROJECT.md (updated 2026-03-21)
 
-**Core value:** A non-technical GTM operator can create a data function in plain English, run it against a CSV, and get enriched results back — no developer needed.
-**Current focus:** All 6 phases implemented
+**Core value:** A user can pick an enrichment function, paste a list of companies into a chat, and watch results stream into a table in real-time.
+**Current focus:** Phase 1 — Chat Backend
 
 ## Current Position
 
-Phase: 6 of 6 (All phases complete)
-Plan: All plans executed
-Status: Implementation complete — ready for verification
-Last activity: 2026-03-19 — All 6 phases implemented in single session
+Phase: 1 of 4
+Plan: Not yet planned
+Status: Roadmap created, ready for /gsd:plan-phase 1
+Last activity: 2026-03-21 — Milestone 2 initialized
 
-Progress: [████████████████████] 100%
+Progress: [░░░░░░░░░░░░░░░░░░░] 0%
 
-## Performance Metrics
+## Milestone History
 
-**Velocity:**
-- Total plans completed: 18
-- Average duration: —
-- Total execution time: Single session
+### Milestone 1: Functions Platform (Complete)
+- 6 phases, 42 requirements, 18 plans
+- Completed: 2026-03-19
+- Delivered: Function YAML storage, CRUD API, builder UI, workbench, Clay integration
 
-**By Phase:**
-
-| Phase | Plans | Status |
-|-------|-------|--------|
-| 1. Function Data Model + API | 3/3 | Complete |
-| 2. Dashboard Restructure | 3/3 | Complete |
-| 3. Functions Home Page | 3/3 | Complete |
-| 4. Function Builder | 3/3 | Complete |
-| 5. Execution + Workbench | 4/4 | Complete |
-| 6. Clay Integration | 2/2 | Complete |
+### Milestone 2: Chat-Powered Enrichment Hub (Active)
+- 4 phases, 17 requirements
+- Started: 2026-03-21
 
 ## Accumulated Context
 
 ### Decisions
 
-- Functions stored as YAML in `functions/` directory, consistent with skills/pipelines pattern
-- Tool catalog is a static definition of Deepline providers + dynamic skill list
-- Sidebar simplified to 4 items: Functions, Workbench, Outbound, Context
-- Functions page is the new home page (`/`)
-- Outbound page consolidates Email Lab + Sequence Lab via tabs
-- Workbench page handles CSV upload, column mapping, execution, and results
-- Webhook accepts `function` parameter alongside existing `skill`/`skills` params
-- Copy-to-Clay wizard is a 3-step dialog in the function detail page
+- User picks function first, then chats (not AI auto-detection)
+- Chat + results table hybrid layout (not pure chat)
+- Reuse existing WorkerPool → ClaudeExecutor execution engine
+- File-based session storage in data/channels/
+- SSE streaming (not WebSocket) — consistent with existing patterns
+- Share tokens for client access (reuse portal auth)
+- Both internal team and clients will use the chat
 
 ### Blockers/Concerns
 
-- Deepline CLI tool execution in functions is a placeholder — actual Deepline CLI integration needed for production
-- AI assembly endpoint (`/functions/assemble`) requires active claude subprocess
+- None yet
 
 ## Session Continuity
 
-Last session: 2026-03-19
-Stopped at: All phases implemented, build passes, verification pending
+Last session: 2026-03-21
+Stopped at: GSD project initialized, ready to plan Phase 1
 Resume file: None
