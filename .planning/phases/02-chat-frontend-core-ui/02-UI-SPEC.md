@@ -55,9 +55,11 @@ Exceptions:
 | Role | Size | Weight | Line Height | Tailwind Class | Usage |
 |------|------|--------|-------------|----------------|-------|
 | Body | 14px | 400 (regular) | 1.5 | `text-sm` | Message content, session list items, descriptions |
-| Label | 12px | 500 (medium) | 1.4 | `text-xs font-medium` | Section headers ("Function", "Sessions"), timestamps, metadata |
+| Label | 12px | 600 (semibold) | 1.4 | `text-xs font-semibold` | Section headers ("Function", "Sessions"), timestamps, metadata |
 | Heading | 20px | 600 (semibold) | 1.2 | `text-xl font-semibold` | Page title in Header ("Chat") |
 | Micro | 11px | 400 (regular) | 1.4 | `text-[11px]` | Function description in selector, output field type labels |
+
+Two weights only: **400** (regular) for content text (Body, Micro) and **600** (semibold) for structural text (Label, Heading).
 
 Font assignment:
 - Headings use `font-[family-name:var(--font-sans)]` (SF Pro Display)
@@ -65,7 +67,7 @@ Font assignment:
 - Code/data values use `font-mono` (SF Mono)
 - Timestamps use `font-mono tabular-nums` for fixed-width digits
 
-**Source:** Observed in `header.tsx` (text-xl font-semibold for title), `function-selector.tsx` (text-xs font-medium for labels, text-sm for names, text-[11px] for descriptions), `output-view.tsx` (text-xs font-mono for field names, text-sm for values).
+**Source:** Observed in `header.tsx` (text-xl font-semibold for title), `function-selector.tsx` (text-xs for labels, text-sm for names, text-[11px] for descriptions), `output-view.tsx` (text-xs font-mono for field names, text-sm for values).
 
 ---
 
@@ -102,6 +104,12 @@ Font assignment:
 | Info | `#4a9ead` (`kiln-teal`) | Processing/active state |
 
 **Source:** `globals.css` `:root` variables, `sidebar.tsx` accent pattern, `output-view.tsx` field rendering, `header.tsx` status badges.
+
+---
+
+## Focal Point
+
+The primary visual focal point of the `/chat` screen is the **ChatInput bar** anchored at the bottom of the chat thread column. It draws the eye via its elevated surface (`bg-clay-800`), the kiln-teal Send button, and the selected function context chip. All other elements (session list, message thread, activity panel) are subordinate context.
 
 ---
 
@@ -235,7 +243,7 @@ hidden lg:block w-80 border-l border-clay-600
 - Chat thread auto-scrolls to bottom when a new message is added (user or assistant).
 - If user has scrolled up (more than 100px from bottom), auto-scroll is suppressed.
 - A "scroll to bottom" button appears when user is scrolled up and new messages arrive.
-- Scroll-to-bottom button: small pill at bottom-center of thread, `bg-clay-700 text-clay-200`, shows down-arrow icon.
+- Scroll-to-bottom button: small pill at bottom-center of thread, `bg-clay-700 text-clay-200`, shows down-arrow icon (`ChevronDown` from lucide-react). Must include `aria-label="Scroll to latest messages"`.
 
 ### Streaming UX:
 1. User sends message: user bubble appears immediately (optimistic).
