@@ -141,8 +141,11 @@ class SheetsClient:
         """Move a file into a Drive folder (remove from root)."""
         await self._run_gws(
             "drive", "files", "update",
-            "--fileId", file_id,
-            "--params", json.dumps({"addParents": folder_id, "removeParents": "root"}),
+            "--params", json.dumps({
+                "fileId": file_id,
+                "addParents": folder_id,
+                "removeParents": "root",
+            }),
         )
 
     async def share_file(self, file_id: str, email: str, role: str = "reader") -> None:
