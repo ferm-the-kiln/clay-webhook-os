@@ -162,27 +162,30 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           {/* Header section: org + title + metadata + kebab */}
           <div className="flex items-start gap-2 pb-2.5 border-b border-clay-700/40">
             <div className="min-w-0 flex-1">
-              {/* Org + author — subtle line above title */}
-              {hasAuthor && (
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="text-xs text-clay-500 font-medium">{orgLabel}</span>
-                  {update.author_name && (
-                    <>
-                      <span className="text-clay-600">&mdash;</span>
-                      <span className="text-xs text-clay-400">{update.author_name}</span>
-                    </>
-                  )}
-                </div>
-              )}
-
               {/* Title */}
               <div className="flex items-center gap-2">
                 {TypeIcon && <TypeIcon className={cn("h-4 w-4 shrink-0", config.textColor)} />}
                 <h4 className="text-lg font-semibold text-clay-50 truncate">{update.title}</h4>
               </div>
 
-              {/* Type + time + inline short body — under title */}
+              {/* Metadata line: colored dot + org + author + type + time */}
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                {hasAuthor && (
+                  <>
+                    <span className={cn(
+                      "h-2 w-2 rounded-full shrink-0",
+                      isInternal ? "bg-kiln-teal" : "bg-purple-400"
+                    )} />
+                    <span className="text-xs text-clay-400 font-medium">{orgLabel}</span>
+                    {update.author_name && (
+                      <>
+                        <span className="text-clay-600">&middot;</span>
+                        <span className="text-xs text-clay-400">{update.author_name}</span>
+                      </>
+                    )}
+                    <span className="text-clay-600">&middot;</span>
+                  </>
+                )}
                 <span className={cn("text-xs font-medium", config.textColor)}>
                   {config.label}
                 </span>
