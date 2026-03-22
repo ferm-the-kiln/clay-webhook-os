@@ -218,7 +218,18 @@ async def delete_update(request: Request, slug: str, update_id: str):
     if doc_sync and doc_sync.available and deleted.get("google_doc_id"):
         asyncio.create_task(doc_sync.delete_post_doc(slug, deleted))
 
-    return {"ok": True}
+    # Cascade-delete attached media (local + Drive)
+    media_ids = deleted.get("media_ids", [])
+    deleted_media_count = 0
+    if media_ids:
+        attached_media = store.get_media_by_ids(slug, media_ids)
+        for media_entry in attached_media:
+            if doc_sync and doc_sync.available and media_entry.get("drive_file_id"):
+                asyncio.create_task(doc_sync.delete_media_file(slug, media_entry))
+            store.delete_media(slug, media_entry["id"])
+            deleted_media_count += 1
+
+    return {"ok": True, "deleted_media_count": deleted_media_count}
 
 
 # ── Actions ───────────────────────────────────────────────
@@ -311,6 +322,13 @@ async def upload_media(
 
     entry = store.add_media(slug, original_name=file.filename or "upload", file_bytes=file_bytes, caption=caption)
     entry["url"] = f"/portal/media/{slug}/{entry['filename']}"
+
+    # Sync to Google Drive (async, fire-and-forget)
+    doc_sync = getattr(request.app.state, "portal_doc_sync", None)
+    if doc_sync and doc_sync.available:
+        local_path = str(store.get_media_path(slug, entry["filename"]))
+        asyncio.create_task(doc_sync.sync_media(slug, entry, local_path))
+
     return entry
 
 
@@ -326,8 +344,20 @@ async def serve_media(request: Request, slug: str, filename: str):
 @router.delete("/portal/{slug}/media/{media_id}")
 async def delete_media(request: Request, slug: str, media_id: str):
     store = request.app.state.portal_store
+
+    # Get media entry before deletion (to access drive_file_id)
+    media_list = store.list_media(slug)
+    media_entry = next((m for m in media_list if m["id"] == media_id), None)
+
     if not store.delete_media(slug, media_id):
         return JSONResponse(status_code=404, content={"error": True, "error_message": f"Media '{media_id}' not found"})
+
+    # Delete from Google Drive (async, fire-and-forget)
+    if media_entry and media_entry.get("drive_file_id"):
+        doc_sync = getattr(request.app.state, "portal_doc_sync", None)
+        if doc_sync and doc_sync.available:
+            asyncio.create_task(doc_sync.delete_media_file(slug, media_entry))
+
     return {"ok": True}
 
 

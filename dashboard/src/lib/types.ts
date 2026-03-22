@@ -685,6 +685,7 @@ export interface PortalMedia {
   caption: string;
   url: string;
   created_at: number;
+  drive_file_id?: string;
 }
 
 export interface ViewStats {

@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import type { PortalUpdate, PortalMedia } from "@/lib/types";
 import { MarkdownContent } from "./markdown-content";
 import { CommentThread } from "./comment-thread";
+import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
 
@@ -95,6 +96,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [reactions, setReactionsState] = useState<Record<string, boolean>>(() => getReactions(update.id));
     const [reactionsHovered, setReactionsHovered] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     const config = TYPE_CONFIG[update.type] || TYPE_CONFIG.update;
     const TypeIcon = config.icon;
@@ -217,7 +219,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                     {update.pinned ? <PinOff className="h-3.5 w-3.5 mr-2" /> : <Pin className="h-3.5 w-3.5 mr-2" />}
                     {update.pinned ? "Unpin" : "Pin to top"}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDelete(update.id)} className="text-xs text-red-400">
+                  <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="text-xs text-red-400">
                     <Trash2 className="h-3.5 w-3.5 mr-2" />
                     Delete
                   </DropdownMenuItem>
@@ -352,6 +354,18 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             )}
           </div>
         </div>
+
+        {/* Delete confirmation dialog */}
+        <ConfirmDeleteDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          onConfirm={() => {
+            setDeleteDialogOpen(false);
+            onDelete(update.id);
+          }}
+          title={update.title}
+          mediaCount={attachedMedia.length}
+        />
 
         {/* Lightbox */}
         {previewUrl && (

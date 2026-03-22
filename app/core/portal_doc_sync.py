@@ -36,6 +36,7 @@ class PortalDocSync:
         self._client_folder_cache: dict[str, str] = {}  # slug → client folder ID
         self._type_folder_cache: dict[str, str] = {}    # "slug/type" → type subfolder ID
         self._shared_clients: set[str] = set()           # slugs already shared this runtime
+        self._media_folder_cache: dict[str, str] = {}    # slug → media folder ID
 
     @property
     def available(self) -> bool:
@@ -173,4 +174,69 @@ class PortalDocSync:
             return True
         except Exception as e:
             logger.error("[portal_doc_sync] Failed to delete doc %s: %s", doc_id, e)
+            return False
+
+    # ── Media sync ─────────────────────────────────────────
+
+    async def _ensure_media_folder(self, slug: str) -> str:
+        """Ensure Client Portals / {Client Name} / Media/ folder exists."""
+        if slug in self._media_folder_cache:
+            return self._media_folder_cache[slug]
+        client_folder_id = await self._ensure_client_folder(slug)
+        media_folder_id = await self.sheets_client.ensure_subfolder(client_folder_id, "Media")
+        self._media_folder_cache[slug] = media_folder_id
+        return media_folder_id
+
+    async def sync_media(self, slug: str, media_entry: dict, local_path: str) -> dict | None:
+        """Upload a media file to Google Drive and store drive_file_id back on entry.
+
+        Args:
+            slug: Client slug
+            media_entry: The media dict (must have id, original_name, mime_type)
+            local_path: Absolute path to the local file
+
+        Returns:
+            {"file_id": "...", "url": "..."} on success, None on failure
+        """
+        if not self.available:
+            return None
+
+        media_id = media_entry["id"]
+        original_name = media_entry.get("original_name", "upload")
+        mime_type = media_entry.get("mime_type", "application/octet-stream")
+
+        try:
+            media_folder_id = await self._ensure_media_folder(slug)
+            file_id = await self.sheets_client.upload_file(
+                local_path=local_path,
+                name=original_name,
+                mime_type=mime_type,
+                parent_folder_id=media_folder_id,
+            )
+
+            await self._share_client_folder(slug)
+
+            self.portal_store.update_media_field(slug, media_id, "drive_file_id", file_id)
+
+            file_url = SheetsClient.get_file_url(file_id)
+            logger.info("[portal_doc_sync] Uploaded media %s/%s to Drive → %s", slug, media_id, file_url)
+            return {"file_id": file_id, "url": file_url}
+
+        except Exception as e:
+            logger.error("[portal_doc_sync] Failed to sync media %s/%s: %s", slug, media_id, e)
+            return None
+
+    async def delete_media_file(self, slug: str, media_entry: dict) -> bool:
+        """Delete a media file from Google Drive."""
+        if not self.available:
+            return False
+        drive_file_id = media_entry.get("drive_file_id")
+        if not drive_file_id:
+            return False
+        try:
+            await self.sheets_client.delete_file(drive_file_id)
+            logger.info("[portal_doc_sync] Deleted Drive media %s for %s/%s", drive_file_id, slug, media_entry.get("id"))
+            return True
+        except Exception as e:
+            logger.error("[portal_doc_sync] Failed to delete Drive media %s: %s", drive_file_id, e)
             return False

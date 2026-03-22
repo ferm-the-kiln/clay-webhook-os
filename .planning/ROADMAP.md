@@ -63,12 +63,11 @@ Plans:
   2. Results table in the activity panel fills row by row as SSE events arrive — columns match function outputs
   3. Progress bar shows "Processing row 12/50" with per-row status icons (pending/running/done/error)
   4. "Export CSV" button downloads the results table as a CSV file
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 03-01: Activity panel layout and execution trace display
-- [ ] 03-02: Streaming results table and progress indicators
-- [ ] 03-03: Export and error state handling
+- [ ] 03-01-PLAN.md — useChat hook per-row tracking, ActivityPanel layout, ExecutionTrace, ProgressBar components
+- [ ] 03-02-PLAN.md — ResultsTable with dynamic columns, CSV export, wired into ActivityPanel
 
 ### Phase 4: Client Access + Polish
 **Goal**: Clients can access the chat via share token, sessions persist reliably, and edge cases are handled
@@ -93,6 +92,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Chat Backend | 3/3 | Complete | 2026-03-21 |
-| 2. Chat Frontend — Core UI | 0/3 | Planned | — |
-| 3. Activity Panel + Results | 0/3 | Pending | — |
+| 2. Chat Frontend — Core UI | 3/3 | Complete | 2026-03-21 |
+| 3. Activity Panel + Results | 0/2 | Planned | — |
 | 4. Client Access + Polish | 0/2 | Pending | — |

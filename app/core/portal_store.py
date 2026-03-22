@@ -499,6 +499,25 @@ updated_at: {now}
         logger.info("[portal] Deleted media '%s' for %s", media_id, slug)
         return True
 
+    def update_media_field(self, slug: str, media_id: str, field: str, value) -> dict | None:
+        """Update a single field on a media entry. Returns updated entry or None."""
+        media_list = self._load_media(slug)
+        updated = None
+        for m in media_list:
+            if m["id"] == media_id:
+                m[field] = value
+                updated = m
+                break
+        if updated:
+            self._save_media(slug, media_list)
+        return updated
+
+    def get_media_by_ids(self, slug: str, media_ids: list[str]) -> list[dict]:
+        """Return media entries matching the given IDs."""
+        media_list = self._load_media(slug)
+        id_set = set(media_ids)
+        return [m for m in media_list if m["id"] in id_set]
+
     # ── Full Portal View ──────────────────────────────────
 
     def get_portal(self, slug: str) -> dict | None:

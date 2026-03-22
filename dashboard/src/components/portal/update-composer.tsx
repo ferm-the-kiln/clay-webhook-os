@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Send, FileText, Loader2 } from "lucide-react";
-import { createPortalUpdate, fetchUpdateTemplates } from "@/lib/api";
+import { Send, FileText, Loader2, Paperclip, X, FileIcon, Image } from "lucide-react";
+import { createPortalUpdate, fetchUpdateTemplates, uploadPortalMedia, deletePortalMedia } from "@/lib/api";
 import { toast } from "sonner";
-import type { UpdateTemplate } from "@/lib/types";
+import type { UpdateTemplate, PortalMedia } from "@/lib/types";
 import { AuthorPicker, getSelectedAuthor, saveAuthor } from "./author-picker";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
 
 const UPDATE_TYPES = [
   { id: "update", label: "Update" },
@@ -31,6 +33,10 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
   const [posting, setPosting] = useState(false);
   const [templates, setTemplates] = useState<UpdateTemplate[]>([]);
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+  const [pendingMedia, setPendingMedia] = useState<PortalMedia[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Restore draft from localStorage on mount + load saved author
   useEffect(() => {
@@ -70,6 +76,40 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
       .catch(() => {});
   }, []);
 
+  const handleFiles = useCallback(async (files: FileList | File[]) => {
+    setUploading(true);
+    const uploads = Array.from(files).map(async (file) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("caption", "");
+      try {
+        const media = await uploadPortalMedia(slug, formData);
+        setPendingMedia((prev) => [...prev, media]);
+      } catch (e) {
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    });
+    await Promise.allSettled(uploads);
+    setUploading(false);
+  }, [slug]);
+
+  const removeMedia = useCallback(async (mediaId: string) => {
+    try {
+      await deletePortalMedia(slug, mediaId);
+      setPendingMedia((prev) => prev.filter((m) => m.id !== mediaId));
+    } catch {
+      toast.error("Failed to remove file");
+    }
+  }, [slug]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
+  }, [handleFiles]);
+
   const handlePost = async () => {
     if (!authorName.trim()) {
       toast.error("Name is required");
@@ -85,6 +125,7 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
         type,
         title,
         body,
+        media_ids: pendingMedia.map((m) => m.id),
         create_action: type === "deliverable" && createAction,
         author_name: authorName,
         author_org: authorOrg,
@@ -93,8 +134,8 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
       setTitle("");
       setBody("");
       setType("update");
+      setPendingMedia([]);
       saveAuthor(authorName);
-      // Keep author name + org for next post (common to keep posting as same person)
       try { localStorage.removeItem(`portal-draft-${slug}`); } catch { /* ignore */ }
       onPosted();
     } catch (e) {
@@ -116,7 +157,14 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
   const clientLabel = clientName || "Client";
 
   return (
-    <div className="rounded-lg border border-clay-600 bg-clay-800 p-4 space-y-3">
+    <div
+      className={`rounded-lg border bg-clay-800 p-4 space-y-3 transition-colors ${
+        dragOver ? "border-kiln-teal bg-kiln-teal/5" : "border-clay-600"
+      }`}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
+    >
       {/* Author row */}
       <div className="flex items-center gap-3">
         <AuthorPicker
@@ -213,6 +261,48 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
         className="w-full bg-clay-900 border border-clay-600 rounded-md px-3 py-2 text-sm text-clay-100 placeholder:text-clay-500 focus:outline-none focus:border-kiln-teal resize-y"
       />
 
+      {/* Pending media preview strip */}
+      {(pendingMedia.length > 0 || uploading) && (
+        <div className="flex flex-wrap gap-2">
+          {pendingMedia.map((m) => {
+            const isImg = m.mime_type.startsWith("image/");
+            const fullUrl = `${API_URL}${m.url}`;
+            return (
+              <div
+                key={m.id}
+                className="relative group/media flex items-center gap-2 rounded-md bg-clay-900 border border-clay-700 px-2 py-1.5"
+              >
+                {isImg ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={fullUrl}
+                    alt={m.original_name}
+                    className="h-10 w-10 rounded object-cover"
+                  />
+                ) : (
+                  <FileIcon className="h-4 w-4 text-clay-500 shrink-0" />
+                )}
+                <span className="text-xs text-clay-300 max-w-[120px] truncate">
+                  {m.original_name}
+                </span>
+                <button
+                  onClick={() => removeMedia(m.id)}
+                  className="opacity-0 group-hover/media:opacity-100 absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-clay-700 border border-clay-600 flex items-center justify-center transition-opacity"
+                >
+                  <X className="h-2.5 w-2.5 text-clay-300" />
+                </button>
+              </div>
+            );
+          })}
+          {uploading && (
+            <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-clay-400">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Uploading...
+            </div>
+          )}
+        </div>
+      )}
+
       {type === "deliverable" && (
         <label className="flex items-center gap-2 text-xs text-clay-300 cursor-pointer">
           <input
@@ -225,11 +315,30 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
         </label>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        {/* Attach button */}
+        <label className="flex items-center gap-1.5 text-xs text-clay-400 hover:text-clay-200 cursor-pointer transition-colors">
+          <Paperclip className="h-3.5 w-3.5" />
+          <span>Attach</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.pptx,.csv,.txt"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                handleFiles(e.target.files);
+                e.target.value = "";
+              }
+            }}
+          />
+        </label>
+
         <Button
           size="sm"
           onClick={handlePost}
-          disabled={posting || !authorName.trim() || !title.trim()}
+          disabled={posting || uploading || !authorName.trim() || !title.trim()}
           className="bg-kiln-teal text-clay-900 hover:bg-kiln-teal/90 gap-1.5"
         >
           {posting ? (

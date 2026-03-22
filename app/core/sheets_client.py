@@ -29,7 +29,7 @@ class SheetsClient:
     def available(self) -> bool:
         return self._available
 
-    async def _run_gws(self, *args: str, input_json: dict | None = None) -> dict:
+    async def _run_gws(self, *args: str, input_json: dict | None = None, timeout: int = 30) -> dict:
         """Run a gws CLI command and parse JSON output."""
         if not self._available:
             raise RuntimeError("gws CLI is not installed")
@@ -47,12 +47,12 @@ class SheetsClient:
         try:
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(input=stdin_data),
-                timeout=30,
+                timeout=timeout,
             )
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
-            raise RuntimeError("gws command timed out after 30s")
+            raise RuntimeError(f"gws command timed out after {timeout}s")
 
         if proc.returncode != 0:
             err = stderr.decode().strip()
@@ -147,6 +147,38 @@ class SheetsClient:
                 "removeParents": "root",
             }),
         )
+
+    async def upload_file(
+        self,
+        local_path: str,
+        name: str,
+        mime_type: str,
+        parent_folder_id: str | None = None,
+    ) -> str:
+        """Upload a local file to Google Drive. Returns file ID."""
+        metadata: dict = {"name": name}
+        if mime_type:
+            metadata["mimeType"] = mime_type
+        if parent_folder_id:
+            metadata["parents"] = [parent_folder_id]
+
+        result = await self._run_gws(
+            "drive", "files", "create",
+            "--json", json.dumps(metadata),
+            "--upload", local_path,
+            "--upload-content-type", mime_type,
+            timeout=120,
+        )
+        file_id = result.get("id", "")
+        if not file_id:
+            raise RuntimeError(f"Failed to upload file '{name}': {result}")
+        logger.info("[sheets] Uploaded file '%s' to Drive (id=%s)", name, file_id)
+        return file_id
+
+    @staticmethod
+    def get_file_url(file_id: str) -> str:
+        """Return the web URL for a Drive file."""
+        return f"https://drive.google.com/file/d/{file_id}/view"
 
     async def delete_file(self, file_id: str) -> None:
         """Permanently delete a file from Google Drive."""
