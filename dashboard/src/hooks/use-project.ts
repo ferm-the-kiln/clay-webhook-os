@@ -12,8 +12,11 @@ import {
   toggleAction,
   deletePortalUpdate,
   toggleUpdatePin,
+  deletePortalMedia,
+  updatePortalUpdate,
+  deleteAction as deleteActionApi,
 } from "@/lib/api";
-import type { ProjectDetail, PortalProject, PortalUpdate, PortalMedia, PortalAction } from "@/lib/types";
+import type { ProjectDetail, ProjectLink, PortalProject, PortalUpdate, PortalMedia, PortalAction } from "@/lib/types";
 
 export function useProject(slug: string, projectId: string) {
   const [project, setProject] = useState<PortalProject | null>(null);
@@ -155,6 +158,82 @@ export function useProject(slug: string, projectId: string) {
     [slug, load],
   );
 
+  const handleDeleteAction = useCallback(
+    async (actionId: string) => {
+      try {
+        await deleteActionApi(slug, actionId);
+        load();
+        toast.success("Action deleted");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to delete action");
+      }
+    },
+    [slug, load],
+  );
+
+  const handleDeleteMedia = useCallback(
+    async (mediaId: string) => {
+      try {
+        await deletePortalMedia(slug, mediaId);
+        load();
+        toast.success("File deleted");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to delete file");
+      }
+    },
+    [slug, load],
+  );
+
+  const handleMoveToProject = useCallback(
+    async (updateId: string, targetProjectId: string | null) => {
+      try {
+        await updatePortalUpdate(slug, updateId, { project_id: targetProjectId });
+        load();
+        toast.success(targetProjectId ? "Post moved to project" : "Post removed from project");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to move post");
+      }
+    },
+    [slug, load],
+  );
+
+  const handleAddLink = useCallback(
+    async (title: string, url: string) => {
+      if (!project) return;
+      const existingLinks = project.links ?? [];
+      const newLink: ProjectLink = {
+        id: `lnk_${Date.now().toString(36)}`,
+        title,
+        url,
+      };
+      try {
+        const updated = await updateProject(slug, projectId, {
+          links: [...existingLinks, newLink],
+        });
+        setProject(updated);
+        toast.success("Link added");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to add link");
+      }
+    },
+    [slug, projectId, project],
+  );
+
+  const handleDeleteLink = useCallback(
+    async (linkId: string) => {
+      if (!project) return;
+      const filtered = (project.links ?? []).filter((l) => l.id !== linkId);
+      try {
+        const updated = await updateProject(slug, projectId, { links: filtered });
+        setProject(updated);
+        toast.success("Link removed");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to remove link");
+      }
+    },
+    [slug, projectId, project],
+  );
+
   return {
     project,
     updates,
@@ -171,5 +250,10 @@ export function useProject(slug: string, projectId: string) {
     handleTogglePin,
     handleDeleteUpdate,
     handleToggleAction,
+    handleDeleteAction,
+    handleDeleteMedia,
+    handleMoveToProject,
+    handleAddLink,
+    handleDeleteLink,
   };
 }

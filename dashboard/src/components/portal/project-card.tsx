@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { MessageSquare, Paperclip, CheckCircle2 } from "lucide-react";
+import { MessageSquare, Paperclip, CheckCircle2, Calendar } from "lucide-react";
 import type { ProjectSummary } from "@/lib/types";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -96,9 +96,16 @@ export function ProjectCard({ project, slug }: { project: ProjectSummary; slug: 
         {totalItems === 0 && <span>New</span>}
       </div>
 
-      {/* Last activity */}
-      <p className="text-[10px] text-clay-500 mt-1.5">
-        {timeAgo(project.last_activity)}
+      {/* Due date or last activity */}
+      <p className="text-[10px] text-clay-500 mt-1.5 flex items-center gap-1">
+        {project.due_date ? (
+          <>
+            <Calendar className="h-2.5 w-2.5" />
+            {new Date(project.due_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          </>
+        ) : (
+          timeAgo(project.last_activity)
+        )}
       </p>
     </Link>
   );

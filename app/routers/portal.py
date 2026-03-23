@@ -17,6 +17,7 @@ from app.models.portal import (
     UpdatePortalRequest,
     UpdateProjectRequest,
     UpdateSOPRequest,
+    UpdateUpdateRequest,
 )
 
 logger = logging.getLogger("clay-webhook-os")
@@ -213,6 +214,18 @@ async def toggle_pin(request: Request, slug: str, update_id: str):
     return entry
 
 
+@router.put("/portal/{slug}/updates/{update_id}")
+async def update_update(request: Request, slug: str, update_id: str, body: UpdateUpdateRequest):
+    store = request.app.state.portal_store
+    updates = body.model_dump(exclude_none=False)  # Allow null for project_id removal
+    entry = None
+    for field, value in updates.items():
+        entry = store.update_entry_field(slug, update_id, field, value)
+    if not entry:
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Update '{update_id}' not found"})
+    return entry
+
+
 @router.delete("/portal/{slug}/updates/{update_id}")
 async def delete_update(request: Request, slug: str, update_id: str):
     store = request.app.state.portal_store
@@ -385,6 +398,7 @@ async def create_project(request: Request, slug: str, body: CreateProjectRequest
     project = store.create_project(
         slug, name=body.name, description=body.description,
         color=body.color, phases=body.phases,
+        due_date=body.due_date, links=body.links,
     )
     return project
 

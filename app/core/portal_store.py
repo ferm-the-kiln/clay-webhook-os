@@ -770,6 +770,8 @@ updated_at: {now}
         description: str = "",
         color: str = "#6366f1",
         phases: list[dict] | None = None,
+        due_date: str | None = None,
+        links: list[dict] | None = None,
     ) -> dict:
         self._ensure_dirs(slug)
         project_id = f"prj_{uuid.uuid4().hex[:8]}"
@@ -786,6 +788,16 @@ updated_at: {now}
                     "completed_at": None,
                 })
 
+        # Build links with IDs
+        built_links = []
+        if links:
+            for lk in links:
+                built_links.append({
+                    "id": f"lnk_{uuid.uuid4().hex[:6]}",
+                    "title": lk.get("title", ""),
+                    "url": lk.get("url", ""),
+                })
+
         project = {
             "id": project_id,
             "name": name,
@@ -794,6 +806,8 @@ updated_at: {now}
             "color": color,
             "phases": built_phases,
             "current_phase": built_phases[0]["id"] if built_phases else None,
+            "due_date": due_date,
+            "links": built_links,
             "created_at": now,
             "updated_at": now,
         }

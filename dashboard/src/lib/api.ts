@@ -40,6 +40,7 @@ import type {
   PortalMeta,
   PortalOverview,
   PortalProject,
+  ProjectLink,
   PortalSOP,
   PortalSyncStatus,
   PortalUpdate,
@@ -1264,6 +1265,17 @@ export function createPortalUpdate(
   });
 }
 
+export function updatePortalUpdate(
+  slug: string,
+  updateId: string,
+  body: { project_id?: string | null },
+): Promise<PortalUpdate> {
+  return apiFetch(`/portal/${slug}/updates/${updateId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
 export function toggleUpdatePin(slug: string, updateId: string): Promise<PortalUpdate> {
   return apiFetch(`/portal/${slug}/updates/${updateId}/pin`, { method: "PUT" });
 }
@@ -1299,7 +1311,7 @@ export function fetchActions(slug: string): Promise<{ actions: PortalAction[]; t
 
 export function createAction(
   slug: string,
-  body: { title: string; description?: string; owner?: string; due_date?: string | null; priority?: string; recurrence?: string }
+  body: { title: string; description?: string; owner?: string; due_date?: string | null; priority?: string; recurrence?: string; project_id?: string }
 ): Promise<PortalAction> {
   return apiFetch(`/portal/${slug}/actions`, {
     method: "POST",
@@ -1441,7 +1453,7 @@ export function fetchProjects(slug: string): Promise<{ projects: ProjectSummary[
 
 export function createProject(
   slug: string,
-  body: { name: string; description?: string; color?: string; phases?: { name: string; order?: number }[] },
+  body: { name: string; description?: string; color?: string; phases?: { name: string; order?: number }[]; due_date?: string; links?: { title: string; url: string }[] },
 ): Promise<PortalProject> {
   return apiFetch(`/portal/${slug}/projects`, {
     method: "POST",
@@ -1456,7 +1468,7 @@ export function fetchProjectDetail(slug: string, projectId: string): Promise<Pro
 export function updateProject(
   slug: string,
   projectId: string,
-  body: { name?: string; description?: string; status?: string; color?: string; current_phase?: string },
+  body: { name?: string; description?: string; status?: string; color?: string; current_phase?: string; due_date?: string | null; links?: ProjectLink[] },
 ): Promise<PortalProject> {
   return apiFetch(`/portal/${slug}/projects/${projectId}`, {
     method: "PUT",

@@ -1,18 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fetchPortal } from "@/lib/api";
+import { fetchPortal, uploadPortalMedia } from "@/lib/api";
 import { useProject } from "@/hooks/use-project";
 import { usePortalFeed } from "@/hooks/use-portal-feed";
 import { ProjectHeader } from "@/components/portal/project-header";
 import { ProjectSidebar } from "@/components/portal/project-sidebar";
+import { ProjectTabs } from "@/components/portal/project-tabs";
+import type { ProjectTab } from "@/components/portal/project-tabs";
 import { SearchBar } from "@/components/portal/search-bar";
 import { PostFeed } from "@/components/portal/post-feed";
 import { UpdateComposer } from "@/components/portal/update-composer";
+import { MediaGrid } from "@/components/portal/media-grid";
+import { ActionList } from "@/components/portal/action-list";
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -22,6 +26,7 @@ export default function ProjectDetailPage() {
 
   const [clientName, setClientName] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<ProjectTab>("feed");
 
   const {
     project,
@@ -39,6 +44,11 @@ export default function ProjectDetailPage() {
     handleTogglePin,
     handleDeleteUpdate,
     handleToggleAction,
+    handleDeleteAction,
+    handleDeleteMedia,
+    handleMoveToProject,
+    handleAddLink,
+    handleDeleteLink,
   } = useProject(slug, projectId);
 
   const {
@@ -65,6 +75,7 @@ export default function ProjectDetailPage() {
         if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
         e.preventDefault();
         setComposerOpen(true);
+        setActiveTab("feed");
       }
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -104,64 +115,108 @@ export default function ProjectDetailPage() {
           clientName={clientName || slug}
           onStatusChange={(status) => handleUpdateProject({ status })}
           onDelete={handleDelete}
+          onUpdateProject={handleUpdateProject}
+          onAddLink={handleAddLink}
+          onDeleteLink={handleDeleteLink}
         />
 
-        {/* Create post button */}
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setComposerOpen(!composerOpen)}
-            className="border-clay-600 text-clay-200 hover:bg-clay-700 gap-1.5"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Create Post
-          </Button>
+        {/* Tabs + Create Post */}
+        <div className="flex items-center justify-between">
+          <ProjectTabs
+            active={activeTab}
+            onChange={setActiveTab}
+            counts={{
+              feed: updates.length,
+              files: media.length,
+              actions: actions.length,
+            }}
+          />
+          {activeTab === "feed" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setComposerOpen(!composerOpen)}
+              className="border-clay-600 text-clay-200 hover:bg-clay-700 gap-1.5"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Create Post
+            </Button>
+          )}
         </div>
 
         {/* Two-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
-          {/* Left: Feed */}
+          {/* Left: Tab content */}
           <div className="space-y-4 min-w-0">
-            <SearchBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              resultCount={filteredUpdates.length}
-              totalCount={updates.length}
-            />
+            {activeTab === "feed" && (
+              <>
+                <SearchBar
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  resultCount={filteredUpdates.length}
+                  totalCount={updates.length}
+                />
 
-            {composerOpen && (
-              <UpdateComposer
-                slug={slug}
-                clientName={clientName || slug}
-                projectId={projectId}
-                onPosted={() => {
-                  reload();
-                  setComposerOpen(false);
-                }}
+                {composerOpen && (
+                  <UpdateComposer
+                    slug={slug}
+                    clientName={clientName || slug}
+                    projectId={projectId}
+                    onPosted={() => {
+                      reload();
+                      setComposerOpen(false);
+                    }}
+                  />
+                )}
+
+                <PostFeed
+                  slug={slug}
+                  updates={filteredUpdates}
+                  media={media}
+                  searchQuery={searchQuery}
+                  highlightedPostId={highlightedPostId}
+                  postRefs={postRefs}
+                  onTogglePin={handleTogglePin}
+                  onDeleteUpdate={handleDeleteUpdate}
+                  onMoveToProject={handleMoveToProject}
+                  clientName={clientName || slug}
+                />
+              </>
+            )}
+
+            {activeTab === "files" && (
+              <MediaGrid
+                media={media}
+                onDelete={handleDeleteMedia}
               />
             )}
 
-            <PostFeed
-              slug={slug}
-              updates={filteredUpdates}
-              media={media}
-              searchQuery={searchQuery}
-              highlightedPostId={highlightedPostId}
-              postRefs={postRefs}
-              onTogglePin={handleTogglePin}
-              onDeleteUpdate={handleDeleteUpdate}
-              clientName={clientName || slug}
-            />
+            {activeTab === "actions" && (
+              <ActionList
+                slug={slug}
+                actions={actions}
+                onCreated={reload}
+                onUpdated={reload}
+                onToggle={handleToggleAction}
+                onDelete={handleDeleteAction}
+              />
+            )}
           </div>
 
           {/* Right: Sidebar */}
           <ProjectSidebar
+            slug={slug}
+            projectId={projectId}
             project={project}
             stats={stats}
+            media={media}
+            actions={actions}
             onTogglePhase={handleTogglePhase}
             onAddPhase={handleAddPhase}
             onDeletePhase={handleDeletePhase}
+            onDeleteMedia={handleDeleteMedia}
+            onToggleAction={handleToggleAction}
+            onReload={reload}
           />
         </div>
       </div>

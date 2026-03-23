@@ -34,6 +34,7 @@ export function CreateProjectDialog({ slug, open, onOpenChange, onCreated }: Cre
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(COLOR_PALETTE[0]);
+  const [dueDate, setDueDate] = useState("");
   const [phases, setPhases] = useState<string[]>([]);
   const [newPhase, setNewPhase] = useState("");
   const [creating, setCreating] = useState(false);
@@ -60,6 +61,7 @@ export function CreateProjectDialog({ slug, open, onOpenChange, onCreated }: Cre
         name: name.trim(),
         description: description.trim(),
         color,
+        due_date: dueDate || undefined,
         phases: phases.length > 0
           ? phases.map((ph, i) => ({ name: ph, order: i }))
           : undefined,
@@ -68,6 +70,7 @@ export function CreateProjectDialog({ slug, open, onOpenChange, onCreated }: Cre
       setName("");
       setDescription("");
       setColor(COLOR_PALETTE[0]);
+      setDueDate("");
       setPhases([]);
       onCreated();
     } catch (e) {
@@ -127,6 +130,19 @@ export function CreateProjectDialog({ slug, open, onOpenChange, onCreated }: Cre
                 />
               ))}
             </div>
+          </div>
+
+          {/* Target Date */}
+          <div>
+            <label className="text-xs font-medium text-clay-300 mb-1 block">
+              Target Date <span className="text-clay-500">(optional)</span>
+            </label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full bg-clay-900 border border-clay-600 rounded-md px-3 py-1.5 text-sm text-clay-100 focus:outline-none focus:border-kiln-teal"
+            />
           </div>
 
           {/* Phases */}

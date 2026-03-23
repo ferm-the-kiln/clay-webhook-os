@@ -15,6 +15,7 @@ interface PostFeedProps {
   postRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
   onTogglePin: (id: string) => void;
   onDeleteUpdate: (id: string) => void;
+  onMoveToProject?: (updateId: string, projectId: string | null) => void;
   clientName?: string;
   projects?: ProjectSummary[];
 }
@@ -51,6 +52,7 @@ export function PostFeed({
   postRefs,
   onTogglePin,
   onDeleteUpdate,
+  onMoveToProject,
   clientName,
   projects,
 }: PostFeedProps) {
@@ -160,6 +162,7 @@ export function PostFeed({
           isNew={isNew}
           isFocused={globalIdx === focusedIndex}
           projects={projects}
+          onMoveToProject={onMoveToProject}
         />
       </motion.div>
     );

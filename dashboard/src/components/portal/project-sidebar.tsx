@@ -1,23 +1,39 @@
 "use client";
 
 import { MessageSquare, Paperclip, CheckCircle2, AlertCircle } from "lucide-react";
-import type { ProjectDetail, PortalProject } from "@/lib/types";
+import type { ProjectDetail, PortalProject, PortalMedia, PortalAction } from "@/lib/types";
 import { ProjectPhaseTracker } from "./project-phase-tracker";
+import { ProjectMediaSection } from "./project-media-section";
+import { ProjectActionsSection } from "./project-actions-section";
 
 interface ProjectSidebarProps {
+  slug: string;
+  projectId: string;
   project: PortalProject;
   stats: ProjectDetail["stats"] | null;
+  media: PortalMedia[];
+  actions: PortalAction[];
   onTogglePhase: (phaseId: string) => void;
   onAddPhase: (name: string) => void;
   onDeletePhase: (phaseId: string) => void;
+  onDeleteMedia: (mediaId: string) => void;
+  onToggleAction: (actionId: string) => void;
+  onReload: () => void;
 }
 
 export function ProjectSidebar({
+  slug,
+  projectId,
   project,
   stats,
+  media,
+  actions,
   onTogglePhase,
   onAddPhase,
   onDeletePhase,
+  onDeleteMedia,
+  onToggleAction,
+  onReload,
 }: ProjectSidebarProps) {
   return (
     <div className="sticky top-4 space-y-5 max-h-[calc(100vh-6rem)] overflow-y-auto">
@@ -85,6 +101,24 @@ export function ProjectSidebar({
           onDeletePhase={onDeletePhase}
         />
       </div>
+
+      {/* Media */}
+      {media.length > 0 && (
+        <ProjectMediaSection
+          slug={slug}
+          media={media}
+          onDelete={onDeleteMedia}
+        />
+      )}
+
+      {/* Actions */}
+      <ProjectActionsSection
+        slug={slug}
+        projectId={projectId}
+        actions={actions}
+        onToggle={onToggleAction}
+        onReload={onReload}
+      />
     </div>
   );
 }

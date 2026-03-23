@@ -3,7 +3,7 @@
 import { useState, forwardRef, useCallback } from "react";
 import {
   Pin, PinOff, Trash2, MoreVertical, FileIcon, Film,
-  ChevronDown, ChevronUp, X, FileText, Milestone, Package,
+  ChevronDown, ChevronUp, X, FileText, Milestone, Package, FolderOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import type { PortalUpdate, PortalMedia, ProjectSummary } from "@/lib/types";
 import { MarkdownContent } from "./markdown-content";
 import { CommentThread } from "./comment-thread";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
+import { VideoEmbed } from "./video-embed";
+import { parseVideoUrls } from "@/lib/video-utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
 
@@ -90,10 +92,11 @@ interface PostCardProps {
   isNew?: boolean;
   isFocused?: boolean;
   projects?: ProjectSummary[];
+  onMoveToProject?: (updateId: string, projectId: string | null) => void;
 }
 
 export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
-  function PostCard({ slug, update, media, onTogglePin, onDelete, highlighted, clientName, isNew, isFocused, projects }, ref) {
+  function PostCard({ slug, update, media, onTogglePin, onDelete, highlighted, clientName, isNew, isFocused, projects, onMoveToProject }, ref) {
     const [expanded, setExpanded] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [reactions, setReactionsState] = useState<Record<string, boolean>>(() => getReactions(update.id));
@@ -230,6 +233,36 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                     {update.pinned ? <PinOff className="h-3.5 w-3.5 mr-2" /> : <Pin className="h-3.5 w-3.5 mr-2" />}
                     {update.pinned ? "Unpin" : "Pin to top"}
                   </DropdownMenuItem>
+                  {/* Move to project */}
+                  {onMoveToProject && projects && projects.length > 0 && (
+                    <>
+                      {update.project_id ? (
+                        <DropdownMenuItem
+                          onClick={() => onMoveToProject(update.id, null)}
+                          className="text-xs text-clay-200"
+                        >
+                          <FolderOpen className="h-3.5 w-3.5 mr-2" />
+                          Remove from project
+                        </DropdownMenuItem>
+                      ) : null}
+                      {projects
+                        .filter((p) => p.id !== update.project_id)
+                        .slice(0, 5)
+                        .map((p) => (
+                          <DropdownMenuItem
+                            key={p.id}
+                            onClick={() => onMoveToProject(update.id, p.id)}
+                            className="text-xs text-clay-200"
+                          >
+                            <span
+                              className="h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0"
+                              style={{ backgroundColor: p.color }}
+                            />
+                            Move to {p.name}
+                          </DropdownMenuItem>
+                        ))}
+                    </>
+                  )}
                   <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="text-xs text-red-400">
                     <Trash2 className="h-3.5 w-3.5 mr-2" />
                     Delete
@@ -263,6 +296,19 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               {expanded ? "Show less" : "Show more"}
             </button>
           )}
+
+          {/* Video embeds from body */}
+          {update.body && (() => {
+            const videos = parseVideoUrls(update.body);
+            if (videos.length === 0) return null;
+            return (
+              <div className="mt-3 space-y-2">
+                {videos.map((v, i) => (
+                  <VideoEmbed key={i} video={v} />
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Inline media */}
           {attachedMedia.length > 0 && (

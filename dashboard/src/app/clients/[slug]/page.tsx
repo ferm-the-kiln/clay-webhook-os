@@ -13,6 +13,7 @@ import {
   toggleUpdatePin,
   deletePortalUpdate,
   toggleAction,
+  updatePortalUpdate,
 } from "@/lib/api";
 import type { PortalDetail, PortalSyncStatus } from "@/lib/types";
 import { PortalHeader } from "@/components/portal/portal-header";
@@ -116,6 +117,16 @@ export default function ClientPortalPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to toggle action");
       loadPortal(); // revert
+    }
+  };
+
+  const handleMoveToProject = async (updateId: string, projectId: string | null) => {
+    try {
+      await updatePortalUpdate(slug, updateId, { project_id: projectId });
+      toast.success(projectId ? "Post moved to project" : "Post removed from project");
+      loadPortal();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to move post");
     }
   };
 
@@ -242,6 +253,7 @@ export default function ClientPortalPage() {
               postRefs={postRefs}
               onTogglePin={handleTogglePin}
               onDeleteUpdate={handleDeleteUpdate}
+              onMoveToProject={handleMoveToProject}
               clientName={portal.name}
               projects={portal.projects}
             />

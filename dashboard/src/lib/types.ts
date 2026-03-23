@@ -773,6 +773,12 @@ export interface ProjectPhase {
   completed_at: number | null;
 }
 
+export interface ProjectLink {
+  id: string;
+  title: string;
+  url: string;
+}
+
 export interface PortalProject {
   id: string;
   name: string;
@@ -781,6 +787,8 @@ export interface PortalProject {
   color: string;
   phases: ProjectPhase[];
   current_phase: string | null;
+  due_date?: string | null;
+  links?: ProjectLink[];
   created_at: number;
   updated_at: number;
 }
@@ -794,6 +802,8 @@ export interface ProjectSummary {
   phases: ProjectPhase[];
   current_phase: string | null;
   current_phase_name: string | null;
+  due_date?: string | null;
+  links?: ProjectLink[];
   update_count: number;
   media_count: number;
   action_count: number;

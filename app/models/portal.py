@@ -49,6 +49,12 @@ class UpdateResponse(BaseModel):
     author_org: str = "internal"
 
 
+# ── Update Edit Models ────────────────────────────────────
+
+class UpdateUpdateRequest(BaseModel):
+    project_id: str | None = Field(None, description="Move update to a project (null to remove)")
+
+
 # ── Comment Models ────────────────────────────────────────
 
 class CreateCommentRequest(BaseModel):
@@ -172,6 +178,8 @@ class CreateProjectRequest(BaseModel):
     description: str = Field("", description="Project description")
     color: str = Field("#6366f1", description="Hex color for visual ID")
     phases: list[dict] | None = Field(None, description="Initial phases [{name, order}]")
+    due_date: str | None = Field(None, description="Target date YYYY-MM-DD")
+    links: list[dict] | None = Field(None, description="Pinned links [{title, url}]")
 
 
 class UpdateProjectRequest(BaseModel):
@@ -180,6 +188,8 @@ class UpdateProjectRequest(BaseModel):
     status: str | None = Field(None, description="active, on_hold, completed, archived")
     color: str | None = None
     current_phase: str | None = None
+    due_date: str | None = None
+    links: list[dict] | None = None
 
 
 class CreatePhaseRequest(BaseModel):
