@@ -378,10 +378,15 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
             const updated = [...prev];
             const last = updated[updated.length - 1];
             if (last && last.role === "assistant") {
+              const results =
+                (payload.results as Record<string, unknown>[]) || [];
               updated[updated.length - 1] = {
                 ...last,
-                content: "",
-                results: (payload.results as Record<string, unknown>[]) || [],
+                content:
+                  results.length === 0
+                    ? "No results returned. The function completed but produced no output."
+                    : "",
+                results: results.length > 0 ? results : null,
               };
             }
             return updated;
@@ -416,18 +421,24 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
     const onError = (error: string) => {
       setStreaming(false);
       setStreamProgress(null);
+      const isNetworkError =
+        error.includes("Failed to fetch") ||
+        error.includes("NetworkError") ||
+        error.includes("network") ||
+        error.includes("ERR_") ||
+        error.includes("Backend unreachable");
+      const errorContent = isNetworkError
+        ? "Connection lost -- your session is saved. Refresh to reconnect."
+        : "Processing failed -- check your data and try again.";
       setMessages((prev) => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
         if (last && last.role === "assistant") {
-          updated[updated.length - 1] = {
-            ...last,
-            content: "Processing failed -- check your data and try again.",
-          };
+          updated[updated.length - 1] = { ...last, content: errorContent };
         }
         return updated;
       });
-      toast.error(error);
+      toast.error(isNetworkError ? "Connection lost" : error);
     };
 
     // Start streaming

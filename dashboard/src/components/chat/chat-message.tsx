@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChannelMessage } from "@/lib/types";
-import { formatRelativeTime } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
 import { ResultCard } from "./result-card";
 
 interface ChatMessageProps {
@@ -11,7 +11,10 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message, isStreaming }: ChatMessageProps) {
   const isUser = message.role === "user";
-  const isError = message.content.startsWith("Processing failed");
+  const isError =
+    message.content.startsWith("Processing failed") ||
+    message.content.startsWith("Connection lost") ||
+    message.content.startsWith("No results returned");
   const hasResults =
     message.results && message.results.length > 0;
 
@@ -32,11 +35,16 @@ export function ChatMessage({ message, isStreaming }: ChatMessageProps) {
           {/* Message content */}
           {message.content && (
             <p
-              className={
-                isError
-                  ? "text-sm text-kiln-coral"
-                  : "text-sm whitespace-pre-wrap"
-              }
+              className={cn(
+                "text-sm",
+                message.content.startsWith("Processing failed") &&
+                  "text-kiln-coral",
+                message.content.startsWith("Connection lost") &&
+                  "text-kiln-coral",
+                message.content.startsWith("No results returned") &&
+                  "text-clay-300 italic",
+                !isError && "whitespace-pre-wrap"
+              )}
             >
               {message.content}
               {/* Streaming pulse indicator */}
