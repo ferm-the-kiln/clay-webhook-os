@@ -10,7 +10,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Menu, Search, Wifi, WifiOff, Activity, RefreshCw } from "lucide-react";
+import { Menu, Search, Wifi, WifiOff, Activity, RefreshCw, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { CommandPalette } from "@/components/command-palette";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { formatTokens, formatNumber } from "@/lib/utils";
@@ -54,6 +55,7 @@ const HEALTH_COLORS: Record<string, { dot: string; bg: string; text: string }> =
 };
 
 export function Header({ title, breadcrumbs, lastUpdated, onRefresh }: HeaderProps) {
+  const router = useRouter();
   const [healthy, setHealthy] = useState<boolean | null>(null);
   const [showReconnect, setShowReconnect] = useState(false);
   const [usageHealth, setUsageHealth] = useState<UsageHealth | null>(null);
@@ -248,6 +250,25 @@ export function Header({ title, breadcrumbs, lastUpdated, onRefresh }: HeaderPro
               {healthy === null ? "Checking..." : healthy ? "Connected" : "Offline"}
             </Badge>
           </div>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-clay-400 hover:text-clay-100"
+                onClick={async () => {
+                  await fetch("/api/auth", { method: "DELETE" });
+                  router.push("/login");
+                  router.refresh();
+                }}
+                aria-label="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Sign out</TooltipContent>
+          </Tooltip>
         </div>
       </header>
       <CommandPalette />
