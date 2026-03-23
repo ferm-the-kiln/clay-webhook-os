@@ -1613,6 +1613,7 @@ export function streamChannelMessage(
   onEvent: (eventType: string, payload: Record<string, unknown>) => void,
   onError: (error: string) => void,
   mode: "function" | "free_chat" = "function",
+  functionId?: string,
 ): AbortController {
   const controller = new AbortController();
 
@@ -1624,7 +1625,7 @@ export function streamChannelMessage(
           "Content-Type": "application/json",
           "X-API-Key": API_KEY,
         },
-        body: JSON.stringify({ content, data, mode }),
+        body: JSON.stringify({ content, data, mode, function_id: functionId || undefined }),
         signal: controller.signal,
       });
 
@@ -1736,6 +1737,7 @@ export function streamClientChannelMessage(
   onEvent: (eventType: string, payload: Record<string, unknown>) => void,
   onError: (error: string) => void,
   mode: "function" | "free_chat" = "function",
+  functionId?: string,
 ): AbortController {
   const controller = new AbortController();
 
@@ -1746,7 +1748,7 @@ export function streamClientChannelMessage(
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content, data, mode }),
+          body: JSON.stringify({ content, data, mode, function_id: functionId || undefined }),
           signal: controller.signal,
         },
       );

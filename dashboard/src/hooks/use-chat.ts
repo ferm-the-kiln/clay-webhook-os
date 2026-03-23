@@ -523,6 +523,7 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
     };
 
     // Start streaming
+    const funcId = selectedFunction?.id;
     const controller = isClientMode
       ? streamClientChannelMessage(
           clientSlug!,
@@ -532,7 +533,8 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
           data,
           onEvent,
           onError,
-          mode
+          mode,
+          funcId
         )
       : streamChannelMessage(
           activeSession.id,
@@ -540,7 +542,8 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
           data,
           onEvent,
           onError,
-          mode
+          mode,
+          funcId
         );
     abortRef.current = controller;
   }, [activeSession, inputValue, streaming, selectedFunction, refreshSessions, isClientMode, clientSlug, shareToken]);

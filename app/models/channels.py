@@ -33,6 +33,7 @@ class SendMessageRequest(BaseModel):
     content: str = Field("", description="User message text")
     data: list[dict] = Field(default_factory=list, description="Data rows to process")
     mode: str = Field("function", description="Message mode: function or free_chat")
+    function_id: str | None = Field(None, description="Function ID for per-message function execution")
 
 
 class SessionSummary(BaseModel):

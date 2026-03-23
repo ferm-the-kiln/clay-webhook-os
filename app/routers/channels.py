@@ -243,8 +243,8 @@ async def _handle_function_execution(session_id, session, body, store, request):
     updated_session = store.get_session(session_id)
     assistant_msg_index = len(updated_session.messages) - 1
 
-    # Determine function_id: from message body, session, or error
-    function_id = session.function_id
+    # Determine function_id: from message body first, then session, or error
+    function_id = body.function_id or session.function_id
     if not function_id:
         return JSONResponse(
             status_code=400,
