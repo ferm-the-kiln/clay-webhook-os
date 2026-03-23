@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Send, FileText, Loader2, Paperclip, X, FileIcon, Image } from "lucide-react";
 import { createPortalUpdate, fetchUpdateTemplates, uploadPortalMedia, deletePortalMedia } from "@/lib/api";
 import { toast } from "sonner";
-import type { UpdateTemplate, PortalMedia } from "@/lib/types";
+import type { UpdateTemplate, PortalMedia, ProjectSummary } from "@/lib/types";
 import { AuthorPicker, getSelectedAuthor, saveAuthor } from "./author-picker";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
@@ -20,10 +20,12 @@ const UPDATE_TYPES = [
 interface UpdateComposerProps {
   slug: string;
   clientName?: string;
+  projectId?: string;
+  projects?: ProjectSummary[];
   onPosted: () => void;
 }
 
-export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerProps) {
+export function UpdateComposer({ slug, clientName, projectId: initialProjectId, projects, onPosted }: UpdateComposerProps) {
   const [type, setType] = useState("update");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -36,6 +38,7 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
   const [pendingMedia, setPendingMedia] = useState<PortalMedia[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(initialProjectId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Restore draft from localStorage on mount + load saved author
@@ -129,6 +132,7 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
         create_action: type === "deliverable" && createAction,
         author_name: authorName,
         author_org: authorOrg,
+        project_id: selectedProjectId ?? undefined,
       });
       toast.success("Update posted");
       setTitle("");
@@ -244,6 +248,25 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
           </div>
         )}
       </div>
+
+      {/* Project selector (shown when projects available and not pre-locked to a project) */}
+      {projects && projects.length > 0 && !initialProjectId && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-clay-500">Project:</span>
+          <select
+            value={selectedProjectId || ""}
+            onChange={(e) => setSelectedProjectId(e.target.value || undefined)}
+            className="bg-clay-900 border border-clay-600 rounded-md px-2.5 py-1 text-xs text-clay-200 focus:outline-none focus:border-kiln-teal appearance-none cursor-pointer"
+          >
+            <option value="">None</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <input
         type="text"

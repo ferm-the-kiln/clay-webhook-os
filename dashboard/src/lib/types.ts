@@ -674,6 +674,7 @@ export interface PortalUpdate {
   google_doc_url?: string;
   author_name?: string;
   author_org?: string;
+  project_id?: string | null;
 }
 
 export interface PortalMedia {
@@ -686,6 +687,7 @@ export interface PortalMedia {
   url: string;
   created_at: number;
   drive_file_id?: string;
+  project_id?: string | null;
 }
 
 export interface ViewStats {
@@ -719,6 +721,7 @@ export interface PortalDetail {
   actions: PortalAction[];
   view_stats: ViewStats;
   sop_acks: Record<string, { acknowledged_at: number; acknowledged_by: string }>;
+  projects: ProjectSummary[];
 }
 
 // Action Items
@@ -737,6 +740,7 @@ export interface PortalAction {
   status: ActionStatus;
   priority: ActionPriority;
   recurrence: ActionRecurrence | null;
+  project_id?: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -756,6 +760,60 @@ export interface OnboardResult {
   status: string;
   sops_created: number;
   sop_ids: string[];
+}
+
+// Projects
+export type ProjectStatus = "active" | "on_hold" | "completed" | "archived";
+
+export interface ProjectPhase {
+  id: string;
+  name: string;
+  status: "pending" | "active" | "completed";
+  order: number;
+  completed_at: number | null;
+}
+
+export interface PortalProject {
+  id: string;
+  name: string;
+  description: string;
+  status: ProjectStatus;
+  color: string;
+  phases: ProjectPhase[];
+  current_phase: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  description: string;
+  status: ProjectStatus;
+  color: string;
+  phases: ProjectPhase[];
+  current_phase: string | null;
+  current_phase_name: string | null;
+  update_count: number;
+  media_count: number;
+  action_count: number;
+  last_activity: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ProjectDetail {
+  project: PortalProject;
+  updates: PortalUpdate[];
+  media: PortalMedia[];
+  actions: PortalAction[];
+  stats: {
+    update_count: number;
+    media_count: number;
+    action_count: number;
+    open_actions: number;
+    completion_pct: number;
+  };
 }
 
 // Share Links

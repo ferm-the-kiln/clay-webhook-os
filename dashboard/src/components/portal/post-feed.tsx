@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Pin, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { PortalUpdate, PortalMedia } from "@/lib/types";
+import type { PortalUpdate, PortalMedia, ProjectSummary } from "@/lib/types";
 import { PostCard } from "./post-card";
 
 interface PostFeedProps {
@@ -16,6 +16,7 @@ interface PostFeedProps {
   onTogglePin: (id: string) => void;
   onDeleteUpdate: (id: string) => void;
   clientName?: string;
+  projects?: ProjectSummary[];
 }
 
 function getLastSeenTimestamp(slug: string): number {
@@ -51,6 +52,7 @@ export function PostFeed({
   onTogglePin,
   onDeleteUpdate,
   clientName,
+  projects,
 }: PostFeedProps) {
   const [earlierExpanded, setEarlierExpanded] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -157,6 +159,7 @@ export function PostFeed({
           clientName={clientName}
           isNew={isNew}
           isFocused={globalIdx === focusedIndex}
+          projects={projects}
         />
       </motion.div>
     );

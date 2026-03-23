@@ -14,7 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { PortalUpdate, PortalMedia } from "@/lib/types";
+import Link from "next/link";
+import type { PortalUpdate, PortalMedia, ProjectSummary } from "@/lib/types";
 import { MarkdownContent } from "./markdown-content";
 import { CommentThread } from "./comment-thread";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
@@ -88,10 +89,11 @@ interface PostCardProps {
   clientName?: string;
   isNew?: boolean;
   isFocused?: boolean;
+  projects?: ProjectSummary[];
 }
 
 export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
-  function PostCard({ slug, update, media, onTogglePin, onDelete, highlighted, clientName, isNew, isFocused }, ref) {
+  function PostCard({ slug, update, media, onTogglePin, onDelete, highlighted, clientName, isNew, isFocused, projects }, ref) {
     const [expanded, setExpanded] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [reactions, setReactionsState] = useState<Record<string, boolean>>(() => getReactions(update.id));
@@ -186,6 +188,23 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                 )}>
                   {config.label}
                 </span>
+                {update.project_id && projects && (() => {
+                  const proj = projects.find((p) => p.id === update.project_id);
+                  if (!proj) return null;
+                  return (
+                    <Link
+                      href={`/clients/${slug}/projects/${proj.id}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border border-clay-600/60 bg-clay-800 text-clay-300 hover:text-clay-100 hover:border-clay-500 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span
+                        className="h-2 w-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: proj.color }}
+                      />
+                      {proj.name}
+                    </Link>
+                  );
+                })()}
                 <span className="text-xs text-clay-400" title={fullDate}>
                   {formatRelativeTime(update.created_at)}
                 </span>

@@ -39,9 +39,13 @@ import type {
   PortalMedia,
   PortalMeta,
   PortalOverview,
+  PortalProject,
   PortalSOP,
   PortalSyncStatus,
   PortalUpdate,
+  ProjectDetail,
+  ProjectPhase,
+  ProjectSummary,
   UpdateTemplate,
   PromptPreview,
   PublicPortalView,
@@ -1252,7 +1256,7 @@ export function fetchPortalUpdates(
 
 export function createPortalUpdate(
   slug: string,
-  body: { type?: string; title: string; body?: string; media_ids?: string[]; create_action?: boolean; author_name?: string; author_org?: string }
+  body: { type?: string; title: string; body?: string; media_ids?: string[]; create_action?: boolean; author_name?: string; author_org?: string; project_id?: string }
 ): Promise<PortalUpdate> {
   return apiFetch(`/portal/${slug}/updates`, {
     method: "POST",
@@ -1427,6 +1431,68 @@ export function syncPortal(slug: string): Promise<{
 
 export function fetchSyncStatus(slug: string): Promise<PortalSyncStatus> {
   return apiFetch(`/portal/${slug}/sync/status`);
+}
+
+// ── Projects ────────────────────────────────────────────────────
+
+export function fetchProjects(slug: string): Promise<{ projects: ProjectSummary[]; total: number }> {
+  return apiFetch(`/portal/${slug}/projects`);
+}
+
+export function createProject(
+  slug: string,
+  body: { name: string; description?: string; color?: string; phases?: { name: string; order?: number }[] },
+): Promise<PortalProject> {
+  return apiFetch(`/portal/${slug}/projects`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchProjectDetail(slug: string, projectId: string): Promise<ProjectDetail> {
+  return apiFetch(`/portal/${slug}/projects/${projectId}`);
+}
+
+export function updateProject(
+  slug: string,
+  projectId: string,
+  body: { name?: string; description?: string; status?: string; color?: string; current_phase?: string },
+): Promise<PortalProject> {
+  return apiFetch(`/portal/${slug}/projects/${projectId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteProject(slug: string, projectId: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/portal/${slug}/projects/${projectId}`, { method: "DELETE" });
+}
+
+export function addProjectPhase(
+  slug: string,
+  projectId: string,
+  body: { name: string; order?: number },
+): Promise<ProjectPhase> {
+  return apiFetch(`/portal/${slug}/projects/${projectId}/phases`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateProjectPhase(
+  slug: string,
+  projectId: string,
+  phaseId: string,
+  body: { name?: string; status?: string; order?: number },
+): Promise<ProjectPhase> {
+  return apiFetch(`/portal/${slug}/projects/${projectId}/phases/${phaseId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteProjectPhase(slug: string, projectId: string, phaseId: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/portal/${slug}/projects/${projectId}/phases/${phaseId}`, { method: "DELETE" });
 }
 
 // ── Channel / Chat API ──────────────────────────────────────────

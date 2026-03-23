@@ -23,6 +23,7 @@ import { PostFeed } from "@/components/portal/post-feed";
 import { TimelineSidebar } from "@/components/portal/timeline-sidebar";
 import { UpdateComposer } from "@/components/portal/update-composer";
 import { ShareDialog } from "@/components/portal/share-dialog";
+import { ProjectList } from "@/components/portal/project-list";
 import { usePortalFeed } from "@/hooks/use-portal-feed";
 
 export default function ClientPortalPage() {
@@ -198,6 +199,13 @@ export default function ClientPortalPage() {
           </div>
         </div>
 
+        {/* Projects */}
+        <ProjectList
+          slug={slug}
+          projects={portal.projects ?? []}
+          onProjectCreated={loadPortal}
+        />
+
         {/* Attention strip */}
         <AttentionStrip
           clientActions={clientActions}
@@ -220,6 +228,7 @@ export default function ClientPortalPage() {
               <UpdateComposer
                 slug={slug}
                 clientName={portal.name}
+                projects={portal.projects}
                 onPosted={() => { loadPortal(); setComposerOpen(false); }}
               />
             )}
@@ -234,6 +243,7 @@ export default function ClientPortalPage() {
               onTogglePin={handleTogglePin}
               onDeleteUpdate={handleDeleteUpdate}
               clientName={portal.name}
+              projects={portal.projects}
             />
           </div>
 

@@ -46,6 +46,7 @@ class PortalStore:
         (base / "updates").mkdir(parents=True, exist_ok=True)
         (base / "media").mkdir(parents=True, exist_ok=True)
         (base / "actions").mkdir(parents=True, exist_ok=True)
+        (base / "projects").mkdir(parents=True, exist_ok=True)
         (self._uploads_dir / slug).mkdir(parents=True, exist_ok=True)
 
     def _client_name(self, slug: str) -> str:
@@ -309,7 +310,7 @@ updated_at: {now}
                 continue
         return entries
 
-    def create_update(self, slug: str, type_: str, title: str, body: str = "", media_ids: list[str] | None = None, author_name: str = "", author_org: str = "internal") -> dict:
+    def create_update(self, slug: str, type_: str, title: str, body: str = "", media_ids: list[str] | None = None, author_name: str = "", author_org: str = "internal", project_id: str | None = None) -> dict:
         self._ensure_dirs(slug)
         update_id = f"upd_{uuid.uuid4().hex[:8]}"
         now = time.time()
@@ -322,6 +323,7 @@ updated_at: {now}
             "media_ids": media_ids or [],
             "author_name": author_name,
             "author_org": author_org,
+            "project_id": project_id,
             "created_at": now,
         }
         path = self._portal_dir(slug) / "updates" / "updates.jsonl"
@@ -533,6 +535,7 @@ updated_at: {now}
         actions = self.list_actions(slug)
         view_stats = self.get_view_stats(slug)
         sop_acks = self.get_sop_acks(slug)
+        projects = self.list_projects(slug)
 
         return {
             "slug": slug,
@@ -544,6 +547,7 @@ updated_at: {now}
             "actions": actions,
             "view_stats": view_stats,
             "sop_acks": sop_acks,
+            "projects": projects,
         }
 
     # ── Actions ────────────────────────────────────────────
@@ -576,6 +580,7 @@ updated_at: {now}
         due_date: str | None = None,
         priority: str = "normal",
         recurrence: str | None = None,
+        project_id: str | None = None,
     ) -> dict:
         self._ensure_dirs(slug)
         action_id = f"act_{uuid.uuid4().hex[:8]}"
@@ -589,6 +594,7 @@ updated_at: {now}
             "status": "open",
             "priority": priority,
             "recurrence": recurrence,
+            "project_id": project_id,
             "created_at": now,
             "updated_at": now,
         }
@@ -678,6 +684,278 @@ updated_at: {now}
         self._save_actions(slug, new_actions)
         logger.info("[portal] Deleted action '%s' for %s", action_id, slug)
         return True
+
+    # ── Projects ───────────────────────────────────────────
+
+    def _projects_path(self, slug: str) -> Path:
+        return self._portal_dir(slug) / "projects" / "projects.json"
+
+    def _load_projects(self, slug: str) -> list[dict]:
+        path = self._projects_path(slug)
+        if not path.exists():
+            return []
+        try:
+            return json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            return []
+
+    def _save_projects(self, slug: str, projects: list[dict]) -> None:
+        self._ensure_dirs(slug)
+        atomic_write_json(self._projects_path(slug), projects)
+
+    def list_projects(self, slug: str) -> list[dict]:
+        """List projects with summary stats."""
+        projects = self._load_projects(slug)
+        updates = self._load_all_updates(slug)
+        media = self._load_media(slug)
+        actions = self._load_actions(slug)
+
+        summaries = []
+        for p in projects:
+            pid = p["id"]
+            p_updates = [u for u in updates if u.get("project_id") == pid]
+            p_media = [m for m in media if m.get("project_id") == pid]
+            p_actions = [a for a in actions if a.get("project_id") == pid]
+
+            current_phase_name = None
+            if p.get("current_phase"):
+                for ph in p.get("phases", []):
+                    if ph["id"] == p["current_phase"]:
+                        current_phase_name = ph["name"]
+                        break
+
+            last_activity = None
+            if p_updates:
+                last_activity = max(u.get("created_at", 0) for u in p_updates)
+
+            summaries.append({
+                "id": pid,
+                "name": p["name"],
+                "description": p.get("description", ""),
+                "status": p.get("status", "active"),
+                "color": p.get("color", "#6366f1"),
+                "phases": p.get("phases", []),
+                "current_phase": p.get("current_phase"),
+                "current_phase_name": current_phase_name,
+                "update_count": len(p_updates),
+                "media_count": len(p_media),
+                "action_count": len(p_actions),
+                "last_activity": last_activity,
+                "created_at": p.get("created_at"),
+                "updated_at": p.get("updated_at"),
+            })
+        return summaries
+
+    def _load_all_updates(self, slug: str) -> list[dict]:
+        """Load all updates from JSONL (no limit/offset)."""
+        path = self._portal_dir(slug) / "updates" / "updates.jsonl"
+        if not path.exists():
+            return []
+        try:
+            lines = [l for l in path.read_text().splitlines() if l.strip()]
+        except OSError:
+            return []
+        entries = []
+        for line in lines:
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+        return entries
+
+    def create_project(
+        self,
+        slug: str,
+        name: str,
+        description: str = "",
+        color: str = "#6366f1",
+        phases: list[dict] | None = None,
+    ) -> dict:
+        self._ensure_dirs(slug)
+        project_id = f"prj_{uuid.uuid4().hex[:8]}"
+        now = time.time()
+
+        built_phases = []
+        if phases:
+            for i, ph in enumerate(phases):
+                built_phases.append({
+                    "id": f"ph_{uuid.uuid4().hex[:6]}",
+                    "name": ph.get("name", f"Phase {i + 1}"),
+                    "status": "pending",
+                    "order": ph.get("order", i),
+                    "completed_at": None,
+                })
+
+        project = {
+            "id": project_id,
+            "name": name,
+            "description": description,
+            "status": "active",
+            "color": color,
+            "phases": built_phases,
+            "current_phase": built_phases[0]["id"] if built_phases else None,
+            "created_at": now,
+            "updated_at": now,
+        }
+        # Mark first phase as active
+        if built_phases:
+            built_phases[0]["status"] = "active"
+
+        projects = self._load_projects(slug)
+        projects.append(project)
+        self._save_projects(slug, projects)
+        logger.info("[portal] Created project '%s' for %s", name, slug)
+        return project
+
+    def get_project(self, slug: str, project_id: str) -> dict | None:
+        for p in self._load_projects(slug):
+            if p["id"] == project_id:
+                return p
+        return None
+
+    def update_project(self, slug: str, project_id: str, updates: dict) -> dict | None:
+        projects = self._load_projects(slug)
+        for p in projects:
+            if p["id"] == project_id:
+                for k, v in updates.items():
+                    if v is not None:
+                        p[k] = v
+                p["updated_at"] = time.time()
+                self._save_projects(slug, projects)
+                logger.info("[portal] Updated project '%s' for %s", project_id, slug)
+                return p
+        return None
+
+    def delete_project(self, slug: str, project_id: str) -> bool:
+        projects = self._load_projects(slug)
+        new_projects = [p for p in projects if p["id"] != project_id]
+        if len(new_projects) == len(projects):
+            return False
+        self._save_projects(slug, new_projects)
+
+        # Clear project_id from linked updates
+        path = self._portal_dir(slug) / "updates" / "updates.jsonl"
+        if path.exists():
+            lines = path.read_text().splitlines()
+            new_lines = []
+            for line in lines:
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                    if entry.get("project_id") == project_id:
+                        entry["project_id"] = None
+                    new_lines.append(json.dumps(entry))
+                except json.JSONDecodeError:
+                    new_lines.append(line)
+            atomic_write_text(path, "\n".join(new_lines) + "\n" if new_lines else "")
+
+        # Clear project_id from linked media
+        media_list = self._load_media(slug)
+        changed = False
+        for m in media_list:
+            if m.get("project_id") == project_id:
+                m["project_id"] = None
+                changed = True
+        if changed:
+            self._save_media(slug, media_list)
+
+        # Clear project_id from linked actions
+        actions = self._load_actions(slug)
+        changed = False
+        for a in actions:
+            if a.get("project_id") == project_id:
+                a["project_id"] = None
+                changed = True
+        if changed:
+            self._save_actions(slug, actions)
+
+        logger.info("[portal] Deleted project '%s' for %s", project_id, slug)
+        return True
+
+    def get_project_detail(self, slug: str, project_id: str) -> dict | None:
+        """Get project with filtered updates, media, actions, and stats."""
+        project = self.get_project(slug, project_id)
+        if not project:
+            return None
+
+        updates = [u for u in self._load_all_updates(slug) if u.get("project_id") == project_id]
+        updates.sort(key=lambda u: u.get("created_at", 0), reverse=True)
+        media = [m for m in self._load_media(slug) if m.get("project_id") == project_id]
+        actions = [a for a in self._load_actions(slug) if a.get("project_id") == project_id]
+
+        phases = project.get("phases", [])
+        completed_phases = sum(1 for ph in phases if ph.get("status") == "completed")
+        completion_pct = completed_phases / len(phases) if phases else 0
+
+        return {
+            "project": project,
+            "updates": updates,
+            "media": media,
+            "actions": actions,
+            "stats": {
+                "update_count": len(updates),
+                "media_count": len(media),
+                "action_count": len(actions),
+                "open_actions": sum(1 for a in actions if a.get("status") != "done"),
+                "completion_pct": round(completion_pct, 2),
+            },
+        }
+
+    # ── Project Phases ─────────────────────────────────────
+
+    def add_phase(self, slug: str, project_id: str, name: str, order: int = 0) -> dict | None:
+        projects = self._load_projects(slug)
+        for p in projects:
+            if p["id"] == project_id:
+                phase_id = f"ph_{uuid.uuid4().hex[:6]}"
+                phase = {
+                    "id": phase_id,
+                    "name": name,
+                    "status": "pending",
+                    "order": order,
+                    "completed_at": None,
+                }
+                p.setdefault("phases", []).append(phase)
+                p["updated_at"] = time.time()
+                self._save_projects(slug, projects)
+                logger.info("[portal] Added phase '%s' to project '%s' for %s", name, project_id, slug)
+                return phase
+        return None
+
+    def update_phase(self, slug: str, project_id: str, phase_id: str, updates: dict) -> dict | None:
+        projects = self._load_projects(slug)
+        for p in projects:
+            if p["id"] == project_id:
+                for ph in p.get("phases", []):
+                    if ph["id"] == phase_id:
+                        for k, v in updates.items():
+                            if v is not None:
+                                ph[k] = v
+                        if updates.get("status") == "completed" and not ph.get("completed_at"):
+                            ph["completed_at"] = time.time()
+                        p["updated_at"] = time.time()
+                        self._save_projects(slug, projects)
+                        logger.info("[portal] Updated phase '%s' in project '%s' for %s", phase_id, project_id, slug)
+                        return ph
+        return None
+
+    def delete_phase(self, slug: str, project_id: str, phase_id: str) -> bool:
+        projects = self._load_projects(slug)
+        for p in projects:
+            if p["id"] == project_id:
+                phases = p.get("phases", [])
+                new_phases = [ph for ph in phases if ph["id"] != phase_id]
+                if len(new_phases) == len(phases):
+                    return False
+                p["phases"] = new_phases
+                if p.get("current_phase") == phase_id:
+                    p["current_phase"] = new_phases[0]["id"] if new_phases else None
+                p["updated_at"] = time.time()
+                self._save_projects(slug, projects)
+                logger.info("[portal] Deleted phase '%s' from project '%s' for %s", phase_id, project_id, slug)
+                return True
+        return False
 
     # ── SOP Templates ─────────────────────────────────────
 

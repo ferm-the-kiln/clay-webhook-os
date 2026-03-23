@@ -7,11 +7,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from app.models.portal import (
     CreateActionRequest,
     CreateCommentRequest,
+    CreatePhaseRequest,
+    CreateProjectRequest,
     CreateSOPRequest,
     CreateUpdateRequest,
     OnboardRequest,
     UpdateActionRequest,
+    UpdatePhaseRequest,
     UpdatePortalRequest,
+    UpdateProjectRequest,
     UpdateSOPRequest,
 )
 
@@ -165,7 +169,7 @@ async def create_update(request: Request, slug: str, body: CreateUpdateRequest):
     email_notifier = getattr(request.app.state, "email_notifier", None)
     update = store.create_update(
         slug, type_=body.type, title=body.title, body=body.body, media_ids=body.media_ids,
-        author_name=body.author_name, author_org=body.author_org,
+        author_name=body.author_name, author_org=body.author_org, project_id=body.project_id,
     )
     # Auto-create client review action for deliverables
     if body.type == "deliverable" and body.create_action:
@@ -258,6 +262,7 @@ async def create_action(request: Request, slug: str, body: CreateActionRequest):
         due_date=body.due_date,
         priority=body.priority,
         recurrence=body.recurrence,
+        project_id=body.project_id,
     )
     if notifier and body.owner == "client":
         asyncio.create_task(notifier.notify_action_assigned(slug, action))
@@ -361,6 +366,85 @@ async def delete_media(request: Request, slug: str, media_id: str):
         if doc_sync and doc_sync.available:
             asyncio.create_task(doc_sync.delete_media_file(slug, media_entry))
 
+    return {"ok": True}
+
+
+# ── Projects ─────────────────────────────────────────
+
+
+@router.get("/portal/{slug}/projects")
+async def list_projects(request: Request, slug: str):
+    store = request.app.state.portal_store
+    projects = store.list_projects(slug)
+    return {"projects": projects, "total": len(projects)}
+
+
+@router.post("/portal/{slug}/projects")
+async def create_project(request: Request, slug: str, body: CreateProjectRequest):
+    store = request.app.state.portal_store
+    project = store.create_project(
+        slug, name=body.name, description=body.description,
+        color=body.color, phases=body.phases,
+    )
+    return project
+
+
+@router.get("/portal/{slug}/projects/{project_id}")
+async def get_project_detail(request: Request, slug: str, project_id: str):
+    store = request.app.state.portal_store
+    detail = store.get_project_detail(slug, project_id)
+    if not detail:
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Project '{project_id}' not found"})
+    # Add URL to each media entry
+    for m in detail.get("media", []):
+        m["url"] = f"/portal/media/{slug}/{m['filename']}"
+    return detail
+
+
+@router.put("/portal/{slug}/projects/{project_id}")
+async def update_project(request: Request, slug: str, project_id: str, body: UpdateProjectRequest):
+    store = request.app.state.portal_store
+    updates = body.model_dump(exclude_none=True)
+    if not updates:
+        return JSONResponse(status_code=400, content={"error": True, "error_message": "No fields to update"})
+    project = store.update_project(slug, project_id, updates)
+    if not project:
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Project '{project_id}' not found"})
+    return project
+
+
+@router.delete("/portal/{slug}/projects/{project_id}")
+async def delete_project(request: Request, slug: str, project_id: str):
+    store = request.app.state.portal_store
+    if not store.delete_project(slug, project_id):
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Project '{project_id}' not found"})
+    return {"ok": True}
+
+
+@router.post("/portal/{slug}/projects/{project_id}/phases")
+async def add_phase(request: Request, slug: str, project_id: str, body: CreatePhaseRequest):
+    store = request.app.state.portal_store
+    phase = store.add_phase(slug, project_id, name=body.name, order=body.order)
+    if not phase:
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Project '{project_id}' not found"})
+    return phase
+
+
+@router.put("/portal/{slug}/projects/{project_id}/phases/{phase_id}")
+async def update_phase(request: Request, slug: str, project_id: str, phase_id: str, body: UpdatePhaseRequest):
+    store = request.app.state.portal_store
+    updates = body.model_dump(exclude_none=True)
+    phase = store.update_phase(slug, project_id, phase_id, updates)
+    if not phase:
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Phase '{phase_id}' not found"})
+    return phase
+
+
+@router.delete("/portal/{slug}/projects/{project_id}/phases/{phase_id}")
+async def delete_phase(request: Request, slug: str, project_id: str, phase_id: str):
+    store = request.app.state.portal_store
+    if not store.delete_phase(slug, project_id, phase_id):
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Phase '{phase_id}' not found"})
     return {"ok": True}
 
 

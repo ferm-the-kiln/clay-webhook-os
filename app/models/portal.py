@@ -34,6 +34,7 @@ class CreateUpdateRequest(BaseModel):
     create_action: bool = Field(False, description="Auto-create client review action for deliverables")
     author_name: str = Field("", description="Name of the person posting")
     author_org: str = Field("internal", description="Organization: 'internal' or 'client'")
+    project_id: str | None = Field(None, description="Link update to a project")
 
 
 class UpdateResponse(BaseModel):
@@ -72,6 +73,7 @@ class CreateActionRequest(BaseModel):
     due_date: str | None = Field(None, description="ISO date YYYY-MM-DD")
     priority: str = Field("normal", description="Priority: high, normal, low")
     recurrence: str | None = Field(None, description="Recurrence: none, weekly, biweekly, monthly")
+    project_id: str | None = Field(None, description="Link action to a project")
 
 
 class UpdateActionRequest(BaseModel):
@@ -160,3 +162,32 @@ class PortalOverview(BaseModel):
     days_since_last_update: int | None = None
     last_viewed_at: float | None = None
     unacked_sop_count: int = 0
+
+
+# ── Project Models ───────────────────────────────────────
+
+
+class CreateProjectRequest(BaseModel):
+    name: str = Field(..., description="Project name")
+    description: str = Field("", description="Project description")
+    color: str = Field("#6366f1", description="Hex color for visual ID")
+    phases: list[dict] | None = Field(None, description="Initial phases [{name, order}]")
+
+
+class UpdateProjectRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    status: str | None = Field(None, description="active, on_hold, completed, archived")
+    color: str | None = None
+    current_phase: str | None = None
+
+
+class CreatePhaseRequest(BaseModel):
+    name: str = Field(..., description="Phase name")
+    order: int = Field(0, description="Sort order")
+
+
+class UpdatePhaseRequest(BaseModel):
+    name: str | None = None
+    status: str | None = Field(None, description="pending, active, completed")
+    order: int | None = None
