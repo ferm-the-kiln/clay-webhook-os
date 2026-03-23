@@ -78,6 +78,7 @@ function ChatPage() {
           <ChatThread
             messages={chat.messages}
             streaming={chat.streaming}
+            sessionTitle={chat.activeSession?.title}
           />
 
           <ChatInput

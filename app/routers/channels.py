@@ -16,7 +16,7 @@ import time
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.models.channels import CreateSessionRequest, SendMessageRequest
+from app.models.channels import CreateSessionRequest, SendMessageRequest, UpdateSessionRequest
 
 router = APIRouter(prefix="/channels", tags=["channels"])
 logger = logging.getLogger("clay-webhook-os")
@@ -68,6 +68,19 @@ async def get_session(session_id: str, request: Request):
     """Get a session with all messages and results."""
     store = request.app.state.channel_store
     session = store.get_session(session_id)
+    if session is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": True, "error_message": "Session not found"},
+        )
+    return session.model_dump()
+
+
+@router.patch("/{session_id}")
+async def update_session(session_id: str, body: UpdateSessionRequest, request: Request):
+    """Update session metadata (currently: title)."""
+    store = request.app.state.channel_store
+    session = store.update_title(session_id, body.title.strip())
     if session is None:
         return JSONResponse(
             status_code=404,

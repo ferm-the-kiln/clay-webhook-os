@@ -113,6 +113,16 @@ class ChannelStore:
         atomic_write_json(self._dir / f"{session_id}.json", session.model_dump())
         return session
 
+    def update_title(self, session_id: str, title: str) -> ChannelSession | None:
+        """Update the title of a session. Returns None if not found."""
+        session = self.get_session(session_id)
+        if session is None:
+            return None
+        session.title = title
+        session.updated_at = time.time()
+        atomic_write_json(self._dir / f"{session_id}.json", session.model_dump())
+        return session
+
     def update_message_results(self, session_id: str, message_index: int, results: list[dict]) -> bool:
         """Update a specific message's results field (for saving after SSE completes)."""
         session = self.get_session(session_id)

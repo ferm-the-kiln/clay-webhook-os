@@ -1606,6 +1606,13 @@ export function archiveChannel(sessionId: string): Promise<ChannelSession> {
   return apiFetch(`/channels/${sessionId}`, { method: "DELETE" });
 }
 
+export function updateChannelTitle(sessionId: string, title: string): Promise<ChannelSession> {
+  return apiFetch(`/channels/${sessionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+}
+
 export function streamChannelMessage(
   sessionId: string,
   content: string,

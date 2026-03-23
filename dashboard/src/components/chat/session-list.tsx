@@ -1,13 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import type { ChannelSessionSummary } from "@/lib/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Plus,
   MessageSquare,
   MessageCircle,
   PanelLeftClose,
+  Search,
 } from "lucide-react";
 
 interface SessionListProps {
@@ -27,6 +30,16 @@ export function SessionList({
   collapsed,
   onToggleCollapse,
 }: SessionListProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredSessions = searchQuery.trim()
+    ? sessions.filter((s) =>
+        (s.title || s.function_name || "Untitled")
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
+      )
+    : sessions;
+
   return (
     <div
       className={cn(
@@ -62,14 +75,29 @@ export function SessionList({
         </Button>
       </div>
 
+      {/* Search input */}
+      {sessions.length > 0 && (
+        <div className="px-3 pb-2">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-clay-300 pointer-events-none" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search sessions…"
+              className="pl-7 h-8 text-xs bg-clay-900 border-clay-700 text-clay-100 placeholder:text-clay-400 focus-visible:ring-kiln-teal/50"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Session list */}
       <div className="flex-1 overflow-y-auto">
-        {sessions.length === 0 ? (
+        {filteredSessions.length === 0 ? (
           <p className="text-xs text-clay-300 py-8 text-center">
-            No sessions yet
+            {searchQuery.trim() ? "No sessions match" : "No sessions yet"}
           </p>
         ) : (
-          sessions.map((session) => {
+          filteredSessions.map((session) => {
             const isActive = session.id === activeSessionId;
             const isFreeChat = !session.function_id;
             const Icon = isFreeChat ? MessageCircle : MessageSquare;

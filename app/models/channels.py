@@ -36,6 +36,10 @@ class SendMessageRequest(BaseModel):
     function_id: str | None = Field(None, description="Function ID for per-message function execution")
 
 
+class UpdateSessionRequest(BaseModel):
+    title: str = Field(..., description="New session title")
+
+
 class SessionSummary(BaseModel):
     id: str
     function_id: str | None = None

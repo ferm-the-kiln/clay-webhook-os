@@ -12,6 +12,7 @@ import {
   fetchClientChannels,
   fetchClientChannel,
   streamClientChannelMessage,
+  updateChannelTitle,
 } from "@/lib/api";
 import type {
   FunctionDefinition,
@@ -340,6 +341,20 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
             break;
           case "done":
             setStreaming(false);
+            // Auto-name the session from the first user message (only when it's a new session)
+            setMessages((currentMsgs) => {
+              const isFirstExchange = currentMsgs.filter((m) => m.role === "user").length === 1;
+              if (isFirstExchange && activeSession) {
+                const firstUserMsg = currentMsgs.find((m) => m.role === "user");
+                if (firstUserMsg) {
+                  const autoTitle = firstUserMsg.content.slice(0, 40).trim() + (firstUserMsg.content.length > 40 ? "…" : "");
+                  if (!isClientMode) {
+                    updateChannelTitle(activeSession.id, autoTitle).catch(() => {/* silent */});
+                  }
+                }
+              }
+              return currentMsgs;
+            });
             refreshSessions();
             break;
           case "connected":
