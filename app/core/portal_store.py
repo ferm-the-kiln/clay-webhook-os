@@ -1021,6 +1021,7 @@ updated_at: {now}
                 "media_count": len(p_media),
                 "action_count": len(p_actions),
                 "last_activity": last_activity,
+                "drive_folder_url": p.get("drive_folder_url"),
                 "created_at": p.get("created_at"),
                 "updated_at": p.get("updated_at"),
             })
@@ -1093,6 +1094,8 @@ updated_at: {now}
             "current_phase": built_phases[0]["id"] if built_phases else None,
             "due_date": due_date,
             "links": built_links,
+            "drive_folder_id": None,
+            "drive_folder_url": None,
             "created_at": now,
             "updated_at": now,
         }

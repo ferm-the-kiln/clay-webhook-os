@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare, Paperclip, CheckCircle2, AlertCircle } from "lucide-react";
+import { MessageSquare, Paperclip, CheckCircle2, AlertCircle, FolderOpen, ExternalLink } from "lucide-react";
 import type { ProjectDetail, PortalProject, PortalMedia, PortalAction } from "@/lib/types";
 import { ProjectPhaseTracker } from "./project-phase-tracker";
 import { ProjectMediaSection } from "./project-media-section";
@@ -37,6 +37,20 @@ export function ProjectSidebar({
 }: ProjectSidebarProps) {
   return (
     <div className="sticky top-4 space-y-5 max-h-[calc(100vh-6rem)] overflow-y-auto">
+      {/* Google Drive folder */}
+      {project.drive_folder_url && (
+        <a
+          href={project.drive_folder_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 rounded-xl border border-clay-600 bg-clay-800 px-4 py-3 text-xs text-clay-200 hover:border-kiln-teal hover:text-kiln-teal transition-colors"
+        >
+          <FolderOpen className="h-4 w-4 flex-shrink-0" />
+          <span className="font-medium">Open in Google Drive</span>
+          <ExternalLink className="h-3 w-3 ml-auto text-clay-500" />
+        </a>
+      )}
+
       {/* Quick stats */}
       {stats && (
         <div className="rounded-xl border border-clay-600 bg-clay-800 p-4">

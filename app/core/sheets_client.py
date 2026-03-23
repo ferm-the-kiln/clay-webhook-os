@@ -180,6 +180,20 @@ class SheetsClient:
         """Return the web URL for a Drive file."""
         return f"https://drive.google.com/file/d/{file_id}/view"
 
+    async def rename_file(self, file_id: str, new_name: str) -> None:
+        """Rename a file or folder in Google Drive."""
+        await self._run_gws(
+            "drive", "files", "update",
+            "--params", json.dumps({"fileId": file_id}),
+            "--json", json.dumps({"name": new_name}),
+        )
+        logger.info("[sheets] Renamed Drive file (id=%s) to '%s'", file_id, new_name)
+
+    @staticmethod
+    def get_folder_url(folder_id: str) -> str:
+        """Return the web URL for a Drive folder."""
+        return f"https://drive.google.com/drive/folders/{folder_id}"
+
     async def delete_file(self, file_id: str) -> None:
         """Permanently delete a file from Google Drive."""
         await self._run_gws(

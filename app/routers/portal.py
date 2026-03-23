@@ -359,6 +359,7 @@ async def upload_media(
     slug: str,
     file: UploadFile = File(...),
     caption: str = Form(""),
+    project_id: str = Form(""),
 ):
     store = request.app.state.portal_store
 
@@ -373,11 +374,24 @@ async def upload_media(
     entry = store.add_media(slug, original_name=file.filename or "upload", file_bytes=file_bytes, caption=caption)
     entry["url"] = f"/portal/media/{slug}/{entry['filename']}"
 
+    # Link media to project if provided
+    project_name = None
+    if project_id:
+        project = store.get_project(slug, project_id)
+        if project:
+            project_name = project["name"]
+            store.update_media_field(slug, entry["id"], "project_id", project_id)
+            entry["project_id"] = project_id
+
     # Sync to Google Drive (async, fire-and-forget)
     doc_sync = getattr(request.app.state, "portal_doc_sync", None)
     if doc_sync and doc_sync.available:
         local_path = str(store.get_media_path(slug, entry["filename"]))
-        asyncio.create_task(doc_sync.sync_media(slug, entry, local_path))
+        asyncio.create_task(doc_sync.sync_media(
+            slug, entry, local_path,
+            project_id=project_id or None,
+            project_name=project_name,
+        ))
 
     return entry
 
@@ -429,6 +443,12 @@ async def create_project(request: Request, slug: str, body: CreateProjectRequest
         color=body.color, phases=body.phases,
         due_date=body.due_date, links=body.links,
     )
+
+    # Create Drive folder (async, fire-and-forget)
+    doc_sync = getattr(request.app.state, "portal_doc_sync", None)
+    if doc_sync and doc_sync.available:
+        asyncio.create_task(doc_sync.create_project_folder(slug, project["id"], project["name"]))
+
     return project
 
 
@@ -453,14 +473,32 @@ async def update_project(request: Request, slug: str, project_id: str, body: Upd
     project = store.update_project(slug, project_id, updates)
     if not project:
         return JSONResponse(status_code=404, content={"error": True, "error_message": f"Project '{project_id}' not found"})
+
+    # Rename Drive folder if name changed (async, fire-and-forget)
+    if "name" in updates and project.get("drive_folder_id"):
+        doc_sync = getattr(request.app.state, "portal_doc_sync", None)
+        if doc_sync and doc_sync.available:
+            asyncio.create_task(doc_sync.rename_project_folder(slug, project, updates["name"]))
+
     return project
 
 
 @router.delete("/portal/{slug}/projects/{project_id}")
 async def delete_project(request: Request, slug: str, project_id: str):
     store = request.app.state.portal_store
+
+    # Fetch project before deletion to get drive_folder_id
+    project = store.get_project(slug, project_id)
+
     if not store.delete_project(slug, project_id):
         return JSONResponse(status_code=404, content={"error": True, "error_message": f"Project '{project_id}' not found"})
+
+    # Delete Drive folder (async, fire-and-forget)
+    if project and project.get("drive_folder_id"):
+        doc_sync = getattr(request.app.state, "portal_doc_sync", None)
+        if doc_sync and doc_sync.available:
+            asyncio.create_task(doc_sync.delete_project_folder(slug, project))
+
     return {"ok": True}
 
 

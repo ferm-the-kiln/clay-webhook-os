@@ -820,6 +820,8 @@ export interface PortalProject {
   current_phase: string | null;
   due_date?: string | null;
   links?: ProjectLink[];
+  drive_folder_id?: string | null;
+  drive_folder_url?: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -835,6 +837,7 @@ export interface ProjectSummary {
   current_phase_name: string | null;
   due_date?: string | null;
   links?: ProjectLink[];
+  drive_folder_url?: string | null;
   update_count: number;
   media_count: number;
   action_count: number;

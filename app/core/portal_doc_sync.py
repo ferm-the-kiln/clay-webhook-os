@@ -37,6 +37,8 @@ class PortalDocSync:
         self._type_folder_cache: dict[str, str] = {}    # "slug/type" → type subfolder ID
         self._shared_clients: set[str] = set()           # slugs already shared this runtime
         self._media_folder_cache: dict[str, str] = {}    # slug → media folder ID
+        self._projects_folder_cache: dict[str, str] = {}  # slug → "Projects" subfolder ID
+        self._project_folder_cache: dict[str, str] = {}   # "slug/project_id" → project folder ID
 
     @property
     def available(self) -> bool:
@@ -187,13 +189,22 @@ class PortalDocSync:
         self._media_folder_cache[slug] = media_folder_id
         return media_folder_id
 
-    async def sync_media(self, slug: str, media_entry: dict, local_path: str) -> dict | None:
+    async def sync_media(
+        self,
+        slug: str,
+        media_entry: dict,
+        local_path: str,
+        project_id: str | None = None,
+        project_name: str | None = None,
+    ) -> dict | None:
         """Upload a media file to Google Drive and store drive_file_id back on entry.
 
         Args:
             slug: Client slug
             media_entry: The media dict (must have id, original_name, mime_type)
             local_path: Absolute path to the local file
+            project_id: Optional project ID — routes upload to project folder
+            project_name: Optional project name — needed with project_id
 
         Returns:
             {"file_id": "...", "url": "..."} on success, None on failure
@@ -206,12 +217,15 @@ class PortalDocSync:
         mime_type = media_entry.get("mime_type", "application/octet-stream")
 
         try:
-            media_folder_id = await self._ensure_media_folder(slug)
+            if project_id and project_name:
+                target_folder_id = await self._ensure_project_folder(slug, project_id, project_name)
+            else:
+                target_folder_id = await self._ensure_media_folder(slug)
             file_id = await self.sheets_client.upload_file(
                 local_path=local_path,
                 name=original_name,
                 mime_type=mime_type,
-                parent_folder_id=media_folder_id,
+                parent_folder_id=target_folder_id,
             )
 
             await self._share_client_folder(slug)
@@ -239,4 +253,95 @@ class PortalDocSync:
             return True
         except Exception as e:
             logger.error("[portal_doc_sync] Failed to delete Drive media %s: %s", drive_file_id, e)
+            return False
+
+    # ── Project folder sync ───────────────────────────────
+
+    async def _ensure_projects_folder(self, slug: str) -> str:
+        """Ensure Client Portals / {Client Name} / Projects/ folder exists."""
+        if slug in self._projects_folder_cache:
+            return self._projects_folder_cache[slug]
+        client_folder_id = await self._ensure_client_folder(slug)
+        projects_folder_id = await self.sheets_client.ensure_subfolder(client_folder_id, "Projects")
+        self._projects_folder_cache[slug] = projects_folder_id
+        return projects_folder_id
+
+    async def _ensure_project_folder(self, slug: str, project_id: str, project_name: str) -> str:
+        """Ensure Projects / {Project Name}/ folder exists. Returns folder ID."""
+        cache_key = f"{slug}/{project_id}"
+        if cache_key in self._project_folder_cache:
+            return self._project_folder_cache[cache_key]
+
+        # Check if drive_folder_id is already stored on the project
+        project = self.portal_store.get_project(slug, project_id)
+        if project and project.get("drive_folder_id"):
+            folder_id = project["drive_folder_id"]
+            self._project_folder_cache[cache_key] = folder_id
+            return folder_id
+
+        projects_folder_id = await self._ensure_projects_folder(slug)
+        folder_id = await self.sheets_client.ensure_subfolder(projects_folder_id, project_name)
+
+        # Store back on the project
+        folder_url = SheetsClient.get_folder_url(folder_id)
+        self.portal_store.update_project(slug, project_id, {
+            "drive_folder_id": folder_id,
+            "drive_folder_url": folder_url,
+        })
+
+        self._project_folder_cache[cache_key] = folder_id
+        return folder_id
+
+    async def create_project_folder(self, slug: str, project_id: str, project_name: str) -> dict | None:
+        """Create a Drive folder for a project. Fire-and-forget entry point.
+
+        Returns:
+            {"folder_id": "...", "url": "..."} on success, None on failure
+        """
+        if not self.available:
+            return None
+
+        try:
+            folder_id = await self._ensure_project_folder(slug, project_id, project_name)
+            await self._share_client_folder(slug)
+
+            folder_url = SheetsClient.get_folder_url(folder_id)
+            logger.info("[portal_doc_sync] Created project folder for %s/%s → %s", slug, project_id, folder_url)
+            return {"folder_id": folder_id, "url": folder_url}
+
+        except Exception as e:
+            logger.error("[portal_doc_sync] Failed to create project folder %s/%s: %s", slug, project_id, e)
+            return None
+
+    async def delete_project_folder(self, slug: str, project: dict) -> bool:
+        """Delete a project's Drive folder (and all contents)."""
+        if not self.available:
+            return False
+        drive_folder_id = project.get("drive_folder_id")
+        if not drive_folder_id:
+            return False
+        try:
+            await self.sheets_client.delete_file(drive_folder_id)
+            # Invalidate cache
+            cache_key = f"{slug}/{project['id']}"
+            self._project_folder_cache.pop(cache_key, None)
+            logger.info("[portal_doc_sync] Deleted project folder %s for %s/%s", drive_folder_id, slug, project.get("id"))
+            return True
+        except Exception as e:
+            logger.error("[portal_doc_sync] Failed to delete project folder %s: %s", drive_folder_id, e)
+            return False
+
+    async def rename_project_folder(self, slug: str, project: dict, new_name: str) -> bool:
+        """Rename a project's Drive folder."""
+        if not self.available:
+            return False
+        drive_folder_id = project.get("drive_folder_id")
+        if not drive_folder_id:
+            return False
+        try:
+            await self.sheets_client.rename_file(drive_folder_id, new_name)
+            logger.info("[portal_doc_sync] Renamed project folder %s to '%s'", drive_folder_id, new_name)
+            return True
+        except Exception as e:
+            logger.error("[portal_doc_sync] Failed to rename project folder %s: %s", drive_folder_id, e)
             return False

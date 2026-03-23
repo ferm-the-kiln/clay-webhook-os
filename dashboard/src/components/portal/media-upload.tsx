@@ -8,10 +8,11 @@ import { toast } from "sonner";
 
 interface MediaUploadProps {
   slug: string;
+  projectId?: string;
   onUploaded: () => void;
 }
 
-export function MediaUpload({ slug, onUploaded }: MediaUploadProps) {
+export function MediaUpload({ slug, projectId, onUploaded }: MediaUploadProps) {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [caption, setCaption] = useState("");
@@ -38,6 +39,9 @@ export function MediaUpload({ slug, onUploaded }: MediaUploadProps) {
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("caption", caption);
+      if (projectId) {
+        formData.append("project_id", projectId);
+      }
       await uploadPortalMedia(slug, formData);
       toast.success("File uploaded");
       setSelectedFile(null);
