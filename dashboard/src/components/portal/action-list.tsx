@@ -124,7 +124,7 @@ export function ActionList({ slug, actions, onCreated, onUpdated, onToggle, onDe
                   <span
                     className={cn(
                       "text-sm font-medium truncate",
-                      action.status === "done" ? "text-clay-500 line-through" : "text-clay-100"
+                      action.status === "done" ? "text-clay-400 line-through" : "text-clay-100"
                     )}
                   >
                     {action.title}
@@ -149,7 +149,7 @@ export function ActionList({ slug, actions, onCreated, onUpdated, onToggle, onDe
                 </div>
 
                 {action.description && (
-                  <p className="text-xs text-clay-400 mt-0.5 line-clamp-1">{action.description}</p>
+                  <p className="text-xs text-clay-300 mt-0.5 line-clamp-1">{action.description}</p>
                 )}
                 {action.blocked_by_client && action.blocked_reason && action.status !== "done" && (
                   <p className="text-xs text-amber-400/70 mt-0.5 line-clamp-1">Blocked: {action.blocked_reason}</p>
@@ -157,13 +157,13 @@ export function ActionList({ slug, actions, onCreated, onUpdated, onToggle, onDe
 
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   {action.due_date && (
-                    <span className="text-[10px] text-clay-500 flex items-center gap-1">
+                    <span className="text-[11px] text-clay-400 flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
                       {action.due_date}
                     </span>
                   )}
                   {action.recurrence && action.recurrence !== "none" && (
-                    <span className="text-[10px] text-clay-500 flex items-center gap-1">
+                    <span className="text-[11px] text-clay-400 flex items-center gap-1">
                       <Repeat className="h-3 w-3" />
                       {action.recurrence}
                     </span>

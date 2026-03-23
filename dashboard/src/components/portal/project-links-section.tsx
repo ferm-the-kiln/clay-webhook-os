@@ -49,7 +49,7 @@ export function ProjectLinksSection({ links, onAddLink, onDeleteLink }: ProjectL
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs text-clay-400">
+        <div className="flex items-center gap-1.5 text-xs text-clay-200">
           <Link2 className="h-3.5 w-3.5" />
           <span className="font-medium">Links</span>
         </div>
@@ -70,16 +70,16 @@ export function ProjectLinksSection({ links, onAddLink, onDeleteLink }: ProjectL
             const Icon = getLinkIcon(link.url);
             return (
               <div key={link.id} className="flex items-center gap-2 group">
-                <Icon className="h-3.5 w-3.5 text-clay-500 flex-shrink-0" />
+                <Icon className="h-3.5 w-3.5 text-clay-400 flex-shrink-0" />
                 <a
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-clay-300 hover:text-kiln-teal truncate flex-1 transition-colors"
+                  className="text-xs text-clay-200 hover:text-kiln-teal truncate flex-1 transition-colors"
                 >
                   {link.title}
                 </a>
-                <span className="text-[9px] text-clay-600 truncate max-w-[80px] hidden group-hover:inline">
+                <span className="text-[10px] text-clay-500 truncate max-w-[80px] hidden group-hover:inline">
                   {getDomain(link.url)}
                 </span>
                 <button
@@ -97,7 +97,7 @@ export function ProjectLinksSection({ links, onAddLink, onDeleteLink }: ProjectL
       {links.length === 0 && !adding && (
         <button
           onClick={() => setAdding(true)}
-          className="text-[11px] text-clay-500 hover:text-clay-400 transition-colors"
+          className="text-[11px] text-clay-400 hover:text-clay-300 transition-colors"
         >
           Pin important links here
         </button>

@@ -63,7 +63,7 @@ export function ProjectCard({ project, slug }: { project: ProjectSummary; slug: 
                 />
               ))}
           </div>
-          <p className="text-[10px] text-clay-400">
+          <p className="text-[11px] text-clay-300">
             {project.current_phase_name
               ? project.current_phase_name
               : completedPhases === totalPhases
@@ -74,7 +74,7 @@ export function ProjectCard({ project, slug }: { project: ProjectSummary; slug: 
       )}
 
       {/* Stats row */}
-      <div className="flex items-center gap-3 text-[11px] text-clay-400">
+      <div className="flex items-center gap-3 text-[11px] text-clay-300">
         {project.update_count > 0 && (
           <span className="flex items-center gap-1">
             <MessageSquare className="h-3 w-3" />
@@ -97,7 +97,7 @@ export function ProjectCard({ project, slug }: { project: ProjectSummary; slug: 
       </div>
 
       {/* Due date or last activity */}
-      <p className="text-[10px] text-clay-500 mt-1.5 flex items-center gap-1">
+      <p className="text-[11px] text-clay-400 mt-1.5 flex items-center gap-1">
         {project.due_date ? (
           <>
             <Calendar className="h-2.5 w-2.5" />

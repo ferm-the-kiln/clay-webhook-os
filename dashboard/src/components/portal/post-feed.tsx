@@ -36,7 +36,7 @@ function TimeGroupHeader({ label, sticky }: { label: string; sticky?: boolean })
       ? "flex items-center gap-2 pt-1 sticky top-0 z-10 bg-clay-900/95 backdrop-blur-sm pb-2 -mx-1 px-1"
       : "flex items-center gap-2 pt-1"
     }>
-      <span className="text-[11px] font-semibold text-clay-500 uppercase tracking-wider">
+      <span className="text-[11px] font-semibold text-clay-300 uppercase tracking-wider">
         {label}
       </span>
       <div className="h-px flex-1 bg-clay-700" />
@@ -186,7 +186,7 @@ export function PostFeed({
             {(nonEarlierGroups.length > 0 || earlierGroup) && (
               <div className="flex items-center gap-3 mt-2 pt-2">
                 <div className="h-px flex-1 bg-clay-700" />
-                <span className="text-[10px] font-semibold text-clay-500 uppercase tracking-wider">Recent</span>
+                <span className="text-[11px] font-semibold text-clay-300 uppercase tracking-wider">Recent</span>
                 <div className="h-px flex-1 bg-clay-700" />
               </div>
             )}
@@ -213,15 +213,15 @@ export function PostFeed({
             onClick={() => setEarlierExpanded(!earlierExpanded)}
             className="flex items-center gap-2 pt-1 w-full group/earlier"
           >
-            <span className="text-[11px] font-semibold text-clay-500 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-clay-300 uppercase tracking-wider">
               Earlier
             </span>
-            <span className="text-[10px] bg-clay-700 text-clay-400 px-1.5 py-0.5 rounded-full">
+            <span className="text-[11px] bg-clay-700 text-clay-300 px-1.5 py-0.5 rounded-full">
               {earlierGroup.posts.length}
             </span>
             {earlierExpanded
-              ? <ChevronUp className="h-3 w-3 text-clay-500" />
-              : <ChevronDown className="h-3 w-3 text-clay-500" />
+              ? <ChevronUp className="h-3 w-3 text-clay-400" />
+              : <ChevronDown className="h-3 w-3 text-clay-400" />
             }
             <div className="h-px flex-1 bg-clay-700" />
           </button>

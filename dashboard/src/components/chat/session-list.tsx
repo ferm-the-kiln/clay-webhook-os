@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Plus,
   MessageSquare,
+  MessageCircle,
   PanelLeftClose,
 } from "lucide-react";
 
@@ -35,13 +36,13 @@ export function SessionList({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <span className="text-xs font-semibold text-clay-300 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-clay-100 uppercase tracking-wider">
           Sessions
         </span>
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-clay-300 hover:text-clay-100 hover:bg-clay-700"
+          className="h-7 w-7 text-clay-200 hover:text-clay-100 hover:bg-clay-700"
           onClick={onToggleCollapse}
           aria-label="Collapse session list"
         >
@@ -64,12 +65,14 @@ export function SessionList({
       {/* Session list */}
       <div className="flex-1 overflow-y-auto">
         {sessions.length === 0 ? (
-          <p className="text-xs text-clay-400 py-8 text-center">
+          <p className="text-xs text-clay-300 py-8 text-center">
             No sessions yet
           </p>
         ) : (
           sessions.map((session) => {
             const isActive = session.id === activeSessionId;
+            const isFreeChat = !session.function_id;
+            const Icon = isFreeChat ? MessageCircle : MessageSquare;
             return (
               <button
                 key={session.id}
@@ -82,7 +85,7 @@ export function SessionList({
                 onClick={() => onSelect(session.id)}
               >
                 <div className="flex items-start gap-2 min-w-0">
-                  <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0 text-clay-400" />
+                  <Icon className="h-3.5 w-3.5 mt-0.5 shrink-0 text-clay-300" />
                   <div className="min-w-0 flex-1">
                     <p
                       className={cn(
@@ -92,11 +95,11 @@ export function SessionList({
                     >
                       {session.title || session.function_name || "Untitled"}
                     </p>
-                    <p className="text-xs text-clay-300 truncate">
-                      {session.function_name} &mdash; {session.message_count}{" "}
+                    <p className="text-xs text-clay-200 truncate">
+                      {isFreeChat ? "Free chat" : session.function_name} &mdash; {session.message_count}{" "}
                       messages
                     </p>
-                    <p className="text-[11px] text-clay-400 font-mono tabular-nums mt-0.5">
+                    <p className="text-[11px] text-clay-300 font-mono tabular-nums mt-0.5">
                       {formatRelativeTime(session.updated_at)}
                     </p>
                   </div>

@@ -16,6 +16,7 @@ from app.core.event_bus import EventBus
 from app.core.execution_history import ExecutionHistory
 from app.core.channel_store import ChannelStore
 from app.core.channel_orchestrator import ChannelOrchestrator
+from app.core.channel_proxy import ChannelProxy
 from app.core.experiment_store import ExperimentStore
 from app.core.feedback_loop import FeedbackLoop
 from app.core.feedback_store import FeedbackStore
@@ -172,6 +173,10 @@ async def startup():
         function_store=app.state.function_store,
         pool=app.state.pool,
     )
+
+    # Channel proxy (free chat via Claude Code Channels)
+    app.state.channel_proxy = ChannelProxy()
+    logger.info("  Free chat: channel proxy → %s", settings.channel_server_url)
 
     # Portal store (client engagement hubs)
     from app.core.portal_store import PortalStore
@@ -348,6 +353,10 @@ async def shutdown():
     if hasattr(app.state, "status_report_worker"):
         await app.state.status_report_worker.stop()
         logger.info("  Status report worker stopped")
+
+    if hasattr(app.state, "channel_proxy"):
+        await app.state.channel_proxy.close()
+        logger.info("  Channel proxy closed")
 
     if hasattr(app.state, "portal_notifier"):
         await app.state.portal_notifier.close()

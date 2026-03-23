@@ -35,7 +35,7 @@ class ChannelStore:
         count = sum(1 for f in self._dir.glob("*.json"))
         logger.info("[channels] Loaded %d sessions", count)
 
-    def create_session(self, function_id: str, title: str = "", client_slug: str | None = None) -> ChannelSession:
+    def create_session(self, function_id: str | None = None, title: str = "", client_slug: str | None = None) -> ChannelSession:
         """Create a new chat session and persist it to disk."""
         session_id = uuid.uuid4().hex[:12]
         now = time.time()
@@ -82,7 +82,7 @@ class ChannelStore:
                 data = json.loads(f.read_text())
                 sessions.append(SessionSummary(
                     id=data["id"],
-                    function_id=data["function_id"],
+                    function_id=data.get("function_id"),
                     title=data.get("title", ""),
                     message_count=len(data.get("messages", [])),
                     created_at=data["created_at"],

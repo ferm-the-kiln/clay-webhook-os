@@ -925,11 +925,12 @@ export interface ChannelMessage {
   data: Record<string, unknown>[] | null;
   results: Record<string, unknown>[] | null;
   execution_id: string | null;
+  mode?: "function" | "free_chat";
 }
 
 export interface ChannelSession {
   id: string;
-  function_id: string;
+  function_id: string | null;
   title: string;
   messages: ChannelMessage[];
   created_at: number;
@@ -940,7 +941,7 @@ export interface ChannelSession {
 
 export interface ChannelSessionSummary {
   id: string;
-  function_id: string;
+  function_id: string | null;
   function_name: string;
   title: string;
   message_count: number;

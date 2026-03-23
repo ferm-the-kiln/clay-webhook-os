@@ -80,7 +80,7 @@ export function ApprovalBanner({ slug, update, onUpdated }: ApprovalBannerProps)
             {config.label}
           </span>
           {status === "approved" && update.approved_by && (
-            <span className="text-xs text-clay-400">
+            <span className="text-xs text-clay-300">
               by {update.approved_by} {update.approved_at ? `on ${formatTime(update.approved_at)}` : ""}
             </span>
           )}
@@ -94,7 +94,7 @@ export function ApprovalBanner({ slug, update, onUpdated }: ApprovalBannerProps)
         {history.length > 0 && (
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className="text-[10px] text-clay-400 hover:text-clay-200 flex items-center gap-0.5"
+            className="text-[11px] text-clay-300 hover:text-clay-100 flex items-center gap-0.5"
           >
             <Clock className="h-3 w-3" />
             {history.length} event{history.length !== 1 ? "s" : ""}
@@ -173,8 +173,8 @@ export function ApprovalBanner({ slug, update, onUpdated }: ApprovalBannerProps)
             const actionLabel = h.action === "approve" ? "Approved" : h.action === "request_revision" ? "Requested revision" : "Resubmitted";
             return (
               <div key={i} className="flex items-start gap-2 text-[10px]">
-                <span className="text-clay-500 shrink-0">{formatTime(h.timestamp)}</span>
-                <span className="text-clay-300">
+                <span className="text-clay-400 shrink-0">{formatTime(h.timestamp)}</span>
+                <span className="text-clay-200">
                   <strong>{h.actor_name}</strong> {actionLabel.toLowerCase()}
                   {h.notes ? `: "${h.notes}"` : ""}
                 </span>

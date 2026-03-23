@@ -16,6 +16,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         "/webhook": "rate_limit_webhook",
         "/batch": "rate_limit_batch",
         "/pipeline": "rate_limit_pipeline",
+        "/channels": "rate_limit_chat",
     }
 
     def __init__(self, app):

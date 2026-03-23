@@ -19,7 +19,11 @@ class Settings(BaseSettings):
     rate_limit_webhook: int = 60
     rate_limit_batch: int = 10
     rate_limit_pipeline: int = 20
+    rate_limit_chat: int = 30
     rate_limit_default: int = 120
+
+    # Channel server (free chat via Claude Code Channels)
+    channel_server_url: str = "http://127.0.0.1:8789"
     max_workers: int = 6
     default_model: str = "opus"
     request_timeout: int = 120

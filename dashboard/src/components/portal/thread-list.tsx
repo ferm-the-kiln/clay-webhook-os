@@ -137,22 +137,22 @@ export function ThreadList({ slug, projectId, threads, onSelectThread, onReload 
                 {thread.title}
               </h4>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] text-clay-500">{thread.created_by}</span>
-                <span className="text-[10px] text-clay-600">|</span>
-                <span className="text-[10px] text-clay-500">
+                <span className="text-[11px] text-clay-400">{thread.created_by}</span>
+                <span className="text-[11px] text-clay-500">|</span>
+                <span className="text-[11px] text-clay-400">
                   {thread.message_count} message{thread.message_count !== 1 ? "s" : ""}
                 </span>
-                <span className="text-[10px] text-clay-600">|</span>
-                <span className="text-[10px] text-clay-500">{formatRelativeTime(thread.updated_at)}</span>
+                <span className="text-[11px] text-clay-500">|</span>
+                <span className="text-[11px] text-clay-400">{formatRelativeTime(thread.updated_at)}</span>
               </div>
               {thread.last_message_preview && (
-                <p className="text-xs text-clay-400 mt-1 truncate">
-                  {thread.last_message_author && <span className="text-clay-300">{thread.last_message_author}: </span>}
+                <p className="text-xs text-clay-300 mt-1 truncate">
+                  {thread.last_message_author && <span className="text-clay-200">{thread.last_message_author}: </span>}
                   {thread.last_message_preview}
                 </p>
               )}
             </div>
-            <ChevronRight className="h-4 w-4 text-clay-500 shrink-0 mt-0.5 group-hover:text-clay-300" />
+            <ChevronRight className="h-4 w-4 text-clay-400 shrink-0 mt-0.5 group-hover:text-clay-200" />
           </div>
         </button>
       ))}

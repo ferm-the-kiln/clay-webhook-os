@@ -117,7 +117,7 @@ export function ThreadDetail({ slug, threadId, onBack, onDeleted }: ThreadDetail
         </Button>
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-clay-100 truncate">{thread.title}</h3>
-          <span className="text-[10px] text-clay-500">
+          <span className="text-[11px] text-clay-400">
             Started by {thread.created_by} | {thread.messages.length} message{thread.messages.length !== 1 ? "s" : ""}
           </span>
         </div>
@@ -154,7 +154,7 @@ export function ThreadDetail({ slug, threadId, onBack, onDeleted }: ThreadDetail
               )}>
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-[10px] font-medium text-clay-200">{msg.author}</span>
-                  <span className="text-[9px] text-clay-500">{formatTime(msg.created_at)}</span>
+                  <span className="text-[10px] text-clay-400">{formatTime(msg.created_at)}</span>
                 </div>
                 <p className="text-xs text-clay-100 whitespace-pre-wrap">{msg.body}</p>
               </div>

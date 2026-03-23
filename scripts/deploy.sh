@@ -63,6 +63,16 @@ for i in $(seq 1 $HEALTH_RETRIES); do
 done
 
 if [ "$HEALTHY" = true ]; then
+    # Restart channel server if active
+    if systemctl is-active clay-chat-channel >/dev/null 2>&1; then
+        log "Restarting channel server..."
+        if [ -f "$PROJECT_DIR/channel-server/package.json" ]; then
+            cd "$PROJECT_DIR/channel-server" && bun install --frozen-lockfile 2>/dev/null || true
+            cd "$PROJECT_DIR"
+        fi
+        systemctl restart clay-chat-channel
+        log "Channel server restarted"
+    fi
     log "=== Deploy successful ==="
     systemctl status clay-webhook-os --no-pager
 else

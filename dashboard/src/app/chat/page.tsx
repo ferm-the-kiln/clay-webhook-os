@@ -10,7 +10,6 @@ import { ChatThread } from "@/components/chat/chat-thread";
 import { ChatInput } from "@/components/chat/chat-input";
 import { FunctionPicker } from "@/components/chat/function-picker";
 import { SessionList } from "@/components/chat/session-list";
-import { toast } from "sonner";
 
 export default function ChatPageWrapper() {
   return (
@@ -42,15 +41,7 @@ function ChatPage() {
           sessions={chat.sessions}
           activeSessionId={chat.activeSession?.id ?? null}
           onSelect={(id) => chat.loadSession(id)}
-          onCreate={() => {
-            if (chat.selectedFunction) {
-              chat.createSession(chat.selectedFunction.id);
-            } else {
-              toast("Select a function first", {
-                description: "Pick a function from the dropdown to start a new chat.",
-              });
-            }
-          }}
+          onCreate={() => chat.createSession(chat.selectedFunction?.id)}
           collapsed={sessionListCollapsed}
           onToggleCollapse={() => setSessionListCollapsed((v) => !v)}
         />
@@ -80,7 +71,8 @@ function ChatPage() {
                 chat.createSession(func.id);
               }
             }}
-            disabled={!!chat.activeSession}
+            onClear={chat.deselectFunction}
+            disabled={false}
           />
 
           <ChatThread
@@ -97,15 +89,17 @@ function ChatPage() {
           />
         </div>
 
-        {/* Activity panel */}
-        <ActivityPanel
-          executionState={chat.executionState}
-          rowStatuses={chat.rowStatuses}
-          streamProgress={chat.streamProgress}
-          completedResults={chat.completedResults}
-          streaming={chat.streaming}
-          selectedFunction={chat.selectedFunction}
-        />
+        {/* Activity panel — only during function execution */}
+        {(chat.executionState || chat.completedResults.length > 0 || (chat.streaming && chat.selectedFunction)) && (
+          <ActivityPanel
+            executionState={chat.executionState}
+            rowStatuses={chat.rowStatuses}
+            streamProgress={chat.streamProgress}
+            completedResults={chat.completedResults}
+            streaming={chat.streaming}
+            selectedFunction={chat.selectedFunction}
+          />
+        )}
       </div>
     </div>
   );

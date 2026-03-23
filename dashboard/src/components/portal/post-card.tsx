@@ -207,7 +207,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                       {orgLabel}
                     </span>
                     {update.author_name && (
-                      <span className="text-xs text-clay-300">{update.author_name}</span>
+                      <span className="text-xs text-clay-200">{update.author_name}</span>
                     )}
                   </>
                 )}
@@ -235,13 +235,13 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                     </Link>
                   );
                 })()}
-                <span className="text-xs text-clay-400" title={fullDate}>
+                <span className="text-xs text-clay-300" title={fullDate}>
                   {formatRelativeTime(update.created_at)}
                 </span>
                 {isShortBody && (
                   <>
                     <span className="text-clay-600">&middot;</span>
-                    <span className="text-xs text-clay-300 truncate">{update.body}</span>
+                    <span className="text-xs text-clay-200 truncate">{update.body}</span>
                   </>
                 )}
               </div>
@@ -317,7 +317,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           {isLong && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-1 mt-2 text-xs text-clay-300 font-medium hover:text-clay-200 transition-colors"
+              className="flex items-center gap-1 mt-2 text-xs text-clay-200 font-medium hover:text-clay-100 transition-colors"
             >
               {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               {expanded ? "Show less" : "Show more"}
@@ -363,8 +363,8 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                 if (isVideo(m.mime_type)) {
                   return (
                     <div key={m.id} className="rounded-md bg-clay-900 aspect-video flex items-center justify-center">
-                      <Film className="h-6 w-6 text-clay-500" />
-                      <span className="text-xs text-clay-400 ml-2">{m.original_name}</span>
+                      <Film className="h-6 w-6 text-clay-400" />
+                      <span className="text-xs text-clay-300 ml-2">{m.original_name}</span>
                     </div>
                   );
                 }
@@ -379,10 +379,10 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                     download={driveUrl ? undefined : m.original_name}
                     className="flex items-center gap-2 rounded-md bg-clay-900 border border-clay-700 px-3 py-2 hover:border-clay-500 transition-colors"
                   >
-                    <FileIcon className="h-4 w-4 text-clay-500 shrink-0" />
+                    <FileIcon className="h-4 w-4 text-clay-400 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs text-clay-200 truncate">{m.original_name}</p>
-                      <p className="text-[10px] text-clay-500">{formatBytes(m.size_bytes)}</p>
+                      <p className="text-[11px] text-clay-400">{formatBytes(m.size_bytes)}</p>
                     </div>
                   </a>
                 );
@@ -430,7 +430,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                   )}
                 >
                   {emoji}
-                  {count > 0 && <span className="text-[10px] text-clay-300">{count}</span>}
+                  {count > 0 && <span className="text-[11px] text-clay-200">{count}</span>}
                 </button>
               );
             })}

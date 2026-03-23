@@ -77,11 +77,11 @@ export function ProjectActionsSection({ slug, projectId, actions, onToggle, onRe
   return (
     <div className="rounded-xl border border-clay-600 bg-clay-800 p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-medium text-clay-300 uppercase tracking-wider flex items-center gap-1.5">
+        <h3 className="text-xs font-medium text-clay-100 uppercase tracking-wider flex items-center gap-1.5">
           <CheckSquare className="h-3 w-3" />
           Actions
           {openCount > 0 && (
-            <span className="text-[10px] text-clay-500">({openCount} open)</span>
+            <span className="text-[11px] text-clay-300">({openCount} open)</span>
           )}
         </h3>
         <Button
@@ -119,7 +119,7 @@ export function ProjectActionsSection({ slug, projectId, actions, onToggle, onRe
       )}
 
       {actions.length === 0 && !adding ? (
-        <p className="text-xs text-clay-500">No actions yet</p>
+        <p className="text-xs text-clay-400">No actions yet</p>
       ) : (
         <div className="space-y-1">
           {visible.map((action) => (
@@ -134,7 +134,7 @@ export function ProjectActionsSection({ slug, projectId, actions, onToggle, onRe
                 {action.status === "done" ? (
                   <CheckSquare className="h-3.5 w-3.5 text-emerald-500" />
                 ) : (
-                  <Square className="h-3.5 w-3.5 text-clay-500 hover:text-clay-300" />
+                  <Square className="h-3.5 w-3.5 text-clay-400 hover:text-clay-200" />
                 )}
               </button>
 
@@ -147,8 +147,8 @@ export function ProjectActionsSection({ slug, projectId, actions, onToggle, onRe
 
               <span
                 className={cn(
-                  "text-xs flex-1 truncate",
-                  action.status === "done" ? "text-clay-500 line-through" : "text-clay-200",
+                  "text-sm flex-1 truncate",
+                  action.status === "done" ? "text-clay-400 line-through" : "text-clay-100",
                 )}
               >
                 {action.title}
@@ -161,7 +161,7 @@ export function ProjectActionsSection({ slug, projectId, actions, onToggle, onRe
               )}
 
               {action.due_date && (
-                <span className="text-[9px] text-clay-500 flex items-center gap-0.5 flex-shrink-0">
+                <span className="text-[10px] text-clay-400 flex items-center gap-0.5 flex-shrink-0">
                   <Calendar className="h-2.5 w-2.5" />
                   {new Date(action.due_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </span>

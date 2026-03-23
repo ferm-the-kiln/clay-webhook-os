@@ -1,0 +1,15 @@
+[Unit]
+Description=Clay Chat Channel - Persistent Claude Code Session (READ-ONLY)
+After=network.target clay-webhook-os.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/clay-webhook-os/channel-server
+ExecStart=/root/.bun/bin/claude --dangerously-load-development-channels server:clay-chat
+Restart=always
+RestartSec=10
+Environment=HOME=/root
+Environment=PATH=/root/.bun/bin:/root/.claude/local/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

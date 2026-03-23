@@ -7,6 +7,7 @@ import {
   fetchChannel,
   fetchChannels,
   streamChannelMessage,
+  checkChannelHealth,
   createClientChannel,
   fetchClientChannels,
   fetchClientChannel,
@@ -51,11 +52,15 @@ export interface UseChatReturn {
   functionsByFolder: Record<string, FunctionDefinition[]>;
   selectedFunction: FunctionDefinition | null;
 
+  // Free chat
+  freeChatAvailable: boolean;
+
   // Actions
-  createSession: (functionId: string) => Promise<void>;
+  createSession: (functionId?: string) => Promise<void>;
   loadSession: (sessionId: string) => Promise<void>;
-  sendMessage: () => void;
+  sendMessage: (csvData?: Record<string, unknown>[]) => void;
   selectFunction: (func: FunctionDefinition) => void;
+  deselectFunction: () => void;
   refreshSessions: () => Promise<void>;
 
   // Input state
@@ -113,6 +118,9 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
   const [executionState, setExecutionState] = useState<ExecutionState | null>(null);
   const [completedResults, setCompletedResults] = useState<Record<string, unknown>[]>([]);
 
+  // Free chat availability
+  const [freeChatAvailable, setFreeChatAvailable] = useState(false);
+
   // Input state
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(true);
@@ -131,6 +139,13 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
     });
     return grouped;
   }, [functions]);
+
+  // Check channel health on mount (determines if free chat is available)
+  useEffect(() => {
+    checkChannelHealth()
+      .then((data) => setFreeChatAvailable(data.status === "ok"))
+      .catch(() => setFreeChatAvailable(false));
+  }, []);
 
   // Load functions on mount -- skip in client mode (clients don't have API key)
   useEffect(() => {
@@ -209,12 +224,16 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
     setSelectedFunction(func);
   }, []);
 
+  const deselectFunction = useCallback(() => {
+    setSelectedFunction(null);
+  }, []);
+
   const createSessionAction = useCallback(
-    async (functionId: string) => {
+    async (functionId?: string) => {
       try {
         const session = isClientMode
-          ? await createClientChannel(clientSlug!, shareToken!, { function_id: functionId })
-          : await createChannel({ function_id: functionId });
+          ? await createClientChannel(clientSlug!, shareToken!, { function_id: functionId || undefined })
+          : await createChannel({ function_id: functionId || undefined });
         setActiveSession(session);
         setMessages(session.messages || []);
         await refreshSessions();
@@ -249,35 +268,52 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
     }
   }, [isClientMode, clientSlug, shareToken]);
 
-  const sendMessage = useCallback(() => {
+  const sendMessage = useCallback((csvData?: Record<string, unknown>[]) => {
     if (!activeSession || !inputValue.trim() || streaming) return;
 
-    // Parse input: each non-empty line becomes a data row
-    const lines = inputValue.split("\n").filter((l) => l.trim());
-    const data = lines.map((l) => ({ value: l.trim() }));
+    // Determine mode based on whether a function is selected
+    const isFreeChatMessage = !selectedFunction;
+    const mode: "function" | "free_chat" = isFreeChatMessage ? "free_chat" : "function";
+
+    // Build data rows
+    let data: Record<string, unknown>[];
+    if (csvData && csvData.length > 0) {
+      // CSV upload data
+      data = csvData;
+    } else if (isFreeChatMessage) {
+      // Free chat: no data rows
+      data = [];
+    } else {
+      // Function mode: each line becomes a data row
+      const lines = inputValue.split("\n").filter((l) => l.trim());
+      data = lines.map((l) => ({ value: l.trim() }));
+    }
 
     // Build user message
     const userMessage: ChannelMessage = {
       role: "user",
       content: inputValue,
       timestamp: Date.now() / 1000,
-      data,
+      data: data.length > 0 ? data : null,
       results: null,
       execution_id: null,
+      mode,
     };
 
     // Build assistant placeholder
     const assistantPlaceholder: ChannelMessage = {
       role: "assistant",
-      content: "Processing...",
+      content: isFreeChatMessage ? "" : "Processing...",
       timestamp: Date.now() / 1000,
       data: null,
       results: null,
       execution_id: null,
+      mode,
     };
 
     // Optimistic update
     setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
+    const sentInput = inputValue;
     setInputValue("");
     setStreaming(true);
 
@@ -286,6 +322,49 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
       eventType: string,
       payload: Record<string, unknown>
     ) => {
+      // ── Free chat events ──
+      if (mode === "free_chat") {
+        switch (eventType) {
+          case "chunk":
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last && last.role === "assistant") {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: last.content + ((payload.text as string) || ""),
+                };
+              }
+              return updated;
+            });
+            break;
+          case "done":
+            setStreaming(false);
+            refreshSessions();
+            break;
+          case "connected":
+            // Initial connection event — ignore
+            break;
+          case "error":
+            setStreaming(false);
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last && last.role === "assistant") {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: "Something went wrong. Try again.",
+                };
+              }
+              return updated;
+            });
+            toast.error((payload.error_message as string) || "Free chat error");
+            break;
+        }
+        return;
+      }
+
+      // ── Function execution events (existing) ──
       switch (eventType) {
         case "function_started":
           {
@@ -429,7 +508,9 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
         error.includes("Backend unreachable");
       const errorContent = isNetworkError
         ? "Connection lost -- your session is saved. Refresh to reconnect."
-        : "Processing failed -- check your data and try again.";
+        : mode === "free_chat"
+          ? "Free chat unavailable. Try again later."
+          : "Processing failed -- check your data and try again.";
       setMessages((prev) => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
@@ -447,20 +528,22 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
           clientSlug!,
           shareToken!,
           activeSession.id,
-          inputValue,
+          sentInput,
           data,
           onEvent,
-          onError
+          onError,
+          mode
         )
       : streamChannelMessage(
           activeSession.id,
-          inputValue,
+          sentInput,
           data,
           onEvent,
-          onError
+          onError,
+          mode
         );
     abortRef.current = controller;
-  }, [activeSession, inputValue, streaming, refreshSessions, isClientMode, clientSlug, shareToken]);
+  }, [activeSession, inputValue, streaming, selectedFunction, refreshSessions, isClientMode, clientSlug, shareToken]);
 
   return {
     sessions,
@@ -471,10 +554,12 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
     functions,
     functionsByFolder,
     selectedFunction,
+    freeChatAvailable,
     createSession: createSessionAction,
     loadSession,
     sendMessage,
     selectFunction,
+    deselectFunction,
     refreshSessions,
     rowStatuses,
     executionState,

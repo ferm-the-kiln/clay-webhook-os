@@ -1581,13 +1581,17 @@ export function deleteThread(slug: string, threadId: string): Promise<{ ok: bool
 // ── Channel / Chat API ──────────────────────────────────────────
 
 export function createChannel(body: {
-  function_id: string;
+  function_id?: string | null;
   title?: string;
 }): Promise<ChannelSession> {
   return apiFetch("/channels", {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function checkChannelHealth(): Promise<{ status: string; active_listeners?: number }> {
+  return apiFetch("/channels/health");
 }
 
 export function fetchChannels(): Promise<{ sessions: ChannelSessionSummary[] }> {
@@ -1608,6 +1612,7 @@ export function streamChannelMessage(
   data: Record<string, unknown>[],
   onEvent: (eventType: string, payload: Record<string, unknown>) => void,
   onError: (error: string) => void,
+  mode: "function" | "free_chat" = "function",
 ): AbortController {
   const controller = new AbortController();
 
@@ -1619,7 +1624,7 @@ export function streamChannelMessage(
           "Content-Type": "application/json",
           "X-API-Key": API_KEY,
         },
-        body: JSON.stringify({ content, data }),
+        body: JSON.stringify({ content, data, mode }),
         signal: controller.signal,
       });
 
@@ -1676,7 +1681,7 @@ export function streamChannelMessage(
 export function createClientChannel(
   slug: string,
   token: string,
-  body: { function_id: string; title?: string },
+  body: { function_id?: string | null; title?: string },
 ): Promise<ChannelSession> {
   return fetch(`${API_URL}/channels/client/${slug}?token=${encodeURIComponent(token)}`, {
     method: "POST",
@@ -1730,6 +1735,7 @@ export function streamClientChannelMessage(
   data: Record<string, unknown>[],
   onEvent: (eventType: string, payload: Record<string, unknown>) => void,
   onError: (error: string) => void,
+  mode: "function" | "free_chat" = "function",
 ): AbortController {
   const controller = new AbortController();
 
@@ -1740,7 +1746,7 @@ export function streamClientChannelMessage(
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content, data }),
+          body: JSON.stringify({ content, data, mode }),
           signal: controller.signal,
         },
       );

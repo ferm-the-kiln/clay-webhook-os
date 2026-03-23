@@ -35,7 +35,7 @@ export function ProjectPhaseTracker({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-medium text-clay-300 uppercase tracking-wider">Phases</h3>
+        <h3 className="text-xs font-medium text-clay-100 uppercase tracking-wider">Phases</h3>
         <Button
           variant="ghost"
           size="sm"
@@ -48,7 +48,7 @@ export function ProjectPhaseTracker({
 
       {/* Phase list */}
       {sorted.length === 0 && !adding && (
-        <p className="text-xs text-clay-500">No phases defined</p>
+        <p className="text-xs text-clay-400">No phases defined</p>
       )}
 
       <div className="space-y-1.5">
@@ -63,7 +63,7 @@ export function ProjectPhaseTracker({
                   ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
                   : phase.status === "active"
                     ? "bg-kiln-teal/20 border-kiln-teal/50 text-kiln-teal"
-                    : "bg-clay-700 border-clay-600 text-clay-500"
+                    : "bg-clay-700 border-clay-600 text-clay-400"
               )}
             >
               {phase.status === "completed" ? (
@@ -81,7 +81,7 @@ export function ProjectPhaseTracker({
                   ? "text-clay-400 line-through"
                   : phase.status === "active"
                     ? "text-clay-100 font-medium"
-                    : "text-clay-400"
+                    : "text-clay-200"
               )}
             >
               {phase.name}

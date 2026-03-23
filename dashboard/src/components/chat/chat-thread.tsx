@@ -46,7 +46,7 @@ export function ChatThread({ messages, streaming }: ChatThreadProps) {
       <div className="flex-1 flex items-center justify-center p-6">
         <EmptyState
           title="Ready to go"
-          description="Type or paste your data below and hit Send."
+          description="Ask anything, or pick a function to process data."
           icon={MessageSquare}
         />
       </div>

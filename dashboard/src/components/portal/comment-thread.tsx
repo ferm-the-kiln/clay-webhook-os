@@ -77,7 +77,7 @@ export function CommentThread({ slug, updateId, initialCount = 0 }: CommentThrea
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 text-xs text-clay-400 hover:text-clay-200 transition-colors"
+        className="flex items-center gap-1.5 text-xs text-clay-300 hover:text-clay-100 transition-colors"
       >
         <MessageCircle className="h-3.5 w-3.5" />
         {count > 0 ? (
@@ -93,7 +93,7 @@ export function CommentThread({ slug, updateId, initialCount = 0 }: CommentThrea
       {open && (
         <div className="mt-3 space-y-3 border-t border-clay-700 pt-3">
           {loading ? (
-            <div className="flex items-center gap-2 text-xs text-clay-500">
+            <div className="flex items-center gap-2 text-xs text-clay-400">
               <Loader2 className="h-3 w-3 animate-spin" />
               Loading comments...
             </div>
@@ -101,13 +101,13 @@ export function CommentThread({ slug, updateId, initialCount = 0 }: CommentThrea
             <>
               {comments.map((comment) => (
                 <div key={comment.id} className="group flex gap-2">
-                  <div className="h-6 w-6 rounded-full bg-clay-700 flex items-center justify-center shrink-0 text-[10px] font-medium text-clay-300">
+                  <div className="h-6 w-6 rounded-full bg-clay-700 flex items-center justify-center shrink-0 text-[11px] font-medium text-clay-200">
                     {comment.author.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-clay-200">{comment.author}</span>
-                      <span className="text-[10px] text-clay-500">
+                      <span className="text-[11px] text-clay-400">
                         {new Date(comment.created_at * 1000).toLocaleString()}
                       </span>
                       <button

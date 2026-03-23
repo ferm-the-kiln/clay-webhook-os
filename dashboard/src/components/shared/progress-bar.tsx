@@ -21,7 +21,7 @@ export function ProgressBar({
     <Card className="border-clay-500">
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-clay-300 font-[family-name:var(--font-sans)]">
+          <span className="text-sm text-clay-200 font-[family-name:var(--font-sans)]">
             {processed} / {total} rows processed
           </span>
           <div className="flex items-center gap-2">
