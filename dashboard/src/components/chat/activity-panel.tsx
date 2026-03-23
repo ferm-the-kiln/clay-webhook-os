@@ -1,10 +1,14 @@
 "use client";
 
+import { useCallback } from "react";
 import { Activity } from "lucide-react";
+import Papa from "papaparse";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExecutionTrace } from "./execution-trace";
 import { ProgressBar } from "./progress-bar";
+import { ResultsTable } from "./results-table";
 import type { ExecutionState, RowStatus } from "@/hooks/use-chat";
+import type { FunctionDefinition } from "@/lib/types";
 
 interface ActivityPanelProps {
   executionState: ExecutionState | null;
@@ -12,6 +16,7 @@ interface ActivityPanelProps {
   streamProgress: { current: number; total: number } | null;
   completedResults: Record<string, unknown>[];
   streaming: boolean;
+  selectedFunction: FunctionDefinition | null;
 }
 
 export function ActivityPanel({
@@ -20,9 +25,25 @@ export function ActivityPanel({
   streamProgress,
   completedResults,
   streaming,
+  selectedFunction,
 }: ActivityPanelProps) {
   const isIdle =
     !streaming && completedResults.length === 0 && executionState === null;
+
+  const handleExportCsv = useCallback(() => {
+    if (completedResults.length === 0) return;
+    const csv = Papa.unparse(completedResults);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const filename = selectedFunction
+      ? `${selectedFunction.name.toLowerCase().replace(/\s+/g, "-")}-results.csv`
+      : "results.csv";
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [completedResults, selectedFunction]);
 
   return (
     <div className="hidden lg:flex w-80 border-l border-clay-600 flex-col bg-clay-950 h-full">
@@ -43,22 +64,25 @@ export function ActivityPanel({
           streamProgress={streamProgress}
         />
 
-        {/* Results placeholder -- Plan 02 replaces with ResultsTable */}
-        {completedResults.length > 0 && (
-          <div className="flex-1 px-4 py-3 text-xs text-clay-300">
-            {completedResults.length} result(s) ready
-          </div>
-        )}
-
-        {/* Empty state when idle */}
-        {isIdle && (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <EmptyState
-              title="Activity"
-              description="Execution details will appear here when you run a function."
-              icon={Activity}
+        {rowStatuses.length > 0 ? (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <ResultsTable
+              rowStatuses={rowStatuses}
+              columns={selectedFunction?.outputs || []}
+              onExportCsv={handleExportCsv}
+              streaming={streaming}
             />
           </div>
+        ) : (
+          !streaming && !executionState && (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <EmptyState
+                title="Activity"
+                description="Execution details will appear here when you run a function."
+                icon={Activity}
+              />
+            </div>
+          )
         )}
       </div>
     </div>

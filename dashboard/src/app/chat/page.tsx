@@ -104,6 +104,7 @@ function ChatPage() {
           streamProgress={chat.streamProgress}
           completedResults={chat.completedResults}
           streaming={chat.streaming}
+          selectedFunction={chat.selectedFunction}
         />
       </div>
     </div>
