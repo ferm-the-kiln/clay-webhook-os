@@ -158,15 +158,15 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
 
   return (
     <div
-      className={`rounded-lg border bg-clay-800 p-4 space-y-3 transition-colors ${
-        dragOver ? "border-kiln-teal bg-kiln-teal/5" : "border-clay-600"
+      className={`rounded-lg border bg-clay-850 p-5 space-y-4 retro-raised transition-colors ${
+        dragOver ? "border-kiln-teal bg-kiln-teal/5" : "border-clay-700/60"
       }`}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
     >
       {/* Author row */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 pb-4 border-b border-clay-700/40">
         <AuthorPicker
           value={authorName}
           onChange={(name) => { setAuthorName(name); saveAuthor(name); }}
@@ -177,20 +177,20 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
         <div className="flex rounded-md border border-clay-600 overflow-hidden shrink-0">
           <button
             onClick={() => setAuthorOrg("internal")}
-            className={`text-xs px-3 py-1.5 transition-colors ${
+            className={`text-sm px-3.5 py-1.5 transition-colors ${
               authorOrg === "internal"
                 ? "bg-kiln-teal/15 text-kiln-teal"
-                : "bg-clay-900 text-clay-400 hover:text-clay-200"
+                : "bg-clay-800 text-clay-400 hover:text-clay-200"
             }`}
           >
             {internalLabel}
           </button>
           <button
             onClick={() => setAuthorOrg("client")}
-            className={`text-xs px-3 py-1.5 border-l border-clay-600 transition-colors ${
+            className={`text-sm px-3.5 py-1.5 border-l border-clay-600 transition-colors ${
               authorOrg === "client"
                 ? "bg-purple-500/15 text-purple-400"
-                : "bg-clay-900 text-clay-400 hover:text-clay-200"
+                : "bg-clay-800 text-clay-400 hover:text-clay-200"
             }`}
           >
             {clientLabel}
@@ -204,10 +204,10 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
             <button
               key={t.id}
               onClick={() => setType(t.id)}
-              className={`text-xs px-3 py-1 rounded-full transition-colors ${
+              className={`text-sm px-3.5 py-1.5 rounded-full transition-colors ${
                 type === t.id
                   ? "bg-kiln-teal/15 text-kiln-teal border border-kiln-teal/30"
-                  : "bg-clay-700 text-clay-300 border border-clay-600 hover:border-clay-500"
+                  : "bg-clay-700 text-clay-300 border border-clay-600/60 hover:border-clay-500"
               }`}
             >
               {t.label}
@@ -250,7 +250,7 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="What happened?"
-        className="w-full bg-clay-900 border border-clay-600 rounded-md px-3 py-1.5 text-sm text-clay-100 placeholder:text-clay-500 focus:outline-none focus:border-kiln-teal"
+        className="w-full bg-clay-900/80 border border-clay-600/80 rounded-lg px-3.5 py-2.5 text-base text-clay-100 placeholder:text-clay-400 focus:outline-none focus:border-kiln-teal"
       />
 
       <textarea
@@ -258,7 +258,7 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
         onChange={(e) => setBody(e.target.value)}
         placeholder="Add details (supports **markdown**)..."
         rows={3}
-        className="w-full bg-clay-900 border border-clay-600 rounded-md px-3 py-2 text-sm text-clay-100 placeholder:text-clay-500 focus:outline-none focus:border-kiln-teal resize-y"
+        className="w-full bg-clay-900/80 border border-clay-600/80 rounded-lg px-3.5 py-2.5 text-sm text-clay-100 placeholder:text-clay-400 focus:outline-none focus:border-kiln-teal resize-y"
       />
 
       {/* Pending media preview strip */}
@@ -315,10 +315,10 @@ export function UpdateComposer({ slug, clientName, onPosted }: UpdateComposerPro
         </label>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pt-4 border-t border-clay-700/40">
         {/* Attach button */}
-        <label className="flex items-center gap-1.5 text-xs text-clay-400 hover:text-clay-200 cursor-pointer transition-colors">
-          <Paperclip className="h-3.5 w-3.5" />
+        <label className="flex items-center gap-1.5 text-sm text-clay-300 hover:text-clay-200 cursor-pointer transition-colors">
+          <Paperclip className="h-4 w-4" />
           <span>Attach</span>
           <input
             ref={fileInputRef}

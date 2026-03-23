@@ -27,8 +27,8 @@ A user can pick an enrichment function, paste a list of companies into a chat, a
 - [x] Chat frontend — `/chat` page with message thread, function picker, input bar (Validated in Phase 02: Chat Frontend — Core UI)
 - [x] Session management — create, list, resume, persist conversation history (Validated in Phase 02: Chat Frontend — Core UI)
 - [x] Navigation — add Chat to sidebar (Validated in Phase 02: Chat Frontend — Core UI)
-- [ ] Activity panel — real-time execution traces + results table filling live
-- [ ] Batch processing in chat — paste a list, process all rows, stream progress
+- [x] Activity panel — real-time execution traces + results table filling live (Validated in Phase 03: Activity Panel + Results)
+- [x] Batch processing in chat — paste a list, process all rows, stream progress (Validated in Phase 03: Activity Panel + Results)
 - [ ] Client access — share token auth for client-facing chat
 
 ### Out of Scope
@@ -97,4 +97,4 @@ Existing: skill_loader → context_assembler → claude_executor
 | SSE for streaming (not WebSocket) | Already used in function playground. Simpler, sufficient for this | — Pending |
 
 ---
-*Last updated: 2026-03-21 — Phase 02 (Chat Frontend — Core UI) complete: /chat page, useChat hook, ChatThread, ChatMessage, ChatInput, FunctionPicker, SessionList, ResultCard, sidebar nav*
+*Last updated: 2026-03-23 — Phase 03 (Activity Panel + Results) complete: ActivityPanel, ExecutionTrace, ProgressBar, ResultsTable, CSV export, per-row tracking in useChat*

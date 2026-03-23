@@ -260,8 +260,11 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               attachedMedia.length === 1 ? "block" : "grid grid-cols-2"
             )}>
               {attachedMedia.slice(0, 4).map((m) => {
-                const fullUrl = `${API_URL}${m.url}`;
-                if (isImage(m.mime_type)) {
+                const fullUrl = m.url ? `${API_URL}${m.url}` : "";
+                const driveUrl = m.drive_file_id
+                  ? `https://drive.google.com/file/d/${m.drive_file_id}/view`
+                  : null;
+                if (isImage(m.mime_type) && fullUrl) {
                   return (
                     <button
                       key={m.id}
@@ -281,11 +284,15 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                     </div>
                   );
                 }
+                const downloadUrl = driveUrl || fullUrl;
+                if (!downloadUrl) return null;
                 return (
                   <a
                     key={m.id}
-                    href={fullUrl}
-                    download={m.original_name}
+                    href={downloadUrl}
+                    target={driveUrl ? "_blank" : undefined}
+                    rel={driveUrl ? "noopener noreferrer" : undefined}
+                    download={driveUrl ? undefined : m.original_name}
                     className="flex items-center gap-2 rounded-md bg-clay-900 border border-clay-700 px-3 py-2 hover:border-clay-500 transition-colors"
                   >
                     <FileIcon className="h-4 w-4 text-clay-500 shrink-0" />

@@ -41,13 +41,17 @@ export function MediaGrid({ media, onDelete }: MediaGridProps) {
     <>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {media.map((m) => {
-          const fullUrl = `${API_URL}${m.url}`;
+          const fullUrl = m.url ? `${API_URL}${m.url}` : "";
+          const driveUrl = m.drive_file_id
+            ? `https://drive.google.com/file/d/${m.drive_file_id}/view`
+            : null;
+          const downloadUrl = driveUrl || fullUrl;
           return (
             <div
               key={m.id}
               className="group rounded-lg border border-clay-700 bg-clay-800 overflow-hidden"
             >
-              {isImage(m.mime_type) ? (
+              {isImage(m.mime_type) && fullUrl ? (
                 <button
                   onClick={() => setPreviewUrl(fullUrl)}
                   className="w-full aspect-video bg-clay-900 flex items-center justify-center overflow-hidden"
@@ -73,14 +77,18 @@ export function MediaGrid({ media, onDelete }: MediaGridProps) {
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-[10px] text-clay-500">{formatBytes(m.size_bytes)}</span>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <a
-                      href={fullUrl}
-                      download={m.original_name}
-                      className="text-clay-400 hover:text-clay-200"
-                      title="Download"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </a>
+                    {downloadUrl && (
+                      <a
+                        href={downloadUrl}
+                        target={driveUrl ? "_blank" : undefined}
+                        rel={driveUrl ? "noopener noreferrer" : undefined}
+                        download={driveUrl ? undefined : m.original_name}
+                        className="text-clay-400 hover:text-clay-200"
+                        title={driveUrl ? "Open in Google Drive" : "Download"}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </a>
+                    )}
                     <button
                       onClick={() => onDelete(m.id)}
                       className="text-clay-400 hover:text-red-400"

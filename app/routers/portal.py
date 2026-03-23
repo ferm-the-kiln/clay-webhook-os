@@ -67,6 +67,9 @@ async def get_portal(request: Request, slug: str):
     portal = store.get_portal(slug)
     if not portal:
         return JSONResponse(status_code=404, content={"error": True, "error_message": f"Client '{slug}' not found"})
+    # Add URL to each media entry (matches GET /portal/{slug}/media pattern)
+    for m in portal.get("media", []):
+        m["url"] = f"/portal/media/{slug}/{m['filename']}"
     # Record view
     store.record_view(slug, source="dashboard")
     return portal

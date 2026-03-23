@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
+status: Phase complete — ready for verification
 stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-23T15:22:15.086Z"
+last_updated: "2026-03-23T15:28:52.686Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -68,6 +68,9 @@ Plan: 2 of 2
 - [Phase 04-client-access-polish]: Skip fetchFunctions() in client mode to prevent 401 from missing API key
 - [Phase 04-client-access-polish]: Client page uses fn query param for function selection instead of FunctionPicker component
 - [Phase 04-client-access-polish]: Auth middleware bypasses /channels/client paths entirely -- token validation in endpoint handlers
+- [Phase 04]: Use getStorageKey helper with clientSlug for separate localStorage keys per client
+- [Phase 04]: Network errors detected via string matching on browser error patterns (Failed to fetch, NetworkError, ERR_)
+- [Phase 04]: Empty results styled italic clay-300 (informational) vs kiln-coral (errors) for differentiated feedback
 
 ### Blockers/Concerns
 
