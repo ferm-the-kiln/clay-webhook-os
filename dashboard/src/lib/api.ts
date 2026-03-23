@@ -1521,3 +1521,125 @@ export function streamChannelMessage(
 
   return controller;
 }
+
+// ── Client-scoped channel endpoints (share token auth) ──
+
+export function createClientChannel(
+  slug: string,
+  token: string,
+  body: { function_id: string; title?: string },
+): Promise<ChannelSession> {
+  return fetch(`${API_URL}/channels/client/${slug}?token=${encodeURIComponent(token)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).then(async (res) => {
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error_message || `HTTP ${res.status}`);
+    }
+    return res.json();
+  });
+}
+
+export function fetchClientChannels(
+  slug: string,
+  token: string,
+): Promise<{ sessions: ChannelSessionSummary[] }> {
+  return fetch(`${API_URL}/channels/client/${slug}?token=${encodeURIComponent(token)}`).then(
+    async (res) => {
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error_message || `HTTP ${res.status}`);
+      }
+      return res.json();
+    },
+  );
+}
+
+export function fetchClientChannel(
+  slug: string,
+  token: string,
+  sessionId: string,
+): Promise<ChannelSession> {
+  return fetch(
+    `${API_URL}/channels/client/${slug}/${sessionId}?token=${encodeURIComponent(token)}`,
+  ).then(async (res) => {
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error_message || `HTTP ${res.status}`);
+    }
+    return res.json();
+  });
+}
+
+export function streamClientChannelMessage(
+  slug: string,
+  token: string,
+  sessionId: string,
+  content: string,
+  data: Record<string, unknown>[],
+  onEvent: (eventType: string, payload: Record<string, unknown>) => void,
+  onError: (error: string) => void,
+): AbortController {
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+      const res = await fetch(
+        `${API_URL}/channels/client/${slug}/${sessionId}/messages?token=${encodeURIComponent(token)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content, data }),
+          signal: controller.signal,
+        },
+      );
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        onError(errBody.error_message || `HTTP ${res.status}`);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        onError("No response stream");
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        let currentEventType = "";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            currentEventType = line.slice(7).trim();
+          } else if (line.startsWith("data: ") && currentEventType) {
+            try {
+              const payload = JSON.parse(line.slice(6));
+              onEvent(currentEventType, payload);
+            } catch {
+              // skip malformed JSON
+            }
+            currentEventType = "";
+          }
+        }
+      }
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") {
+        onError((e as Error).message || "Stream failed");
+      }
+    }
+  })();
+
+  return controller;
+}

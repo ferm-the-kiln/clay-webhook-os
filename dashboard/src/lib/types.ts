@@ -803,6 +803,7 @@ export interface ChannelSession {
   created_at: number;
   updated_at: number;
   status: "active" | "archived";
+  client_slug?: string | null;
 }
 
 export interface ChannelSessionSummary {
@@ -814,4 +815,5 @@ export interface ChannelSessionSummary {
   created_at: number;
   updated_at: number;
   status: "active" | "archived";
+  client_slug?: string | null;
 }

@@ -7,6 +7,10 @@ import {
   fetchChannel,
   fetchChannels,
   streamChannelMessage,
+  createClientChannel,
+  fetchClientChannels,
+  fetchClientChannel,
+  streamClientChannelMessage,
 } from "@/lib/api";
 import type {
   FunctionDefinition,
@@ -67,7 +71,18 @@ export interface UseChatReturn {
   loading: boolean;
 }
 
-export function useChat(): UseChatReturn {
+interface UseChatOptions {
+  clientSlug?: string;
+  shareToken?: string;
+  clientFunctionId?: string;
+}
+
+export function useChat(options?: UseChatOptions): UseChatReturn {
+  const clientSlug = options?.clientSlug;
+  const shareToken = options?.shareToken;
+  const clientFunctionId = options?.clientFunctionId;
+  const isClientMode = !!(clientSlug && shareToken);
+
   // Function state
   const [functions, setFunctions] = useState<FunctionDefinition[]>([]);
   const [selectedFunction, setSelectedFunction] =
@@ -110,24 +125,29 @@ export function useChat(): UseChatReturn {
     return grouped;
   }, [functions]);
 
-  // Load functions on mount
+  // Load functions on mount -- skip in client mode (clients don't have API key)
   useEffect(() => {
+    if (isClientMode) {
+      setLoading(false);
+      return;
+    }
     fetchFunctions()
       .then(({ functions: funcs }) => {
         setFunctions(funcs);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [isClientMode]);
 
   // Load sessions on mount
   useEffect(() => {
-    fetchChannels()
-      .then(({ sessions: sess }) => {
-        setSessions(sess);
-      })
+    const loadSessions = isClientMode
+      ? () => fetchClientChannels(clientSlug!, shareToken!)
+      : () => fetchChannels();
+    loadSessions()
+      .then(({ sessions: sess }) => setSessions(sess))
       .catch(() => {});
-  }, []);
+  }, [isClientMode, clientSlug, shareToken]);
 
   // Cleanup abort controller on unmount
   useEffect(() => {
@@ -138,12 +158,14 @@ export function useChat(): UseChatReturn {
 
   const refreshSessions = useCallback(async () => {
     try {
-      const { sessions: sess } = await fetchChannels();
+      const { sessions: sess } = isClientMode
+        ? await fetchClientChannels(clientSlug!, shareToken!)
+        : await fetchChannels();
       setSessions(sess);
     } catch {
       // silent
     }
-  }, []);
+  }, [isClientMode, clientSlug, shareToken]);
 
   const selectFunction = useCallback((func: FunctionDefinition) => {
     setSelectedFunction(func);
@@ -152,7 +174,9 @@ export function useChat(): UseChatReturn {
   const createSessionAction = useCallback(
     async (functionId: string) => {
       try {
-        const session = await createChannel({ function_id: functionId });
+        const session = isClientMode
+          ? await createClientChannel(clientSlug!, shareToken!, { function_id: functionId })
+          : await createChannel({ function_id: functionId });
         setActiveSession(session);
         setMessages(session.messages || []);
         await refreshSessions();
@@ -162,7 +186,7 @@ export function useChat(): UseChatReturn {
         );
       }
     },
-    [refreshSessions]
+    [isClientMode, clientSlug, shareToken, refreshSessions]
   );
 
   const loadSession = useCallback(async (sessionId: string) => {
@@ -176,14 +200,16 @@ export function useChat(): UseChatReturn {
     setCompletedResults([]);
 
     try {
-      const session = await fetchChannel(sessionId);
+      const session = isClientMode
+        ? await fetchClientChannel(clientSlug!, shareToken!, sessionId)
+        : await fetchChannel(sessionId);
       setActiveSession(session);
       setMessages(session.messages || []);
       setSelectedFunction(null); // Will be determined by session
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load session");
     }
-  }, []);
+  }, [isClientMode, clientSlug, shareToken]);
 
   const sendMessage = useCallback(() => {
     if (!activeSession || !inputValue.trim() || streaming) return;
@@ -367,15 +393,25 @@ export function useChat(): UseChatReturn {
     };
 
     // Start streaming
-    const controller = streamChannelMessage(
-      activeSession.id,
-      inputValue,
-      data,
-      onEvent,
-      onError
-    );
+    const controller = isClientMode
+      ? streamClientChannelMessage(
+          clientSlug!,
+          shareToken!,
+          activeSession.id,
+          inputValue,
+          data,
+          onEvent,
+          onError
+        )
+      : streamChannelMessage(
+          activeSession.id,
+          inputValue,
+          data,
+          onEvent,
+          onError
+        );
     abortRef.current = controller;
-  }, [activeSession, inputValue, streaming, refreshSessions]);
+  }, [activeSession, inputValue, streaming, refreshSessions, isClientMode, clientSlug, shareToken]);
 
   return {
     sessions,
