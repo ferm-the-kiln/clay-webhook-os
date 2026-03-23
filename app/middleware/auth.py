@@ -9,7 +9,7 @@ from app.config import settings
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
     PUBLIC_PATHS = {"/", "/health", "/docs", "/openapi.json", "/redoc"}
-    PUBLIC_GET_PREFIXES = ("/skills", "/functions", "/tools")
+    PUBLIC_GET_PREFIXES = ("/skills", "/functions", "/tools", "/channels/client")
 
     async def dispatch(self, request: Request, call_next):
         # Skip auth if no key configured
@@ -28,6 +28,10 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
         # Allow public portal view (token-validated in endpoint)
         if request.method == "GET" and path.endswith("/view"):
+            return await call_next(request)
+
+        # Allow client channel endpoints (token-validated in endpoint)
+        if path.startswith("/channels/client"):
             return await call_next(request)
 
         # Everything else requires the API key

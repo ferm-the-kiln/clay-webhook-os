@@ -18,11 +18,13 @@ class ChannelSession(BaseModel):
     created_at: float = Field(..., description="Unix timestamp")
     updated_at: float = Field(..., description="Unix timestamp")
     status: str = Field("active", description="Session status: active or archived")
+    client_slug: str | None = Field(None, description="Client slug for client-scoped sessions")
 
 
 class CreateSessionRequest(BaseModel):
     function_id: str = Field(..., description="Function to use in this session")
     title: str = Field("", description="Optional session title")
+    client_slug: str | None = Field(None, description="Client slug for client-scoped sessions")
 
     @model_validator(mode="after")
     def validate_function_id(self) -> "CreateSessionRequest":
@@ -45,3 +47,4 @@ class SessionSummary(BaseModel):
     created_at: float
     updated_at: float
     status: str = "active"
+    client_slug: str | None = None

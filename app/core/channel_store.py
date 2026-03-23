@@ -35,7 +35,7 @@ class ChannelStore:
         count = sum(1 for f in self._dir.glob("*.json"))
         logger.info("[channels] Loaded %d sessions", count)
 
-    def create_session(self, function_id: str, title: str = "") -> ChannelSession:
+    def create_session(self, function_id: str, title: str = "", client_slug: str | None = None) -> ChannelSession:
         """Create a new chat session and persist it to disk."""
         session_id = uuid.uuid4().hex[:12]
         now = time.time()
@@ -47,6 +47,7 @@ class ChannelStore:
             created_at=now,
             updated_at=now,
             status="active",
+            client_slug=client_slug,
         )
         atomic_write_json(self._dir / f"{session_id}.json", session.model_dump())
         return session
@@ -70,8 +71,11 @@ class ChannelStore:
         atomic_write_json(self._dir / f"{session_id}.json", session.model_dump())
         return msg
 
-    def list_sessions(self) -> list[SessionSummary]:
-        """List all sessions as summaries, sorted by updated_at descending."""
+    def list_sessions(self, client_slug: str | None = None) -> list[SessionSummary]:
+        """List all sessions as summaries, sorted by updated_at descending.
+
+        If client_slug is provided, only returns sessions belonging to that client.
+        """
         sessions: list[SessionSummary] = []
         for f in self._dir.glob("*.json"):
             try:
@@ -84,10 +88,20 @@ class ChannelStore:
                     created_at=data["created_at"],
                     updated_at=data["updated_at"],
                     status=data.get("status", "active"),
+                    client_slug=data.get("client_slug"),
                 ))
             except (json.JSONDecodeError, KeyError):
                 continue
+        if client_slug:
+            sessions = [s for s in sessions if s.client_slug == client_slug]
         return sorted(sessions, key=lambda s: s.updated_at, reverse=True)
+
+    def get_session_if_owned(self, session_id: str, client_slug: str) -> ChannelSession | None:
+        """Get session only if it belongs to the given client."""
+        session = self.get_session(session_id)
+        if session is None or session.client_slug != client_slug:
+            return None
+        return session
 
     def archive_session(self, session_id: str) -> ChannelSession | None:
         """Mark a session as archived. Returns None if not found."""

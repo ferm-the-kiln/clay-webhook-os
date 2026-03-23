@@ -78,11 +78,11 @@ Plans:
   2. Clients access chat via share token URL — sessions scoped to their client profile
   3. Sessions persist across page refresh and browser close
   4. Error states handled gracefully: function execution failure, network disconnect, empty results
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 04-01: Auth middleware for chat — API key + share token
-- [ ] 04-02: Session persistence, error handling, and polish
+- [ ] 04-01-PLAN.md — Share token auth for channels (backend client endpoints + frontend client chat page)
+- [ ] 04-02-PLAN.md — Session persistence via localStorage, error state handling, polish
 
 ## Progress
 
@@ -93,5 +93,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Chat Backend | 3/3 | Complete | 2026-03-21 |
 | 2. Chat Frontend — Core UI | 3/3 | Complete | 2026-03-21 |
-| 3. Activity Panel + Results | 0/2 | Planned | — |
-| 4. Client Access + Polish | 0/2 | Pending | — |
+| 3. Activity Panel + Results | 2/2 | Complete | 2026-03-23 |
+| 4. Client Access + Polish | 0/2 | Planned | — |
