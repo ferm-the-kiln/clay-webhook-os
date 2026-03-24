@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { fetchDestinations, pushDataToDestination } from "@/lib/api";
 import type { Destination } from "@/lib/types";
 import { toast } from "sonner";
+import Papa from "papaparse";
 
 export type ReviewStatus = "pending" | "approved" | "rejected" | "edited";
 
@@ -25,6 +26,44 @@ export interface ReviewQueueData {
 }
 
 const STORAGE_KEY = "kiln_review_queue";
+
+function getApprovedItems(items: ReviewItem[]): ReviewItem[] {
+  return items.filter(
+    (i) => i.reviewStatus === "approved" || i.reviewStatus === "edited"
+  );
+}
+
+function buildCsvRows(items: ReviewItem[]): Record<string, string>[] {
+  return items.map((item) => {
+    const output = item.editedOutput || item.output;
+    return {
+      _row: String(item.rowIndex + 1),
+      ...Object.fromEntries(
+        Object.entries(item.input).map(([k, v]) => [
+          k,
+          v == null ? "" : typeof v === "string" ? v : JSON.stringify(v),
+        ])
+      ),
+      ...Object.fromEntries(
+        Object.entries(output).map(([k, v]) => [
+          `_output_${k}`,
+          v == null ? "" : typeof v === "string" ? v : JSON.stringify(v),
+        ])
+      ),
+      _review_status: item.reviewStatus,
+    };
+  });
+}
+
+function triggerDownload(csv: string, filename: string) {
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export function useReviewQueue() {
   const [queueData, setQueueData] = useState<ReviewQueueData | null>(null);
@@ -113,13 +152,40 @@ export function useReviewQueue() {
     });
   }, []);
 
+  const downloadApprovedCsv = useCallback(() => {
+    if (!queueData) return;
+    const approved = getApprovedItems(queueData.items);
+    if (!approved.length) {
+      toast.error("No approved items to download");
+      return;
+    }
+    const csv = Papa.unparse(buildCsvRows(approved));
+    triggerDownload(csv, `review-approved-${Date.now()}.csv`);
+    toast.success(`Downloaded ${approved.length} rows`);
+  }, [queueData]);
+
+  const copyApprovedToClipboard = useCallback(async () => {
+    if (!queueData) return;
+    const approved = getApprovedItems(queueData.items);
+    if (!approved.length) {
+      toast.error("No approved items to copy");
+      return;
+    }
+    const rows = buildCsvRows(approved);
+    const headers = Object.keys(rows[0]);
+    const tsv = [
+      headers.join("\t"),
+      ...rows.map((r) => headers.map((h) => r[h] ?? "").join("\t")),
+    ].join("\n");
+    await navigator.clipboard.writeText(tsv);
+    toast.success(`Copied ${approved.length} rows to clipboard`);
+  }, [queueData]);
+
   const pushApproved = useCallback(
     async (destinationId: string) => {
       if (!queueData) return;
 
-      const approvedItems = queueData.items.filter(
-        (i) => i.reviewStatus === "approved" || i.reviewStatus === "edited"
-      );
+      const approvedItems = getApprovedItems(queueData.items);
 
       if (approvedItems.length === 0) {
         toast.error("No approved items to push");
@@ -172,6 +238,8 @@ export function useReviewQueue() {
     editOutput,
     approveAll,
     pushApproved,
+    downloadApprovedCsv,
+    copyApprovedToClipboard,
     clearQueue,
   };
 }

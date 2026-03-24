@@ -3,16 +3,25 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { CheckCheck, Send, Loader2, Trash2 } from "lucide-react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  CheckCheck,
+  ChevronDown,
+  Download,
+  Copy,
+  Send,
+  Loader2,
+  Trash2,
+  LayoutGrid,
+  Table2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Destination } from "@/lib/types";
-import { useState } from "react";
 
 type FilterKey = "all" | "pending" | "approved" | "rejected";
 
@@ -24,7 +33,11 @@ interface ReviewToolbarProps {
   pushing: boolean;
   onApproveAll: () => void;
   onPushApproved: (destinationId: string) => void;
+  onDownloadCsv: () => void;
+  onCopyToClipboard: () => void;
   onClear: () => void;
+  viewMode: "cards" | "table";
+  onViewModeChange: (mode: "cards" | "table") => void;
 }
 
 const FILTER_TABS: { key: FilterKey; label: string }[] = [
@@ -42,37 +55,73 @@ export function ReviewToolbar({
   pushing,
   onApproveAll,
   onPushApproved,
+  onDownloadCsv,
+  onCopyToClipboard,
   onClear,
+  viewMode,
+  onViewModeChange,
 }: ReviewToolbarProps) {
-  const [selectedDest, setSelectedDest] = useState<string>("");
+  const hasApproved = counts.approved > 0;
 
   return (
     <div className="space-y-3">
-      {/* Filter tabs */}
-      <div className="flex items-center gap-1 flex-wrap">
-        {FILTER_TABS.map((tab) => (
+      {/* Top row: view toggle + filter tabs */}
+      <div className="flex items-center gap-3">
+        {/* View mode toggle */}
+        <div className="flex items-center rounded-lg border border-clay-600 overflow-hidden">
           <button
-            key={tab.key}
-            onClick={() => onFilterChange(tab.key)}
+            onClick={() => onViewModeChange("cards")}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors",
-              filter === tab.key
+              "flex items-center gap-1 px-2.5 py-1.5 text-xs transition-colors",
+              viewMode === "cards"
                 ? "bg-clay-700 text-clay-100"
-                : "text-clay-300 hover:bg-clay-700/50"
+                : "text-clay-400 hover:text-clay-200 hover:bg-clay-700/50"
             )}
+            title="Card view"
           >
-            {tab.label}
-            <Badge
-              variant="outline"
-              className="text-[9px] border-clay-500 text-clay-300 py-0 px-1"
-            >
-              {counts[tab.key]}
-            </Badge>
+            <LayoutGrid className="h-3.5 w-3.5" />
           </button>
-        ))}
+          <div className="w-px h-5 bg-clay-600" />
+          <button
+            onClick={() => onViewModeChange("table")}
+            className={cn(
+              "flex items-center gap-1 px-2.5 py-1.5 text-xs transition-colors",
+              viewMode === "table"
+                ? "bg-clay-700 text-clay-100"
+                : "text-clay-400 hover:text-clay-200 hover:bg-clay-700/50"
+            )}
+            title="Table view"
+          >
+            <Table2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex items-center gap-1 flex-wrap">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => onFilterChange(tab.key)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors",
+                filter === tab.key
+                  ? "bg-clay-700 text-clay-100"
+                  : "text-clay-300 hover:bg-clay-700/50"
+              )}
+            >
+              {tab.label}
+              <Badge
+                variant="outline"
+                className="text-[9px] border-clay-500 text-clay-300 py-0 px-1"
+              >
+                {counts[tab.key]}
+              </Badge>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Actions */}
+      {/* Bottom row: actions */}
       <div className="flex items-center gap-2 flex-wrap">
         <Button
           variant="outline"
@@ -86,37 +135,64 @@ export function ReviewToolbar({
         </Button>
 
         <div className="flex items-center gap-1.5 ml-auto">
-          <Select value={selectedDest} onValueChange={setSelectedDest}>
-            <SelectTrigger className="w-[180px] h-8 text-xs bg-clay-800 border-clay-600">
-              <SelectValue placeholder="Select destination..." />
-            </SelectTrigger>
-            <SelectContent>
-              {destinations.map((d) => (
-                <SelectItem key={d.id} value={d.id} className="text-xs">
-                  {d.name}
-                </SelectItem>
-              ))}
-              {destinations.length === 0 && (
-                <div className="px-2 py-1.5 text-xs text-clay-300">
-                  No destinations configured
-                </div>
-              )}
-            </SelectContent>
-          </Select>
+          {/* Unified export menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                disabled={!hasApproved || pushing}
+                className="h-8 bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light text-xs font-semibold"
+              >
+                {pushing ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                Export Approved ({counts.approved})
+                <ChevronDown className="h-3 w-3 ml-1.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={onDownloadCsv} className="text-xs">
+                <Download className="h-3.5 w-3.5 mr-2" />
+                Download CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onCopyToClipboard} className="text-xs">
+                <Copy className="h-3.5 w-3.5 mr-2" />
+                Copy to Clipboard
+              </DropdownMenuItem>
 
-          <Button
-            size="sm"
-            onClick={() => selectedDest && onPushApproved(selectedDest)}
-            disabled={!selectedDest || counts.approved === 0 || pushing}
-            className="h-8 bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light text-xs font-semibold"
-          >
-            {pushing ? (
-              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Send className="h-3.5 w-3.5 mr-1.5" />
-            )}
-            Push Approved ({counts.approved})
-          </Button>
+              {destinations.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1 text-[10px] font-medium text-clay-400 uppercase tracking-wider">
+                    Push to Destination
+                  </div>
+                  {destinations.map((d) => (
+                    <DropdownMenuItem
+                      key={d.id}
+                      onClick={() => onPushApproved(d.id)}
+                      className="text-xs"
+                    >
+                      <Send className="h-3.5 w-3.5 mr-2" />
+                      {d.name}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+
+              {destinations.length === 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5 text-xs text-clay-400">
+                    No destinations configured.
+                    <br />
+                    Add one in Settings.
+                  </div>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <Button
