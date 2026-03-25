@@ -15,6 +15,7 @@ import {
   toggleAction,
   updatePortalUpdate,
   updatePortal,
+  deletePortalMedia,
 } from "@/lib/api";
 import type { PortalDetail, PortalSyncStatus } from "@/lib/types";
 import { PortalHeader } from "@/components/portal/portal-header";
@@ -26,6 +27,8 @@ import { TimelineSidebar } from "@/components/portal/timeline-sidebar";
 import { UpdateComposer } from "@/components/portal/update-composer";
 import { ShareDialog } from "@/components/portal/share-dialog";
 import { ProjectList } from "@/components/portal/project-list";
+import { PortalTabs, type PortalTab } from "@/components/portal/portal-tabs";
+import { DocumentsView } from "@/components/portal/documents-view";
 import { usePortalFeed } from "@/hooks/use-portal-feed";
 
 export default function ClientPortalPage() {
@@ -38,6 +41,7 @@ export default function ClientPortalPage() {
   const [syncing, setSyncing] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<PortalTab>("communication");
 
   const {
     searchQuery,
@@ -136,6 +140,16 @@ export default function ClientPortalPage() {
       loadPortal();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to move post");
+    }
+  };
+
+  const handleDeleteMedia = async (mediaId: string) => {
+    try {
+      await deletePortalMedia(slug, mediaId);
+      toast.success("File deleted");
+      loadPortal();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete file");
     }
   };
 
@@ -247,49 +261,75 @@ export default function ClientPortalPage() {
           slug={slug}
         />
 
-        {/* Two-column: feed + timeline sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
-          {/* Left: Post feed */}
-          <div className="space-y-4 min-w-0">
-            <SearchBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              resultCount={filteredUpdates.length}
-              totalCount={portal.recent_updates.length}
-              authorFilter={authorFilter}
-              onAuthorFilterChange={setAuthorFilter}
-              typeFilters={typeFilters}
-              onTypeFiltersChange={setTypeFilters}
-              pinnedOnly={pinnedOnly}
-              onPinnedOnlyChange={setPinnedOnly}
-            />
+        {/* Tab bar */}
+        <PortalTabs
+          active={activeTab}
+          onChange={setActiveTab}
+          counts={{
+            communication: portal.recent_updates.length,
+            documents: portal.media.length + portal.recent_updates.filter((u) => u.type === "deliverable").length,
+          }}
+        />
 
-            {composerOpen && (
-              <UpdateComposer
+        {/* Two-column: content + timeline sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+          {/* Left: Tab content */}
+          <div className="space-y-4 min-w-0">
+            {activeTab === "communication" ? (
+              <>
+                <SearchBar
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  resultCount={filteredUpdates.length}
+                  totalCount={portal.recent_updates.length}
+                  authorFilter={authorFilter}
+                  onAuthorFilterChange={setAuthorFilter}
+                  typeFilters={typeFilters}
+                  onTypeFiltersChange={setTypeFilters}
+                  pinnedOnly={pinnedOnly}
+                  onPinnedOnlyChange={setPinnedOnly}
+                />
+
+                {composerOpen && (
+                  <UpdateComposer
+                    slug={slug}
+                    clientName={portal.name}
+                    projects={portal.projects}
+                    onPosted={() => { loadPortal(); setComposerOpen(false); }}
+                  />
+                )}
+
+                <PostFeed
+                  slug={slug}
+                  updates={filteredUpdates}
+                  media={portal.media}
+                  searchQuery={searchQuery}
+                  highlightedPostId={highlightedPostId}
+                  postRefs={postRefs}
+                  onTogglePin={handleTogglePin}
+                  onDeleteUpdate={handleDeleteUpdate}
+                  onMoveToProject={handleMoveToProject}
+                  onUpdated={loadPortal}
+                  clientName={portal.name}
+                  projects={portal.projects}
+                  hasActiveFilters={hasActiveFilters}
+                  onClearFilters={clearAllFilters}
+                  onOpenComposer={() => setComposerOpen(true)}
+                />
+              </>
+            ) : (
+              <DocumentsView
                 slug={slug}
+                gwsFolderId={portal.meta.gws_folder_id}
+                projects={portal.projects ?? []}
+                media={portal.media}
+                updates={portal.recent_updates}
+                onMediaDeleted={handleDeleteMedia}
+                onMediaUploaded={loadPortal}
+                onUpdated={loadPortal}
                 clientName={portal.name}
-                projects={portal.projects}
-                onPosted={() => { loadPortal(); setComposerOpen(false); }}
               />
             )}
-
-            <PostFeed
-              slug={slug}
-              updates={filteredUpdates}
-              media={portal.media}
-              searchQuery={searchQuery}
-              highlightedPostId={highlightedPostId}
-              postRefs={postRefs}
-              onTogglePin={handleTogglePin}
-              onDeleteUpdate={handleDeleteUpdate}
-              onMoveToProject={handleMoveToProject}
-              onUpdated={loadPortal}
-              clientName={portal.name}
-              projects={portal.projects}
-              hasActiveFilters={hasActiveFilters}
-              onClearFilters={clearAllFilters}
-              onOpenComposer={() => setComposerOpen(true)}
-            />
           </div>
 
           {/* Right: Timeline sidebar */}
