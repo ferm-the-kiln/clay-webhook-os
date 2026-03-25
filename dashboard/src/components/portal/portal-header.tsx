@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { cn, formatRelativeTime } from "@/lib/utils";
-import { Share2, ChevronDown, Eye, CheckSquare, Image, FileText } from "lucide-react";
+import { Share2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const STATUS_OPTIONS = ["active", "onboarding", "paused", "churned"] as const;
@@ -151,29 +151,17 @@ export function PortalHeader({
         </div>
       </div>
 
-      {/* Context strip */}
-      <div className="flex items-center gap-4 text-[11px] text-clay-400 pl-[52px]">
-        {openActionCount > 0 && (
-          <span className="flex items-center gap-1">
-            <CheckSquare className="h-3 w-3" />
-            {openActionCount} open action{openActionCount !== 1 ? "s" : ""}
-          </span>
-        )}
-        <span className="flex items-center gap-1">
-          <Image className="h-3 w-3" />
-          {mediaCount} file{mediaCount !== 1 ? "s" : ""}
-        </span>
-        <span className="flex items-center gap-1">
-          <FileText className="h-3 w-3" />
-          {sopCount} SOP{sopCount !== 1 ? "s" : ""}
-        </span>
-        <span className="flex items-center gap-1">
-          <Eye className="h-3 w-3" />
-          {lastViewedAt
-            ? `Client viewed ${formatRelativeTime(lastViewedAt)}`
-            : "Client hasn\u2019t viewed yet"}
-        </span>
-      </div>
+      {/* Context strip — simplified single line */}
+      <p className="text-[11px] text-clay-500 pl-[52px]">
+        {[
+          openActionCount > 0 ? `${openActionCount} action${openActionCount !== 1 ? "s" : ""}` : null,
+          `${mediaCount} file${mediaCount !== 1 ? "s" : ""}`,
+          sopCount > 0 ? `${sopCount} SOP${sopCount !== 1 ? "s" : ""}` : null,
+        ].filter(Boolean).join(", ")}
+        {lastViewedAt
+          ? ` \u00B7 Viewed ${formatRelativeTime(lastViewedAt)}`
+          : " \u00B7 Not viewed yet"}
+      </p>
     </div>
   );
 }

@@ -65,7 +65,7 @@ function snoozeAction(slug: string, actionId: string) {
 }
 
 export function AttentionStrip({ clientActions, overdueActions, onToggleAction, slug = "" }: AttentionStripProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -89,21 +89,21 @@ export function AttentionStrip({ clientActions, overdueActions, onToggleAction, 
   if (visibleClient.length === 0 && visibleOverdue.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-red-500/20 bg-gradient-to-r from-red-500/5 to-amber-500/5 overflow-hidden">
+    <div className="rounded-lg border border-red-500/20 bg-clay-800 overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-clay-750/50 transition-colors"
       >
         <div className="flex items-center gap-3 flex-wrap flex-1">
           {visibleOverdue.length > 0 && (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-red-400">
-              <Clock className="h-3.5 w-3.5" />
+            <span className="flex items-center gap-1.5 text-xs font-medium text-clay-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
               {visibleOverdue.length} overdue
             </span>
           )}
           {visibleClient.length > 0 && (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-orange-400">
-              <AlertCircle className="h-3.5 w-3.5" />
+            <span className="flex items-center gap-1.5 text-xs font-medium text-clay-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
               {visibleClient.length} waiting on client
             </span>
           )}
@@ -116,7 +116,7 @@ export function AttentionStrip({ clientActions, overdueActions, onToggleAction, 
       </button>
 
       {expanded && (
-        <div className="border-t border-red-500/10 px-4 py-3 space-y-2">
+        <div className="border-t border-clay-700/50 px-4 py-3 space-y-2">
           {allActions.map((action) => {
             const today = new Date().toISOString().split("T")[0];
             const isOverdue = action.due_date && action.due_date < today;

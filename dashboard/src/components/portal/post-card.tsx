@@ -28,15 +28,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
 
 const TYPE_CONFIG: Record<string, {
   label: string;
+  dot: string;
   textColor: string;
   border: string;
   bg: string;
   icon?: React.ElementType;
 }> = {
-  update: { label: "Update", textColor: "text-blue-400", border: "border-l-blue-400", bg: "" },
-  milestone: { label: "Milestone", textColor: "text-emerald-400", border: "border-l-emerald-400", bg: "bg-emerald-500/[0.03]", icon: Milestone },
-  deliverable: { label: "Deliverable", textColor: "text-purple-400", border: "border-l-purple-400", bg: "bg-purple-500/[0.03]", icon: Package },
-  note: { label: "Note", textColor: "text-amber-400", border: "border-l-clay-600", bg: "" },
+  update: { label: "Update", dot: "bg-blue-400", textColor: "text-blue-400", border: "border-l-blue-400/60", bg: "" },
+  milestone: { label: "Milestone", dot: "bg-emerald-400", textColor: "text-emerald-400", border: "border-l-emerald-400/60", bg: "bg-emerald-500/[0.02]", icon: Milestone },
+  deliverable: { label: "Deliverable", dot: "bg-purple-400", textColor: "text-purple-400", border: "border-l-purple-400/60", bg: "bg-purple-500/[0.02]", icon: Package },
+  note: { label: "Note", dot: "bg-amber-400", textColor: "text-amber-400", border: "border-l-transparent", bg: "" },
 };
 
 const REACTION_TYPES = [
@@ -172,7 +173,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           tabIndex={0}
           onClick={() => setCompactExpanded(true)}
           className={cn(
-            "rounded-lg border-l-4 bg-clay-800 transition-all group outline-none cursor-pointer px-3 py-2",
+            "rounded-lg border-l-2 bg-clay-800 transition-all group outline-none cursor-pointer px-3 py-2",
             config.border,
             !isInternal && "border-r-4 border-r-purple-400/30",
             highlighted && "ring-2 ring-kiln-teal/50",
@@ -223,7 +224,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           ref={ref}
           tabIndex={0}
           className={cn(
-            "rounded-lg border-l-4 bg-clay-800 transition-all group outline-none",
+            "rounded-lg border-l-2 bg-clay-800 transition-all group outline-none",
             hasBody ? "px-4 py-3.5" : "px-4 py-3",
             config.border,
             config.bg,
@@ -279,11 +280,8 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                     )}
                   </>
                 )}
-                <span className={cn(
-                  "text-xs font-medium px-2.5 py-0.5 rounded-full border",
-                  config.textColor,
-                  "bg-clay-800 border-clay-600/60"
-                )}>
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full border text-clay-300 bg-clay-700/50 border-clay-600/40">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", config.dot)} />
                   {config.label}
                 </span>
                 {update.project_id && projects && (() => {
@@ -473,35 +471,55 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             <div className="border-b border-clay-700/40 mt-3" />
           )}
 
-          {/* Quick reactions — collapse to active only, expand all on hover */}
+          {/* Quick reactions — show only active by default, full picker on hover */}
           <div
-            className={cn(
-              "flex items-center gap-1 mt-2.5 transition-opacity",
-              activeReactionKeys.length > 0 || reactionsHovered ? "opacity-100" : "opacity-40 group-hover:opacity-100"
-            )}
+            className="flex items-center gap-1 mt-2.5"
             onMouseEnter={() => setReactionsHovered(true)}
             onMouseLeave={() => setReactionsHovered(false)}
           >
-            {REACTION_TYPES.map(({ key, emoji }) => {
-              const count = reactions[key]?.length ?? 0;
-              const isActive = userReactedKeys.has(key);
-              if (activeReactionKeys.length > 0 && !reactionsHovered && count === 0) return null;
-              return (
-                <button
-                  key={key}
-                  onClick={() => handleToggleReaction(key)}
-                  className={cn(
-                    "h-7 px-2 rounded-full text-sm transition-all flex items-center gap-1",
-                    isActive
-                      ? "bg-kiln-teal/15 ring-1 ring-kiln-teal/30 scale-110"
-                      : "bg-clay-700/50 hover:bg-clay-700"
-                  )}
-                >
-                  {emoji}
-                  {count > 0 && <span className="text-[11px] text-clay-200">{count}</span>}
-                </button>
-              );
-            })}
+            {activeReactionKeys.length > 0 && !reactionsHovered && (
+              REACTION_TYPES.filter(({ key }) => (reactions[key]?.length ?? 0) > 0).map(({ key, emoji }) => {
+                const count = reactions[key]?.length ?? 0;
+                const isActive = userReactedKeys.has(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleToggleReaction(key)}
+                    className={cn(
+                      "h-7 px-2 rounded-full text-sm transition-all flex items-center gap-1",
+                      isActive
+                        ? "bg-kiln-teal/15 ring-1 ring-kiln-teal/30"
+                        : "bg-clay-700/50 hover:bg-clay-700"
+                    )}
+                  >
+                    {emoji}
+                    <span className="text-[11px] text-clay-200">{count}</span>
+                  </button>
+                );
+              })
+            )}
+            {(reactionsHovered || activeReactionKeys.length === 0) && (
+              REACTION_TYPES.map(({ key, emoji }) => {
+                const count = reactions[key]?.length ?? 0;
+                const isActive = userReactedKeys.has(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleToggleReaction(key)}
+                    className={cn(
+                      "h-7 px-2 rounded-full text-sm transition-all flex items-center gap-1",
+                      isActive
+                        ? "bg-kiln-teal/15 ring-1 ring-kiln-teal/30"
+                        : "bg-clay-700/50 hover:bg-clay-700",
+                      !reactionsHovered && activeReactionKeys.length === 0 && "opacity-0 group-hover:opacity-40"
+                    )}
+                  >
+                    {emoji}
+                    {count > 0 && <span className="text-[11px] text-clay-200">{count}</span>}
+                  </button>
+                );
+              })
+            )}
           </div>
 
           {/* Action row: comments + google doc + collapse */}

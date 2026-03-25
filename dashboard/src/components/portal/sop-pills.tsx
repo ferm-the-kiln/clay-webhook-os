@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, CheckCircle, Pencil, Trash2, Copy, FileText } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Plus, CheckCircle, Pencil, Trash2, Copy, FileText, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -40,6 +40,20 @@ export function SOPPills({ slug, sops, sopAcks = {}, onCreated, onUpdated, onDel
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on outside click
+  useEffect(() => {
+    if (!popoverOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setPopoverOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [popoverOpen]);
 
   const handleAck = async (sopId: string) => {
     try {
@@ -51,45 +65,59 @@ export function SOPPills({ slug, sops, sopAcks = {}, onCreated, onUpdated, onDel
     }
   };
 
+  // Hide entirely when no SOPs
+  if (sops.length === 0) return null;
+
   return (
     <>
-      <div className="flex items-center gap-2 flex-wrap">
-        <FileText className="h-4 w-4 text-clay-400 shrink-0" />
-        {sops.map((sop) => {
-          const acked = sop.id in sopAcks;
-          const colors = CATEGORY_COLORS[sop.category] || CATEGORY_COLORS.general;
-          return (
-            <button
-              key={sop.id}
-              onClick={() => { setSelectedSop(sop); setEditing(false); }}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:brightness-110",
-                colors
-              )}
-            >
-              {acked && <CheckCircle className="h-3 w-3 text-emerald-400" />}
-              {sop.title}
-            </button>
-          );
-        })}
-
-        {/* New SOP pill */}
+      {/* Compact trigger with popover */}
+      <div className="relative" ref={popoverRef}>
         <button
-          onClick={() => setCreating(true)}
-          className="flex items-center gap-1 rounded-full border border-dashed border-clay-600 px-3 py-1 text-xs text-clay-400 hover:text-clay-200 hover:border-clay-400 transition-colors"
+          onClick={() => setPopoverOpen(!popoverOpen)}
+          className="flex items-center gap-1.5 text-xs font-medium text-clay-300 hover:text-clay-100 transition-colors px-2.5 py-1.5 rounded-lg border border-clay-700 bg-clay-800/60 hover:bg-clay-800"
         >
-          <Plus className="h-3 w-3" />
-          New SOP
+          <FileText className="h-3.5 w-3.5 text-clay-400" />
+          {sops.length} {sops.length === 1 ? "SOP" : "SOPs"}
+          <ChevronDown className={cn("h-3 w-3 text-clay-500 transition-transform", popoverOpen && "rotate-180")} />
         </button>
 
-        {/* Template button */}
-        <button
-          onClick={() => setTemplatePickerOpen(true)}
-          className="flex items-center gap-1 rounded-full border border-dashed border-clay-600 px-3 py-1 text-xs text-clay-400 hover:text-clay-200 hover:border-clay-400 transition-colors"
-        >
-          <Copy className="h-3 w-3" />
-          Template
-        </button>
+        {popoverOpen && (
+          <div className="absolute top-full left-0 mt-1.5 z-30 w-64 rounded-lg border border-clay-700 bg-clay-900 shadow-xl animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="p-2 space-y-1">
+              {sops.map((sop) => {
+                const acked = sop.id in sopAcks;
+                const colors = CATEGORY_COLORS[sop.category] || CATEGORY_COLORS.general;
+                return (
+                  <button
+                    key={sop.id}
+                    onClick={() => { setSelectedSop(sop); setEditing(false); setPopoverOpen(false); }}
+                    className="w-full flex items-center gap-2 rounded-md px-2.5 py-2 text-xs text-clay-200 hover:bg-clay-800 transition-colors text-left"
+                  >
+                    <span className={cn("h-2 w-2 rounded-full shrink-0", CATEGORY_COLORS[sop.category]?.split(" ")[0]?.replace("text-", "bg-") || "bg-clay-400")} />
+                    <span className="truncate flex-1">{sop.title}</span>
+                    {acked && <CheckCircle className="h-3 w-3 text-emerald-400 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="border-t border-clay-700 p-2 flex items-center gap-1.5">
+              <button
+                onClick={() => { setCreating(true); setPopoverOpen(false); }}
+                className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-clay-400 hover:text-clay-200 hover:bg-clay-800 transition-colors flex-1"
+              >
+                <Plus className="h-3 w-3" />
+                New SOP
+              </button>
+              <button
+                onClick={() => { setTemplatePickerOpen(true); setPopoverOpen(false); }}
+                className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-clay-400 hover:text-clay-200 hover:bg-clay-800 transition-colors flex-1"
+              >
+                <Copy className="h-3 w-3" />
+                Template
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* SOP detail sheet */}

@@ -195,9 +195,15 @@ export default function ClientPortalPage() {
     (a) => a.status !== "done" && a.due_date && a.due_date < today
   );
 
+  // IDs shown in attention strip — exclude from sidebar to avoid duplication
+  const attentionActionIds = new Set([
+    ...clientActions.map((a) => a.id),
+    ...overdueActions.map((a) => a.id),
+  ]);
+
   return (
     <div className="max-w-6xl mx-auto px-4 pb-12">
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/* Header */}
         <PortalHeader
           name={portal.name}
@@ -260,6 +266,9 @@ export default function ClientPortalPage() {
           onToggleAction={handleToggleAction}
           slug={slug}
         />
+
+        {/* Divider between header area and content */}
+        <div className="h-px bg-clay-800" />
 
         {/* Tab bar */}
         <PortalTabs
@@ -340,6 +349,7 @@ export default function ClientPortalPage() {
             slug={slug}
             onToggleAction={handleToggleAction}
             onPortalUpdated={loadPortal}
+            excludeActionIds={attentionActionIds.size > 0 ? attentionActionIds : undefined}
           />
         </div>
       </div>
