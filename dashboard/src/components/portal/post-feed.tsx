@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Pin, ChevronDown, ChevronUp } from "lucide-react";
+import { Pin, ChevronDown, ChevronUp, LayoutList, LayoutGrid, Plus, FileText, FolderPlus, MessageSquare, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PortalUpdate, PortalMedia, ProjectSummary } from "@/lib/types";
 import { PostCard } from "./post-card";
@@ -19,6 +19,9 @@ interface PostFeedProps {
   onUpdated?: () => void;
   clientName?: string;
   projects?: ProjectSummary[];
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
+  onOpenComposer?: () => void;
 }
 
 function getLastSeenTimestamp(slug: string): number {
@@ -44,6 +47,11 @@ function TimeGroupHeader({ label, sticky }: { label: string; sticky?: boolean })
   );
 }
 
+function getDensityPref(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("portal-density-preference") === "compact";
+}
+
 export function PostFeed({
   slug,
   updates,
@@ -57,11 +65,21 @@ export function PostFeed({
   onUpdated,
   clientName,
   projects,
+  hasActiveFilters,
+  onClearFilters,
+  onOpenComposer,
 }: PostFeedProps) {
   const [earlierExpanded, setEarlierExpanded] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [lastSeen] = useState(() => getLastSeenTimestamp(slug));
+  const [compact, setCompact] = useState(getDensityPref);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  function toggleDensity() {
+    const next = !compact;
+    setCompact(next);
+    localStorage.setItem("portal-density-preference", next ? "compact" : "comfortable");
+  }
 
   // Mark as seen after mount
   useEffect(() => {
@@ -127,13 +145,48 @@ export function PostFeed({
   }, [handleKeyDown]);
 
   if (updates.length === 0) {
+    // Filtered empty state
+    if (hasActiveFilters) {
+      return (
+        <div className="rounded-lg border border-clay-700 bg-clay-800 p-8 text-center space-y-3">
+          <MessageSquare className="h-8 w-8 text-clay-600 mx-auto" />
+          <p className="text-sm text-clay-400">No posts match your filters.</p>
+          {onClearFilters && (
+            <button
+              onClick={onClearFilters}
+              className="inline-flex items-center gap-1.5 text-xs text-kiln-teal hover:text-kiln-teal/80 transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Clear all filters
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    // Welcome empty state for new portals
     return (
-      <div className="rounded-lg border border-clay-700 bg-clay-800 p-8 text-center">
-        <p className="text-sm text-clay-400">
-          {searchQuery
-            ? "No posts match your search."
-            : "No posts yet. Create your first post to start the activity feed."}
-        </p>
+      <div className="rounded-lg border border-clay-700 bg-clay-800 p-8 text-center space-y-4">
+        <div className="space-y-2">
+          <MessageSquare className="h-10 w-10 text-clay-600 mx-auto" />
+          <h3 className="text-base font-semibold text-clay-200">
+            Welcome to {clientName ? `${clientName}'s` : "this"} portal
+          </h3>
+          <p className="text-sm text-clay-400">
+            Start by posting your first update to build the activity feed.
+          </p>
+        </div>
+        {onOpenComposer && (
+          <div className="flex items-center justify-center gap-2">
+            <button
+              onClick={onOpenComposer}
+              className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-kiln-teal/10 text-kiln-teal border border-kiln-teal/20 hover:bg-kiln-teal/20 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Create Update
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -166,6 +219,7 @@ export function PostFeed({
           projects={projects}
           onMoveToProject={onMoveToProject}
           onUpdated={onUpdated}
+          compact={compact}
         />
       </motion.div>
     );
@@ -173,6 +227,30 @@ export function PostFeed({
 
   return (
     <div ref={containerRef} className="space-y-5">
+      {/* Density toggle */}
+      <div className="flex items-center justify-end">
+        <div className="flex items-center gap-0.5 bg-clay-800 border border-clay-700 rounded-md p-0.5">
+          <button
+            onClick={() => { if (compact) toggleDensity(); }}
+            className={`h-6 w-6 rounded flex items-center justify-center transition-colors ${
+              !compact ? "bg-clay-700 text-clay-200" : "text-clay-500 hover:text-clay-300"
+            }`}
+            title="Comfortable view"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => { if (!compact) toggleDensity(); }}
+            className={`h-6 w-6 rounded flex items-center justify-center transition-colors ${
+              compact ? "bg-clay-700 text-clay-200" : "text-clay-500 hover:text-clay-300"
+            }`}
+            title="Compact view"
+          >
+            <LayoutList className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
       {/* Pinned posts */}
       <AnimatePresence>
         {pinned.length > 0 && (

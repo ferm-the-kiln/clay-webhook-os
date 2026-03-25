@@ -96,11 +96,13 @@ interface PostCardProps {
   projects?: ProjectSummary[];
   onMoveToProject?: (updateId: string, projectId: string | null) => void;
   onUpdated?: () => void;
+  compact?: boolean;
 }
 
 export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
-  function PostCard({ slug, update, media, onTogglePin, onDelete, highlighted, clientName, isNew, isFocused, projects, onMoveToProject, onUpdated }, ref) {
+  function PostCard({ slug, update, media, onTogglePin, onDelete, highlighted, clientName, isNew, isFocused, projects, onMoveToProject, onUpdated, compact }, ref) {
     const [expanded, setExpanded] = useState(false);
+    const [compactExpanded, setCompactExpanded] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [reactions, setReactionsState] = useState<Record<string, { user: string; created_at: number }[]>>({});
     const [reactionsHovered, setReactionsHovered] = useState(false);
@@ -162,6 +164,59 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
       if (isLong) setExpanded((e) => !e);
     }, [isLong]);
 
+    // Compact layout
+    if (compact && !compactExpanded) {
+      return (
+        <div
+          ref={ref}
+          tabIndex={0}
+          onClick={() => setCompactExpanded(true)}
+          className={cn(
+            "rounded-lg border-l-4 bg-clay-800 transition-all group outline-none cursor-pointer px-3 py-2",
+            config.border,
+            !isInternal && "border-r-4 border-r-purple-400/30",
+            highlighted && "ring-2 ring-kiln-teal/50",
+            isFocused && "ring-2 ring-kiln-teal/40",
+          )}
+        >
+          <div className="flex items-center gap-2.5">
+            <div
+              className={cn(
+                "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                isInternal ? "bg-kiln-teal/15 text-kiln-teal" : "bg-purple-500/15 text-purple-400"
+              )}
+            >
+              {(update.author_name || (isInternal ? "K" : "C")).charAt(0).toUpperCase()}
+            </div>
+            {isNew && <span className="h-1.5 w-1.5 rounded-full bg-kiln-teal shrink-0" />}
+            <span className={cn("text-xs font-medium truncate flex-1", update.pinned && "text-amber-300")}>
+              {update.pinned && <Pin className="h-2.5 w-2.5 inline mr-1 text-amber-400" />}
+              {update.title}
+            </span>
+            <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0", config.textColor, "bg-clay-700/50")}>
+              {config.label}
+            </span>
+            {update.author_name && (
+              <span className="text-[10px] text-clay-400 shrink-0 hidden sm:inline">{update.author_name}</span>
+            )}
+            <span className="text-[10px] text-clay-500 shrink-0">{formatRelativeTime(update.created_at)}</span>
+            {activeReactionKeys.length > 0 && (
+              <span className="text-[10px] text-clay-500 shrink-0">
+                {REACTION_TYPES.filter((r) => (reactions[r.key]?.length ?? 0) > 0).map((r) => r.emoji).join("")}
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // If was compact-expanded, show a "collapse" hint
+    const showCollapseHint = compact && compactExpanded;
+
+    const authorInitial = update.author_name
+      ? update.author_name.charAt(0).toUpperCase()
+      : isInternal ? "K" : (clientName || "C").charAt(0).toUpperCase();
+
     return (
       <>
         <div
@@ -172,6 +227,7 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             hasBody ? "px-4 py-3.5" : "px-4 py-3",
             config.border,
             config.bg,
+            !isInternal && "border-r-4 border-r-purple-400/30 bg-purple-500/[0.02]",
             update.pinned && "ring-1 ring-amber-500/20 bg-amber-500/[0.03]",
             highlighted && "ring-2 ring-kiln-teal/50 animate-pulse",
             isFocused && "ring-2 ring-kiln-teal/40",
@@ -185,8 +241,20 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             </div>
           )}
 
-          {/* Header section: org + title + metadata + kebab */}
-          <div className="flex items-start gap-2 pb-2.5 border-b border-clay-700/40">
+          {/* Header section: avatar + title + metadata + kebab */}
+          <div className="flex items-start gap-3 pb-2.5 border-b border-clay-700/40">
+            {/* Author avatar */}
+            <div
+              className={cn(
+                "h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5",
+                isInternal
+                  ? "bg-kiln-teal/15 text-kiln-teal"
+                  : "bg-purple-500/15 text-purple-400"
+              )}
+            >
+              {authorInitial}
+            </div>
+
             <div className="min-w-0 flex-1">
               {/* Title */}
               <div className="flex items-center gap-2">
@@ -436,9 +504,17 @@ export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             })}
           </div>
 
-          {/* Action row: comments + google doc */}
+          {/* Action row: comments + google doc + collapse */}
           <div className="flex items-center gap-3 mt-3 pt-2.5 border-t border-clay-700/40">
             <CommentThread slug={slug} updateId={update.id} />
+            {showCollapseHint && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setCompactExpanded(false); }}
+                className="text-[10px] text-clay-500 hover:text-clay-300 ml-auto transition-colors"
+              >
+                Collapse
+              </button>
+            )}
             {update.google_doc_url && (
               <a
                 href={update.google_doc_url}

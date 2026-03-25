@@ -1446,6 +1446,56 @@ export async function fetchPublicPortal(slug: string, token: string): Promise<Pu
   return res.json();
 }
 
+// Public Portal Actions (share-token authenticated)
+
+async function publicFetch<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
+  const separator = path.includes("?") ? "&" : "?";
+  const res = await fetch(`${API_URL}${path}${separator}token=${encodeURIComponent(token)}`, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...options.headers },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error_message || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export function publicToggleAction(slug: string, token: string, actionId: string) {
+  return publicFetch(`/portal/${slug}/actions/${actionId}/toggle/public`, token, { method: "PUT" });
+}
+
+export function publicAcknowledgeSOP(slug: string, token: string, sopId: string, user: string) {
+  return publicFetch(`/portal/${slug}/sops/${sopId}/acknowledge/public`, token, {
+    method: "POST",
+    body: JSON.stringify({ user }),
+  });
+}
+
+export function publicProcessApproval(
+  slug: string,
+  token: string,
+  updateId: string,
+  body: { action: "approve" | "request_revision" | "resubmit"; actor_name: string; actor_org?: string; notes?: string }
+) {
+  return publicFetch(`/portal/${slug}/updates/${updateId}/approve/public`, token, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function publicPostComment(
+  slug: string,
+  token: string,
+  updateId: string,
+  body: { body: string; author: string }
+) {
+  return publicFetch(`/portal/${slug}/updates/${updateId}/comments/public`, token, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 // Notifications
 export function testPortalNotification(slug: string): Promise<{ ok: boolean; message: string }> {
   return apiFetch(`/portal/${slug}/notifications/test`, { method: "POST" });

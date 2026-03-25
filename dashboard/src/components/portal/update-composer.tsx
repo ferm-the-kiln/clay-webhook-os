@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Send, FileText, Loader2, Paperclip, X, FileIcon, Image } from "lucide-react";
+import { Send, FileText, Loader2, Paperclip, X, FileIcon, Image, Bold, Italic, Link, List, Eye, EyeOff, Info } from "lucide-react";
 import { createPortalUpdate, fetchUpdateTemplates, uploadPortalMedia, deletePortalMedia } from "@/lib/api";
 import { toast } from "sonner";
 import type { UpdateTemplate, PortalMedia, ProjectSummary } from "@/lib/types";
 import { AuthorPicker, getSelectedAuthor, saveAuthor } from "./author-picker";
+import { MarkdownContent } from "./markdown-content";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
 
@@ -39,7 +40,9 @@ export function UpdateComposer({ slug, clientName, projectId: initialProjectId, 
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(initialProjectId);
+  const [showPreview, setShowPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   // Restore draft from localStorage on mount + load saved author
   useEffect(() => {
@@ -272,17 +275,79 @@ export function UpdateComposer({ slug, clientName, projectId: initialProjectId, 
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="What happened?"
-        className="w-full bg-clay-900/80 border border-clay-600/80 rounded-lg px-3.5 py-2.5 text-base text-clay-100 placeholder:text-clay-400 focus:outline-none focus:border-kiln-teal"
+        placeholder="Title your update..."
+        className="w-full bg-clay-900/80 border border-clay-600/80 rounded-lg px-3.5 py-3 text-lg font-semibold text-clay-100 placeholder:text-clay-400/60 focus:outline-none focus:border-kiln-teal"
       />
 
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder="Add details (supports **markdown**)..."
-        rows={3}
-        className="w-full bg-clay-900/80 border border-clay-600/80 rounded-lg px-3.5 py-2.5 text-sm text-clay-100 placeholder:text-clay-400 focus:outline-none focus:border-kiln-teal resize-y"
-      />
+      {/* Markdown toolbar + preview toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-0.5">
+          {[
+            { icon: Bold, insert: "**", wrap: true, title: "Bold" },
+            { icon: Italic, insert: "_", wrap: true, title: "Italic" },
+            { icon: Link, insert: "[text](url)", wrap: false, title: "Link" },
+            { icon: List, insert: "- ", wrap: false, title: "List" },
+          ].map(({ icon: Icon, insert, wrap, title: btnTitle }) => (
+            <button
+              key={btnTitle}
+              onClick={() => {
+                const ta = bodyRef.current;
+                if (!ta) return;
+                const start = ta.selectionStart;
+                const end = ta.selectionEnd;
+                const selected = body.substring(start, end);
+                if (wrap && selected) {
+                  const newText = body.substring(0, start) + insert + selected + insert + body.substring(end);
+                  setBody(newText);
+                  setTimeout(() => { ta.focus(); ta.setSelectionRange(start + insert.length, end + insert.length); }, 0);
+                } else {
+                  const newText = body.substring(0, start) + insert + body.substring(end);
+                  setBody(newText);
+                  setTimeout(() => { ta.focus(); ta.setSelectionRange(start + insert.length, start + insert.length); }, 0);
+                }
+              }}
+              className="h-7 w-7 rounded flex items-center justify-center text-clay-400 hover:text-clay-200 hover:bg-clay-700 transition-colors"
+              title={btnTitle}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setShowPreview(!showPreview)}
+          className="flex items-center gap-1 text-[11px] text-clay-400 hover:text-clay-200 transition-colors"
+        >
+          {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+          {showPreview ? "Edit" : "Preview"}
+        </button>
+      </div>
+
+      {/* Body textarea or preview */}
+      <div className="relative">
+        {showPreview ? (
+          <div className="min-h-[80px] bg-clay-900/80 border border-clay-600/80 rounded-lg px-3.5 py-2.5">
+            {body ? (
+              <MarkdownContent content={body} />
+            ) : (
+              <p className="text-sm text-clay-500">Nothing to preview</p>
+            )}
+          </div>
+        ) : (
+          <textarea
+            ref={bodyRef}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Add details (supports **markdown**)..."
+            rows={3}
+            className="w-full bg-clay-900/80 border border-clay-600/80 rounded-lg px-3.5 py-2.5 text-sm text-clay-100 placeholder:text-clay-400 focus:outline-none focus:border-kiln-teal resize-y"
+          />
+        )}
+        {body && !showPreview && (
+          <span className="absolute bottom-2 right-3 text-[10px] text-clay-500">
+            {body.trim().split(/\s+/).filter(Boolean).length} words
+          </span>
+        )}
+      </div>
 
       {/* Pending media preview strip */}
       {(pendingMedia.length > 0 || uploading) && (
@@ -327,15 +392,23 @@ export function UpdateComposer({ slug, clientName, projectId: initialProjectId, 
       )}
 
       {type === "deliverable" && (
-        <label className="flex items-center gap-2 text-xs text-clay-300 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={createAction}
-            onChange={(e) => setCreateAction(e.target.checked)}
-            className="accent-kiln-teal"
-          />
-          Auto-create client review action
-        </label>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-xs text-clay-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={createAction}
+              onChange={(e) => setCreateAction(e.target.checked)}
+              className="accent-kiln-teal"
+            />
+            Auto-create client review action
+          </label>
+          {createAction && (
+            <div className="flex items-center gap-2 text-[11px] text-purple-400/70 bg-purple-500/5 border border-purple-500/10 rounded-lg px-3 py-2">
+              <Info className="h-3.5 w-3.5 shrink-0" />
+              A review action will be created for the client with an approval workflow
+            </div>
+          )}
+        </div>
       )}
 
       <div className="flex items-center justify-between pt-4 border-t border-clay-700/40">

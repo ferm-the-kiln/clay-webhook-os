@@ -14,6 +14,7 @@ import {
   deletePortalUpdate,
   toggleAction,
   updatePortalUpdate,
+  updatePortal,
 } from "@/lib/api";
 import type { PortalDetail, PortalSyncStatus } from "@/lib/types";
 import { PortalHeader } from "@/components/portal/portal-header";
@@ -41,10 +42,18 @@ export default function ClientPortalPage() {
   const {
     searchQuery,
     setSearchQuery,
+    authorFilter,
+    setAuthorFilter,
+    typeFilters,
+    setTypeFilters,
+    pinnedOnly,
+    setPinnedOnly,
     highlightedPostId,
     highlightPost,
     filteredUpdates,
     postRefs,
+    hasActiveFilters,
+    clearAllFilters,
   } = usePortalFeed(portal?.recent_updates ?? []);
 
   const loadPortal = useCallback(async () => {
@@ -185,6 +194,19 @@ export default function ClientPortalPage() {
           shareToken={portal.meta.share_token}
           onSync={handleSync}
           onShareClick={() => setShareDialogOpen(true)}
+          openActionCount={portal.actions.filter((a) => a.status !== "done").length}
+          mediaCount={portal.media.length}
+          sopCount={portal.sops.length}
+          lastViewedAt={portal.view_stats?.last_viewed_at ?? null}
+          onStatusChange={async (newStatus) => {
+            try {
+              await updatePortal(slug, { status: newStatus });
+              toast.success(`Status changed to ${newStatus}`);
+              loadPortal();
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Failed to update status");
+            }
+          }}
         />
 
         {/* Quick-access bar: SOP pills + create post */}
@@ -222,6 +244,7 @@ export default function ClientPortalPage() {
           clientActions={clientActions}
           overdueActions={overdueActions}
           onToggleAction={handleToggleAction}
+          slug={slug}
         />
 
         {/* Two-column: feed + timeline sidebar */}
@@ -233,6 +256,12 @@ export default function ClientPortalPage() {
               onChange={setSearchQuery}
               resultCount={filteredUpdates.length}
               totalCount={portal.recent_updates.length}
+              authorFilter={authorFilter}
+              onAuthorFilterChange={setAuthorFilter}
+              typeFilters={typeFilters}
+              onTypeFiltersChange={setTypeFilters}
+              pinnedOnly={pinnedOnly}
+              onPinnedOnlyChange={setPinnedOnly}
             />
 
             {composerOpen && (
@@ -257,6 +286,9 @@ export default function ClientPortalPage() {
               onUpdated={loadPortal}
               clientName={portal.name}
               projects={portal.projects}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={clearAllFilters}
+              onOpenComposer={() => setComposerOpen(true)}
             />
           </div>
 

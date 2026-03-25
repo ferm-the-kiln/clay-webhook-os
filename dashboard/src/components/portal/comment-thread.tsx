@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MessageCircle, Send, Trash2, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { MessageCircle, Send, Trash2, Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchComments, postComment, deleteComment } from "@/lib/api";
 import { MarkdownContent } from "./markdown-content";
@@ -23,6 +23,8 @@ export function CommentThread({ slug, updateId, initialCount = 0 }: CommentThrea
   const [author, setAuthor] = useState("");
   const [posting, setPosting] = useState(false);
   const [count, setCount] = useState(initialCount);
+  const [changingAuthor, setChangingAuthor] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load last selected author on mount
   useEffect(() => {
@@ -42,6 +44,13 @@ export function CommentThread({ slug, updateId, initialCount = 0 }: CommentThrea
       .finally(() => setLoading(false));
   }, [slug, updateId, open]);
 
+  const autoGrow = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 96) + "px";
+  }, []);
+
   const handlePost = async () => {
     if (!body.trim() || !author.trim()) {
       toast.error("Select a name and write a comment");
@@ -54,6 +63,9 @@ export function CommentThread({ slug, updateId, initialCount = 0 }: CommentThrea
       setCount((c) => c + 1);
       setBody("");
       saveAuthor(author);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
       toast.success("Comment posted");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to post comment");
@@ -122,35 +134,77 @@ export function CommentThread({ slug, updateId, initialCount = 0 }: CommentThrea
                 </div>
               ))}
 
-              {/* Author picker + comment input */}
+              {/* Author banner or picker */}
               <div className="space-y-2">
-                <AuthorPicker value={author} onChange={setAuthor} size="sm" />
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    placeholder={author ? `Comment as ${author}...` : "Select a name first..."}
-                    className="flex-1 bg-clay-900 border border-clay-600 rounded-md px-2.5 py-1.5 text-xs text-clay-100 placeholder:text-clay-500 focus:outline-none focus:border-clay-400"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handlePost();
-                      }
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handlePost}
-                    disabled={posting || !body.trim() || !author.trim()}
-                    className="h-7 w-7 p-0 bg-clay-600 hover:bg-clay-500"
-                  >
-                    {posting ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Send className="h-3 w-3" />
+                {author && !changingAuthor ? (
+                  <div className="flex items-center gap-2 text-[11px] text-clay-400">
+                    <div className="h-4 w-4 rounded-full bg-clay-600 flex items-center justify-center text-[9px] font-medium text-clay-300 shrink-0">
+                      {author.charAt(0).toUpperCase()}
+                    </div>
+                    <span>Commenting as <strong className="text-clay-200">{author}</strong></span>
+                    <button
+                      onClick={() => setChangingAuthor(true)}
+                      className="text-clay-500 hover:text-clay-300 transition-colors"
+                    >
+                      <Pencil className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <AuthorPicker
+                      value={author}
+                      onChange={(name) => {
+                        setAuthor(name);
+                        saveAuthor(name);
+                        setChangingAuthor(false);
+                      }}
+                      size="sm"
+                    />
+                    {changingAuthor && (
+                      <button
+                        onClick={() => setChangingAuthor(false)}
+                        className="text-[10px] text-clay-500 hover:text-clay-300"
+                      >
+                        cancel
+                      </button>
                     )}
-                  </Button>
+                  </div>
+                )}
+
+                {/* Comment input */}
+                <div className="space-y-1">
+                  <div className="flex gap-2">
+                    <textarea
+                      ref={textareaRef}
+                      value={body}
+                      onChange={(e) => { setBody(e.target.value); autoGrow(); }}
+                      placeholder={author ? `Comment as ${author}...` : "Select a name first..."}
+                      rows={1}
+                      className="flex-1 bg-clay-900 border border-clay-600 rounded-md px-2.5 py-1.5 text-xs text-clay-100 placeholder:text-clay-500 focus:outline-none focus:border-clay-400 resize-none"
+                      style={{ minHeight: "32px", maxHeight: "96px" }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handlePost();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handlePost}
+                      disabled={posting || !body.trim() || !author.trim()}
+                      className="h-7 w-7 p-0 bg-clay-600 hover:bg-clay-500 self-end"
+                    >
+                      {posting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Send className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-clay-500 pl-0.5">
+                    Enter to send · Shift+Enter for new line
+                  </p>
                 </div>
               </div>
             </>

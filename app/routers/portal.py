@@ -858,3 +858,85 @@ async def delete_thread(request: Request, slug: str, thread_id: str):
     if not store.delete_thread(slug, thread_id):
         return JSONResponse(status_code=404, content={"error": True, "error_message": f"Thread '{thread_id}' not found"})
     return {"ok": True}
+
+
+# ── Public Portal Actions (share-token authenticated) ─────────────────
+
+
+def _validate_public_token(store, slug: str, token: str):
+    """Validate share token and return error response if invalid."""
+    if not token or not store.validate_share_token(slug, token):
+        return JSONResponse(status_code=403, content={"error": True, "error_message": "Invalid or expired share link"})
+    return None
+
+
+@router.put("/portal/{slug}/actions/{action_id}/toggle/public")
+async def public_toggle_action(request: Request, slug: str, action_id: str, token: str = Query("")):
+    store = request.app.state.portal_store
+    err = _validate_public_token(store, slug, token)
+    if err:
+        return err
+    action = store.toggle_action_complete(slug, action_id)
+    if not action:
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Action '{action_id}' not found"})
+    notifier = getattr(request.app.state, "portal_notifier", None)
+    if notifier and action.get("status") == "done":
+        asyncio.create_task(notifier.notify_action_assigned(slug, action))
+    return action
+
+
+@router.post("/portal/{slug}/sops/{sop_id}/acknowledge/public")
+async def public_acknowledge_sop(request: Request, slug: str, sop_id: str, token: str = Query("")):
+    store = request.app.state.portal_store
+    err = _validate_public_token(store, slug, token)
+    if err:
+        return err
+    body = await request.json()
+    user = body.get("user", "Client")
+    ack = store.acknowledge_sop(slug, sop_id, user)
+    if not ack:
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"SOP '{sop_id}' not found"})
+    return ack
+
+
+@router.post("/portal/{slug}/updates/{update_id}/approve/public")
+async def public_process_approval(request: Request, slug: str, update_id: str, token: str = Query("")):
+    store = request.app.state.portal_store
+    err = _validate_public_token(store, slug, token)
+    if err:
+        return err
+    body = await request.json()
+    action = body.get("action", "approve")
+    actor_name = body.get("actor_name", "Client")
+    actor_org = body.get("actor_org", "client")
+    notes = body.get("notes", "")
+    result = store.process_approval(slug, update_id, action=action, actor_name=actor_name, actor_org=actor_org, notes=notes)
+    if not result:
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Update '{update_id}' not found"})
+    notifier = getattr(request.app.state, "portal_notifier", None)
+    if notifier:
+        title = result.get("title", update_id)
+        asyncio.create_task(notifier.notify_approval(slug, title, action, actor_name))
+    return result
+
+
+@router.post("/portal/{slug}/updates/{update_id}/comments/public")
+async def public_post_comment(request: Request, slug: str, update_id: str, token: str = Query("")):
+    store = request.app.state.portal_store
+    err = _validate_public_token(store, slug, token)
+    if err:
+        return err
+    body = await request.json()
+    comment_body = body.get("body", "")
+    author = body.get("author", "Client")
+    if not comment_body.strip():
+        return JSONResponse(status_code=400, content={"error": True, "error_message": "Comment body is required"})
+    comment = store.add_comment(slug, update_id, body=comment_body, author=author)
+    if not comment:
+        return JSONResponse(status_code=404, content={"error": True, "error_message": f"Update '{update_id}' not found"})
+    notifier = getattr(request.app.state, "portal_notifier", None)
+    if notifier:
+        update = store.get_update(slug, update_id)
+        title = update.get("title", update_id) if update else update_id
+        asyncio.create_task(notifier.notify_comment_posted(slug, title, comment_body, author))
+    return comment
