@@ -756,13 +756,10 @@ async def prepare_function(request: Request, func_id: str, body: PrepareRequest)
 async def prepare_consolidated(request: Request, func_id: str, body: PrepareRequest):
     """Build a single mega-prompt that combines all AI steps in a function.
 
-    Instead of N separate claude --print calls (one per step), this returns
-    ONE prompt that instructs Claude to execute all tasks sequentially and
-    return structured output. Context files are deduplicated across steps.
+    Uses shared helpers from consolidated_runner to ensure the preview prompt
+    matches what the execute path actually sends to Claude.
     """
-    from app.core.context_assembler import _context_priority, _get_role
-    from app.core.model_router import resolve_model
-    from app.core.skill_loader import load_context_files, load_skill, load_skill_config
+    from app.core.consolidated_runner import assemble_prompt, build_task_sections
     from app.core.tool_catalog import DEEPLINE_PROVIDERS
 
     store = request.app.state.function_store
@@ -774,7 +771,6 @@ async def prepare_consolidated(request: Request, func_id: str, body: PrepareRequ
         )
 
     model = body.model or settings.default_model
-    provider_map = {p["id"]: p for p in DEEPLINE_PROVIDERS}
     memory_store = getattr(request.app.state, "memory_store", None)
     context_index = getattr(request.app.state, "context_index", None)
     learning_engine = getattr(request.app.state, "learning_engine", None)
@@ -782,242 +778,53 @@ async def prepare_consolidated(request: Request, func_id: str, body: PrepareRequ
     # Batch mode: if rows provided, use first row for context/skill loading
     is_batch = body.rows is not None and len(body.rows) > 1
     batch_rows = body.rows or [body.data]
-    data = dict(batch_rows[0])  # first row for context resolution
+    data = dict(batch_rows[0])
 
-    # Collect all AI step instructions and their context files
-    task_sections: list[str] = []
-    all_context: list[dict[str, str]] = []
-    seen_context_paths: set[str] = set()
-    task_keys: list[str] = []
-    native_steps: list[dict] = []
+    # Build task sections using the shared function (single source of truth)
+    ts = build_task_sections(func, data)
+
+    if not ts.sections:
+        return JSONResponse(
+            status_code=400,
+            content={"error": True, "error_message": "No AI steps found in this function"},
+        )
+
+    # Build native_steps list for the response
+    provider_map = {p["id"]: p for p in DEEPLINE_PROVIDERS}
     output_keys = [o.key for o in func.outputs]
-
-    # Build output hints once
-    output_hints: list[str] = []
-    for o in func.outputs:
-        hint = f"- {o.key}"
-        if o.type:
-            hint += f" ({o.type})"
-        if o.description:
-            hint += f": {o.description}"
-        output_hints.append(hint)
-
-    for step_idx, step in enumerate(func.steps):
-        tool_id = step.tool
-        task_key = f"task_{step_idx + 1}"
-
-        # Resolve params
+    native_steps: list[dict] = []
+    for idx in ts.native_step_indices:
+        step = func.steps[idx]
+        provider = provider_map.get(step.tool, {})
         resolved_params: dict[str, str] = {}
         for key, val in step.params.items():
             resolved = val
             for inp_name, inp_val in data.items():
                 resolved = resolved.replace("{{" + str(inp_name) + "}}", str(inp_val))
             resolved_params[key] = resolved
+        native_steps.append(PreparedStep(
+            step_index=idx,
+            tool=step.tool,
+            tool_name=provider.get("name", step.tool),
+            executor_type="native_api",
+            prompt=None,
+            model=model,
+            output_keys=output_keys,
+            native_config={"tool_id": step.tool, "params": resolved_params},
+        ).model_dump())
 
-        if tool_id.startswith("skill:"):
-            skill_name = tool_id.removeprefix("skill:")
-            skill_content = load_skill(skill_name)
-            if skill_content is None:
-                continue
-
-            skill_config = load_skill_config(skill_name)
-            step_model = resolve_model(request_model=body.model, skill_config=skill_config) or model
-
-            # Collect context files (deduplicate across steps)
-            context_files = load_context_files(
-                skill_content, {**data, **resolved_params}, skill_name=skill_name,
-            )
-            for ctx in context_files:
-                if ctx["path"] not in seen_context_paths:
-                    all_context.append(ctx)
-                    seen_context_paths.add(ctx["path"])
-
-            task_keys.append(task_key)
-            task_sections.append(
-                f"===== {task_key.upper()}: {skill_name} =====\n\n"
-                f"{skill_content}\n\n"
-                f"Expected output keys for this task:\n"
-                + "\n".join(output_hints)
-            )
-
-        elif tool_id == "call_ai":
-            skill_name = resolved_params.get("skill", "quality-gate")
-            skill_content = load_skill(skill_name)
-            if skill_content is None:
-                continue
-
-            context_files = load_context_files(
-                skill_content, {**data, **resolved_params}, skill_name=skill_name,
-            )
-            for ctx in context_files:
-                if ctx["path"] not in seen_context_paths:
-                    all_context.append(ctx)
-                    seen_context_paths.add(ctx["path"])
-
-            task_keys.append(task_key)
-            task_sections.append(
-                f"===== {task_key.upper()}: AI Analysis ({skill_name}) =====\n\n"
-                f"{skill_content}\n\n"
-                f"Expected output keys for this task:\n"
-                + "\n".join(output_hints)
-            )
-
-        else:
-            # Native API or AI fallback deepline tool
-            provider = provider_map.get(tool_id)
-            if provider is None:
-                continue
-
-            has_native = provider.get("has_native_api", False)
-            if has_native and tool_id == "findymail" and settings.findymail_api_key:
-                native_steps.append(PreparedStep(
-                    step_index=step_idx,
-                    tool=tool_id,
-                    tool_name=provider.get("name", tool_id),
-                    executor_type="native_api",
-                    prompt=None,
-                    model=model,
-                    output_keys=output_keys,
-                    native_config={"tool_id": tool_id, "params": resolved_params},
-                ).model_dump())
-            else:
-                # AI fallback — include as a task
-                task_keys.append(task_key)
-                task_sections.append(
-                    f"===== {task_key.upper()}: {provider.get('name', tool_id)} =====\n\n"
-                    f"You are a data lookup agent. Find real, accurate data.\n\n"
-                    f"Task: {provider['description']}\n\n"
-                    f"Inputs:\n"
-                    + "\n".join(f"- {k}: {v}" for k, v in resolved_params.items())
-                    + f"\n\nExpected output keys for this task:\n"
-                    + "\n".join(output_hints)
-                    + "\n\nSearch the web to find real, factual data. NEVER return null."
-                )
-
-    if not task_sections:
-        return JSONResponse(
-            status_code=400,
-            content={"error": True, "error_message": "No AI steps found in this function"},
-        )
-
-    # --- Build the mega-prompt ---
-    parts: list[str] = []
-
-    # System instruction
-    n_tasks = len(task_sections)
-    parts.append(
-        f"You are a multi-step JSON generation engine.\n\n"
-        f"You will execute {n_tasks} task{'s' if n_tasks > 1 else ''} sequentially. "
-        f"Each task's output is available as context for subsequent tasks.\n\n"
-        f"Return ONLY a single JSON object — no markdown fences, no explanation."
+    # Assemble prompt using the shared function
+    prompt = assemble_prompt(
+        ts, func, data, body.instructions,
+        memory_store, learning_engine, context_index,
+        batch_rows=batch_rows if is_batch else None,
     )
 
-    # Task sections
-    parts.append("\n\n# Tasks\n")
-    for i, section in enumerate(task_sections):
-        parts.append(f"\n{section}")
-        if i < len(task_sections) - 1:
-            parts.append(
-                f"\nIMPORTANT: Use the output from prior tasks as additional context for this task."
-            )
-
-    # Memory
-    if memory_store is not None:
-        entries = memory_store.query(data)
-        if entries:
-            memory_text = memory_store.format_for_prompt(entries)
-            parts.append(f"\n\n---\n\n{memory_text}")
-
-    # Learnings
-    if learning_engine is not None:
-        client_slug = data.get("client_slug")
-        learnings_text = learning_engine.format_for_prompt(client_slug=client_slug)
-        if learnings_text:
-            parts.append(f"\n\n---\n\n{learnings_text}")
-
-    # Context files (deduplicated, sorted generic → specific)
-    if all_context:
-        sorted_ctx = sorted(all_context, key=_context_priority)
-        parts.append(f"\n\n---\n\n# Loaded Context ({len(sorted_ctx)} files, deduplicated)\n")
-        for i, ctx in enumerate(sorted_ctx, 1):
-            role = _get_role(ctx["path"])
-            parts.append(f"{i}. `{ctx['path']}` — {role}")
-        parts.append("")
-        for ctx in sorted_ctx:
-            parts.append(f"\n## {ctx['path']}\n\n{ctx['content']}")
-
-    # Semantic context
-    if context_index is not None:
-        semantic_hits = context_index.search_by_data(data, top_k=3)
-        for rel_path, score in semantic_hits:
-            if rel_path not in seen_context_paths:
-                from app.core.skill_loader import load_file
-                content = load_file(rel_path)
-                if content:
-                    parts.append(f"\n## {rel_path}\n\n{content}")
-
-    # Data payload
-    import json as _json
-
-    if is_batch:
-        parts.append(f"\n\n---\n\n# Rows to Process\n\n"
-                      f"Process each row independently through all tasks above.\n")
-        for row_idx, row in enumerate(batch_rows):
-            parts.append(f"\n## ROW {row_idx}\n{_json.dumps(row)}")
-    else:
-        parts.append(f"\n\n---\n\n# Data to Process\n\n{_json.dumps(data)}")
-
-    # Instructions
-    if body.instructions:
-        parts.append(f"\n\n## Campaign Instructions\n{body.instructions}")
-
-    # Output format specification
-    if is_batch:
-        row_schema = {o.key: f"<{o.type}>" for o in func.outputs}
-        if n_tasks > 1:
-            task_schema = {}
-            for tk in task_keys:
-                task_schema[tk] = row_schema
-            row_schema = task_schema
-
-        parts.append(
-            f"\n\n---\n\n# Output Format\n\n"
-            f"Process each row INDEPENDENTLY through all tasks.\n"
-            f"Return ONLY a JSON object with this structure:\n"
-            f"```\n{_json.dumps({'rows': [{'row_id': 'row_0', **row_schema}, {'row_id': 'row_1', '...': '...'}]}, indent=2)}\n```\n\n"
-            f"CRITICAL: Return exactly {len(batch_rows)} rows in the 'rows' array, one per input row.\n"
-            f"Each row is processed independently — do NOT share context between rows.\n"
-            f"No markdown fences around your actual response — just the raw JSON object."
-        )
-    elif n_tasks == 1:
-        parts.append(
-            f"\n\n---\n\n# Output Format\n\n"
-            f"Return ONLY a JSON object with these keys:\n"
-            + "\n".join(output_hints)
-            + "\n\nNo markdown fences, no explanation — just the raw JSON object."
-        )
-    else:
-        task_schema = {}
-        for tk in task_keys:
-            task_schema[tk] = {o.key: f"<{o.type}>" for o in func.outputs}
-
-        parts.append(
-            f"\n\n---\n\n# Output Format\n\n"
-            f"Return ONLY a JSON object with this structure:\n"
-            f"```\n{_json.dumps(task_schema, indent=2)}\n```\n\n"
-            f"Each task key contains its own output. "
-            f"Later tasks can refine/override earlier task outputs. "
-            f"No markdown fences around your actual response — just the raw JSON object."
-        )
-
-    prompt = "\n".join(parts)
-
-    # Log prompt size
     char_count = len(prompt)
     token_est = char_count // 4
     logger.info(
         "[consolidated] Function '%s': %d tasks, %d context files, %d rows, chars=%d, tokens_est=%d",
-        func.id, n_tasks, len(all_context), len(batch_rows), char_count, token_est,
+        func.id, len(ts.sections), len(ts.context), len(batch_rows), char_count, token_est,
     )
 
     return ConsolidatedPrompt(
@@ -1025,7 +832,7 @@ async def prepare_consolidated(request: Request, func_id: str, body: PrepareRequ
         function_name=func.name,
         prompt=prompt,
         model=model,
-        task_keys=task_keys,
+        task_keys=ts.task_keys,
         output_keys=output_keys,
         has_native_steps=len(native_steps) > 0,
         native_steps=native_steps,
