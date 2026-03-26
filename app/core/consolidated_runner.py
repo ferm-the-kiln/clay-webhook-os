@@ -143,15 +143,18 @@ def build_consolidated_prompt(
                 native_step_indices.append(step_idx)
             else:
                 task_keys.append(task_key)
+                # Build a task-aware prompt using the output keys to describe the goal
+                output_summary = ", ".join(o.key for o in func.outputs if o.description)
                 task_sections.append(
                     f"===== {task_key.upper()}: {provider.get('name', tool_id)} =====\n\n"
-                    f"You are a data lookup agent. Find real, accurate data.\n\n"
-                    f"Task: {provider['description']}\n\n"
+                    f"You are a precise data lookup agent.\n\n"
+                    f"Goal: Given the inputs below, find: {output_summary}.\n\n"
                     f"Inputs:\n"
                     + "\n".join(f"- {k}: {v}" for k, v in resolved_params.items())
-                    + f"\n\nExpected output keys for this task:\n"
+                    + f"\n\nExpected output keys:\n"
                     + "\n".join(output_hints)
-                    + "\n\nSearch the web to find real, factual data. NEVER return null."
+                    + "\n\nUse your knowledge to return accurate, real-world data. "
+                    "If you are not confident about a value, return null rather than guessing."
                 )
 
     if not task_sections:
@@ -161,12 +164,19 @@ def build_consolidated_prompt(
     parts: list[str] = []
 
     n_tasks = len(task_sections)
-    parts.append(
-        f"You are a multi-step JSON generation engine.\n\n"
-        f"You will execute {n_tasks} task{'s' if n_tasks > 1 else ''} sequentially. "
-        f"Each task's output is available as context for subsequent tasks.\n\n"
-        f"Return ONLY a single JSON object — no markdown fences, no explanation."
-    )
+    if n_tasks == 1:
+        parts.append(
+            "You are a precise JSON generation engine.\n\n"
+            "Execute the task below and return ONLY a single JSON object — "
+            "no markdown fences, no explanation."
+        )
+    else:
+        parts.append(
+            f"You are a multi-step JSON generation engine.\n\n"
+            f"You will execute {n_tasks} tasks sequentially. "
+            f"Each task's output is available as context for subsequent tasks.\n\n"
+            f"Return ONLY a single JSON object — no markdown fences, no explanation."
+        )
 
     parts.append("\n\n# Tasks\n")
     for i, section in enumerate(task_sections):
