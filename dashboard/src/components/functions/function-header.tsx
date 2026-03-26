@@ -15,8 +15,11 @@ import {
   Save,
   Pencil,
   Trash2,
+  Monitor,
+  Cloud,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isLocalExecutionMode } from "@/lib/api";
 import type { FunctionDefinition } from "@/lib/types";
 
 interface FunctionHeaderProps {
@@ -58,6 +61,31 @@ export function FunctionHeader({
         Back
       </Button>
       <div className="flex items-center gap-2">
+        {/* Execution mode indicator */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border",
+                isLocalExecutionMode()
+                  ? "bg-violet-500/10 text-violet-400 border-violet-500/25"
+                  : "bg-sky-500/10 text-sky-400 border-sky-500/25"
+              )}
+            >
+              {isLocalExecutionMode() ? (
+                <Monitor className="h-3 w-3" />
+              ) : (
+                <Cloud className="h-3 w-3" />
+              )}
+              {isLocalExecutionMode() ? "Local" : "Remote"}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            {isLocalExecutionMode()
+              ? "Executing via local claude CLI — consolidated prompts, fewer calls"
+              : "Executing via remote backend (VPS)"}
+          </TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

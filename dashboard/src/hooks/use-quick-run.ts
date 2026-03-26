@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { fetchFunction, runFunction } from "@/lib/api";
+import { fetchFunction, executeFunction } from "@/lib/api";
 import type { FunctionDefinition } from "@/lib/types";
 
 interface RecentRun {
@@ -86,7 +86,7 @@ export function useQuickRun(functionId: string) {
         }
       }
 
-      const res = await runFunction(func.id, data, controller.signal);
+      const res = await executeFunction(func.id, data, { signal: controller.signal });
       setResult(res);
 
       // Record to recents

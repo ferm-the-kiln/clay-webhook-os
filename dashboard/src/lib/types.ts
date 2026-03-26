@@ -510,8 +510,8 @@ export interface StepTrace {
   step_index: number;
   tool: string;
   tool_name: string;
-  executor: "native_api" | "skill" | "call_ai" | "ai_agent" | "ai_fallback" | "unknown";
-  status: "success" | "error" | "skipped";
+  executor: "native_api" | "skill" | "call_ai" | "ai_agent" | "ai_fallback" | "local" | "local_consolidated" | "error" | "unknown";
+  status: "success" | "error" | "skipped" | "running";
   duration_ms: number;
   resolved_params: Record<string, string>;
   output_keys: string[];

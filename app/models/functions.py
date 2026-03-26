@@ -128,3 +128,48 @@ class PreviewRequest(BaseModel):
 class AssembleFunctionRequest(BaseModel):
     description: str = Field(..., description="Natural language description of desired function")
     context: str = Field("", description="Additional context about the use case")
+
+
+# ── Prompt preparation models (local SDK execution) ─────
+
+
+class PrepareRequest(BaseModel):
+    data: dict = Field(default_factory=dict, description="Input data for the function")
+    rows: list[dict] | None = Field(None, description="Multiple rows for batch execution (overrides data)")
+    instructions: str | None = Field(None, description="Optional campaign instructions")
+    model: str | None = Field(None, description="Model override (opus/sonnet/haiku)")
+
+
+class PreparedStep(BaseModel):
+    step_index: int = Field(..., description="Zero-based step index")
+    tool: str = Field(..., description="Tool identifier")
+    tool_name: str = Field("", description="Human-readable tool name")
+    executor_type: str = Field(..., description="ai, native_api, or agent")
+    prompt: str | None = Field(None, description="Assembled prompt for AI steps")
+    model: str = Field("sonnet", description="Model to use for this step")
+    output_keys: list[str] = Field(default_factory=list, description="Expected output keys")
+    depends_on_outputs: list[str] = Field(default_factory=list, description="Output keys from prior steps injected into this prompt")
+    native_config: dict | None = Field(None, description="Config for native API steps (tool_id, params)")
+
+
+class PreparedFunction(BaseModel):
+    function_id: str = Field(..., description="Function ID")
+    function_name: str = Field("", description="Function display name")
+    steps: list[PreparedStep] = Field(default_factory=list)
+    model: str = Field("sonnet", description="Resolved model for the function")
+
+
+class StepExecutionRequest(BaseModel):
+    step_index: int = Field(..., description="Which step to execute")
+    data: dict = Field(default_factory=dict, description="Input data including accumulated outputs")
+
+
+class ConsolidatedPrompt(BaseModel):
+    function_id: str = Field(..., description="Function ID")
+    function_name: str = Field("", description="Function display name")
+    prompt: str = Field(..., description="Single mega-prompt combining all AI steps")
+    model: str = Field("sonnet", description="Model for execution")
+    task_keys: list[str] = Field(default_factory=list, description="Ordered task keys in the output (task_1, task_2, ...)")
+    output_keys: list[str] = Field(default_factory=list, description="Final output keys to extract")
+    has_native_steps: bool = Field(False, description="Whether any steps require native API execution")
+    native_steps: list[PreparedStep] = Field(default_factory=list, description="Native steps that must execute via backend")

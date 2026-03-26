@@ -7,7 +7,9 @@ import {
   fetchFunction,
   fetchSheetsStatus,
   exportRunToSheets,
-  runFunction,
+  executeFunction,
+  executeFunctionBatch,
+  isLocalExecutionMode,
 } from "@/lib/api";
 import type { FunctionDefinition } from "@/lib/types";
 import type { SpreadsheetRow } from "@/components/shared/spreadsheet";
@@ -216,6 +218,71 @@ export function useFunctionWorkbench(): UseFunctionWorkbenchReturn {
     }));
     setResults(initialResults);
 
+    // Build all inputs
+    const allInputs: Record<string, unknown>[] = csvData.rows.map((row) => {
+      const input: Record<string, unknown> = {};
+      for (const mapping of mappings) {
+        input[mapping.functionInput] = row[mapping.csvColumn];
+      }
+      return input;
+    });
+
+    // Local mode: use batch execution (N rows per claude --print call)
+    if (isLocalExecutionMode()) {
+      // Mark all as running
+      setResults(prev => prev.map((r, i) => ({
+        ...r, status: "running" as RowStatus, input: allInputs[i],
+      })));
+
+      const BATCH_SIZE = 5;
+      let completedCount = 0;
+
+      for (let batchStart = 0; batchStart < allInputs.length; batchStart += BATCH_SIZE) {
+        if (abort.signal.aborted) break;
+
+        const batchRows = allInputs.slice(batchStart, batchStart + BATCH_SIZE);
+
+        try {
+          const batchResult = await executeFunctionBatch(
+            selectedFunction.id,
+            batchRows,
+            { batchSize: BATCH_SIZE },
+          );
+
+          for (const br of batchResult.results) {
+            const globalIdx = batchStart + br.rowIndex;
+            if (br.error || !br.output) {
+              setResults(prev => prev.map((r, idx) =>
+                idx === globalIdx ? { ...r, status: "error" as RowStatus, error: br.error || "No output" } : r
+              ));
+            } else {
+              setResults(prev => prev.map((r, idx) =>
+                idx === globalIdx ? { ...r, status: "done" as RowStatus, output: br.output } : r
+              ));
+            }
+            completedCount++;
+            setProgress({ done: completedCount, total: totalRows });
+          }
+        } catch (e) {
+          // Entire batch failed — mark all rows in batch as error
+          for (let i = 0; i < batchRows.length; i++) {
+            const globalIdx = batchStart + i;
+            setResults(prev => prev.map((r, idx) =>
+              idx === globalIdx ? { ...r, status: "error" as RowStatus, error: e instanceof Error ? e.message : "Batch failed" } : r
+            ));
+            completedCount++;
+            setProgress({ done: completedCount, total: totalRows });
+          }
+        }
+      }
+
+      abortRef.current = null;
+      setRunning(false);
+      setStep("results");
+      return;
+    }
+
+    // Remote mode: individual calls with concurrency control
     let completedCount = 0;
     const MAX_CONCURRENT = 5;
     let active = 0;
@@ -229,21 +296,16 @@ export function useFunctionWorkbench(): UseFunctionWorkbenchReturn {
       finally { active--; waiting.shift()?.(); }
     };
 
-    const promises = csvData.rows.map((row, i) =>
+    const promises = allInputs.map((input, i) =>
       limit(async () => {
         if (abort.signal.aborted) return;
-
-        const input: Record<string, unknown> = {};
-        for (const mapping of mappings) {
-          input[mapping.functionInput] = row[mapping.csvColumn];
-        }
 
         setResults(prev => prev.map((r, idx) =>
           idx === i ? { ...r, status: "running" as RowStatus, input } : r
         ));
 
         try {
-          const result = await runFunction(selectedFunction.id, input, abort.signal);
+          const result = await executeFunction(selectedFunction.id, input, { signal: abort.signal });
           if (result.error) {
             setResults(prev => prev.map((r, idx) =>
               idx === i ? { ...r, status: "error" as RowStatus, error: String(result.error_message || "Unknown error") } : r
@@ -307,7 +369,7 @@ export function useFunctionWorkbench(): UseFunctionWorkbenchReturn {
         ));
 
         try {
-          const result = await runFunction(selectedFunction.id, input, abort.signal);
+          const result = await executeFunction(selectedFunction.id, input, { signal: abort.signal });
           if (result.error) {
             setResults(prev => prev.map((r, idx) =>
               idx === i ? { ...r, status: "error" as RowStatus, error: String(result.error_message || "Unknown error") } : r
@@ -404,7 +466,7 @@ export function useFunctionWorkbench(): UseFunctionWorkbenchReturn {
         ));
 
         try {
-          const result = await runFunction(selectedFunction.id, input, abort.signal);
+          const result = await executeFunction(selectedFunction.id, input, { signal: abort.signal });
           if (result.error) {
             setResults(prev => prev.map((r, idx) =>
               idx === i ? { ...r, status: "error" as RowStatus, error: String(result.error_message || "Unknown error") } : r

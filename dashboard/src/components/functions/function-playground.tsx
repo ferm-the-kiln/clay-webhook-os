@@ -20,9 +20,13 @@ import {
   Check,
   Loader2,
   Clock,
+  Monitor,
+  Cloud,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { isLocalExecutionMode } from "@/lib/api";
 import type { FunctionInput, StepTrace, PreviewStep } from "@/lib/types";
 import { ExecutionTrace } from "./execution-trace";
 import { ExecutionHistoryPanel } from "./execution-history";
@@ -100,10 +104,17 @@ export function FunctionPlayground({
 
   // Extract trace from test result _meta
   const meta = testResult?._meta as Record<string, unknown> | undefined;
-  const trace = meta?.trace as StepTrace[] | undefined;
+  const trace = (meta?.trace ?? meta?.step_traces) as StepTrace[] | undefined;
   const totalDurationMs = (meta?.duration_ms as number) || 0;
   const stepsTotal = (meta?.steps as number) || 0;
   const hasTrace = trace && trace.length > 0;
+
+  // Execution mode insights
+  const executionMode = meta?.execution_mode as string | undefined;
+  const claudeCalls = meta?.claude_calls as number | undefined;
+  const taskCount = meta?.task_count as number | undefined;
+  const aiDurationMs = meta?.ai_duration_ms as number | undefined;
+  const isLocal = executionMode?.startsWith("local");
 
   // Extract warnings — from _warnings field or auto-detect null outputs
   const rawWarnings = testResult?._warnings as string[] | undefined;
@@ -289,31 +300,51 @@ export function FunctionPlayground({
             )}
 
             {/* Compact streaming indicator (during execution) */}
-            {testing && streamingTrace && streamingTrace.length > 0 && !testResult && (
+            {testing && !testResult && (
               <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-sm text-clay-300">
-                  <Loader2 className="h-4 w-4 text-kiln-teal animate-spin" />
-                  <span>
-                    Running step {streamingTrace.length}
-                    {stepsTotal > 0 ? `/${stepsTotal}` : ""}...
-                  </span>
-                  {streamingTrace[streamingTrace.length - 1] && (
-                    <span className="text-clay-500 truncate">
-                      {streamingTrace[streamingTrace.length - 1].tool_name ||
-                        streamingTrace[streamingTrace.length - 1].tool}
-                    </span>
-                  )}
-                </div>
-                {stepsTotal > 0 && (
-                  <div className="h-1.5 rounded-full bg-clay-800 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-kiln-teal transition-all duration-300"
-                      style={{
-                        width: `${Math.min((streamingTrace.length / stepsTotal) * 100, 100)}%`,
-                      }}
-                    />
+                {streamingTrace && streamingTrace.length > 0 ? (
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-clay-300">
+                      <Loader2 className="h-4 w-4 text-kiln-teal animate-spin" />
+                      {/* Check if consolidated execution */}
+                      {streamingTrace.some(t => t.executor === "local_consolidated") ? (
+                        <span>
+                          Processing all tasks in one call...
+                        </span>
+                      ) : (
+                        <span>
+                          Running step {streamingTrace.length}
+                          {stepsTotal > 0 ? `/${stepsTotal}` : ""}...
+                        </span>
+                      )}
+                      {streamingTrace[streamingTrace.length - 1] && (
+                        <span className="text-clay-500 truncate">
+                          {streamingTrace[streamingTrace.length - 1].tool_name ||
+                            streamingTrace[streamingTrace.length - 1].tool}
+                        </span>
+                      )}
+                    </div>
+                    {stepsTotal > 0 && (
+                      <div className="h-1.5 rounded-full bg-clay-800 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-kiln-teal transition-all duration-300"
+                          style={{
+                            width: `${Math.min((streamingTrace.length / stepsTotal) * 100, 100)}%`,
+                          }}
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : isLocalExecutionMode() ? (
+                  <div className="flex items-center gap-2 text-sm text-clay-300">
+                    <Loader2 className="h-4 w-4 text-violet-400 animate-spin" />
+                    <span>Preparing consolidated prompt...</span>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-violet-500/15 text-violet-400 border-violet-500/30">
+                      <Monitor className="h-3 w-3 mr-0.5" />
+                      Local
+                    </Badge>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -333,6 +364,33 @@ export function FunctionPlayground({
                     <Badge variant="outline" className="text-xs px-2.5 py-1 border bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
                       <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
                       Success
+                    </Badge>
+                  )}
+                  {/* Execution mode badge */}
+                  {executionMode && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs px-2.5 py-1 border",
+                        isLocal
+                          ? "bg-violet-500/15 text-violet-400 border-violet-500/30"
+                          : "bg-sky-500/15 text-sky-400 border-sky-500/30"
+                      )}
+                    >
+                      {isLocal ? (
+                        <Monitor className="h-3.5 w-3.5 mr-1" />
+                      ) : (
+                        <Cloud className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      {isLocal ? "Local" : "Remote"}
+                    </Badge>
+                  )}
+                  {/* Claude calls — key insight for consolidation */}
+                  {claudeCalls !== undefined && (
+                    <Badge variant="outline" className="text-xs px-2.5 py-1 border bg-kiln-teal/15 text-kiln-teal border-kiln-teal/30">
+                      <Zap className="h-3.5 w-3.5 mr-1" />
+                      {claudeCalls} call{claudeCalls !== 1 ? "s" : ""}
+                      {taskCount && taskCount > 1 ? ` (${taskCount} tasks)` : ""}
                     </Badge>
                   )}
                   {!hasError && (

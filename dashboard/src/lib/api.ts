@@ -73,6 +73,14 @@ import type {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
 
+// Execution mode: "local" uses claude --print directly from Next.js,
+// "remote" (default) goes through the FastAPI backend.
+const EXECUTION_MODE = process.env.NEXT_PUBLIC_EXECUTION_MODE || "remote";
+
+export function isLocalExecutionMode(): boolean {
+  return EXECUTION_MODE === "local";
+}
+
 export class NetworkError extends Error {
   constructor(url: string) {
     super(`Backend unreachable at ${url}. Check that the server is running and NEXT_PUBLIC_API_URL is correct.`);
@@ -978,6 +986,181 @@ export function streamFunctionExecution(
   })();
 
   return controller;
+}
+
+// ── Local execution routing ─────────────────────────────
+// These functions automatically route to local (Next.js API route → claude --print)
+// or remote (FastAPI backend) based on NEXT_PUBLIC_EXECUTION_MODE.
+
+export function executeFunction(
+  functionId: string,
+  data: Record<string, unknown>,
+  options?: { instructions?: string; model?: string; signal?: AbortSignal },
+): Promise<Record<string, unknown>> {
+  if (isLocalExecutionMode()) {
+    return fetch("/api/execute/function", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        functionId,
+        data,
+        instructions: options?.instructions,
+        model: options?.model,
+      }),
+      signal: options?.signal,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error_message || `Local execution failed: ${res.status}`);
+      }
+      return res.json();
+    });
+  }
+  return runFunction(functionId, data, options?.signal);
+}
+
+export function streamFunction(
+  functionId: string,
+  data: Record<string, unknown>,
+  onStep: (trace: StepTrace) => void,
+  onResult: (result: Record<string, unknown>) => void,
+  onError: (error: string) => void,
+  options?: { instructions?: string; model?: string },
+): AbortController {
+  if (isLocalExecutionMode()) {
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const res = await fetch("/api/execute/function/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            functionId,
+            data,
+            instructions: options?.instructions,
+            model: options?.model,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          onError(`Local execution failed: ${res.status}: ${text}`);
+          return;
+        }
+
+        const reader = res.body?.getReader();
+        if (!reader) {
+          onError("No response body");
+          return;
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          let currentEvent = "";
+          for (const line of lines) {
+            if (line.startsWith("event: ")) {
+              currentEvent = line.slice(7).trim();
+            } else if (line.startsWith("data: ") && currentEvent) {
+              try {
+                const payload = JSON.parse(line.slice(6));
+                if (currentEvent === "step") {
+                  onStep(payload as StepTrace);
+                } else if (currentEvent === "result") {
+                  onResult(payload as Record<string, unknown>);
+                } else if (currentEvent === "error") {
+                  onError(payload.error_message || "Stream error");
+                }
+              } catch {
+                // skip malformed JSON
+              }
+              currentEvent = "";
+            }
+          }
+        }
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") {
+          onError(e instanceof Error ? e.message : "Stream failed");
+        }
+      }
+    })();
+
+    return controller;
+  }
+
+  // Remote mode — use existing backend streaming
+  return streamFunctionExecution(functionId, data, onStep, onResult, onError);
+}
+
+// Batch execution — process N rows in fewer claude --print calls
+export interface BatchResult {
+  rowIndex: number;
+  output: Record<string, unknown> | null;
+  error?: string;
+}
+
+export async function executeFunctionBatch(
+  functionId: string,
+  rows: Record<string, unknown>[],
+  options?: { batchSize?: number; instructions?: string; model?: string },
+): Promise<{ results: BatchResult[]; _meta: Record<string, unknown> }> {
+  if (isLocalExecutionMode()) {
+    const res = await fetch("/api/execute/function/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        functionId,
+        rows,
+        batchSize: options?.batchSize ?? 5,
+        instructions: options?.instructions,
+        model: options?.model,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error_message || `Batch execution failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  // Remote mode — fall back to individual calls (no batch endpoint on backend)
+  const results: BatchResult[] = [];
+  const MAX_CONCURRENT = 5;
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  const limit = async <T,>(fn: () => Promise<T>): Promise<T> => {
+    if (active >= MAX_CONCURRENT) {
+      await new Promise<void>((resolve) => waiting.push(resolve));
+    }
+    active++;
+    try { return await fn(); }
+    finally { active--; waiting.shift()?.(); }
+  };
+
+  await Promise.all(
+    rows.map((row, i) =>
+      limit(async () => {
+        try {
+          const output = await runFunction(functionId, row);
+          results.push({ rowIndex: i, output });
+        } catch (e) {
+          results.push({ rowIndex: i, output: null, error: e instanceof Error ? e.message : String(e) });
+        }
+      }),
+    ),
+  );
+
+  return { results, _meta: { execution_mode: "remote", total_rows: rows.length } };
 }
 
 // Execution history
