@@ -664,6 +664,8 @@ export function FunctionBuilder({
                               {toolDef.execution_mode && (
                                 <div className="text-clay-300 text-[10px]">
                                   Executor: {toolDef.execution_mode === "native" ? "Native API" : toolDef.execution_mode === "ai_agent" ? "AI Agent (web search)" : "AI Single-turn"}
+                                  {toolDef.speed && ` · Speed: ${toolDef.speed}`}
+                                  {toolDef.cost && ` · Cost: ${toolDef.cost}`}
                                 </div>
                               )}
                               {toolDef.ai_fallback_description && (
@@ -697,6 +699,20 @@ export function FunctionBuilder({
                             : toolDef.execution_mode === "ai_agent"
                               ? "AI Agent"
                               : "AI Powered"}
+                        </Badge>
+                      )}
+                      {/* Speed badge */}
+                      {toolDef?.speed && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] px-1.5 py-0 h-4 shrink-0 border",
+                            toolDef.speed === "fast" ? "bg-emerald-500/10 text-emerald-400/70 border-emerald-500/20"
+                              : toolDef.speed === "slow" ? "bg-amber-500/10 text-amber-400/70 border-amber-500/20"
+                              : "bg-blue-500/10 text-blue-400/70 border-blue-500/20"
+                          )}
+                        >
+                          {toolDef.speed}
                         </Badge>
                       )}
                       {step.tool === "call_ai" && !toolDef && (

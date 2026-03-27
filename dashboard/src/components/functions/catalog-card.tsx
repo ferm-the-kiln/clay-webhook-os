@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Table2 } from "lucide-react";
+import { Play, Table2, MessageSquareText, Loader2 } from "lucide-react";
 import type { FunctionDefinition } from "@/lib/types";
+import { explainFunction } from "@/lib/api";
 
 interface CatalogCardProps {
   func: FunctionDefinition;
@@ -19,6 +21,22 @@ export function CatalogCard({
   onToggleFavorite,
 }: CatalogCardProps) {
   const router = useRouter();
+  const [explaining, setExplaining] = useState(false);
+  const [explanation, setExplanation] = useState<string | null>(null);
+
+  const handleExplain = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (explanation) { setExplanation(null); return; }
+    setExplaining(true);
+    try {
+      const result = await explainFunction(func.id);
+      setExplanation(result.explanation);
+    } catch {
+      setExplanation("Could not generate explanation");
+    } finally {
+      setExplaining(false);
+    }
+  };
 
   return (
     <Card className="border-clay-600 hover:border-clay-500 group transition-all">
@@ -53,7 +71,7 @@ export function CatalogCard({
         )}
 
         {/* Input/output count badges */}
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-2">
           <Badge
             variant="outline"
             className="text-[10px] border-clay-600 text-clay-300 py-0"
@@ -66,7 +84,26 @@ export function CatalogCard({
           >
             {func.outputs.length} output{func.outputs.length !== 1 && "s"}
           </Badge>
+          <button
+            onClick={handleExplain}
+            disabled={explaining}
+            className="ml-auto text-clay-400 hover:text-kiln-teal transition-colors"
+            title="Explain this function"
+          >
+            {explaining ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <MessageSquareText className="h-3.5 w-3.5" />
+            )}
+          </button>
         </div>
+
+        {/* AI Explanation */}
+        {explanation && (
+          <p className="text-[10px] text-clay-300 bg-clay-900/50 rounded px-2 py-1.5 mb-2 line-clamp-3">
+            {explanation}
+          </p>
+        )}
 
         {/* Action buttons */}
         <div className="flex items-center gap-2">

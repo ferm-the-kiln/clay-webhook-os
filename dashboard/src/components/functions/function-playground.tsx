@@ -20,6 +20,7 @@ import {
   Check,
   Loader2,
   Clock,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ import type { FunctionInput, StepTrace, PreviewStep } from "@/lib/types";
 import { ExecutionTrace } from "./execution-trace";
 import { ExecutionHistoryPanel } from "./execution-history";
 import { OutputRenderer } from "@/components/output/output-renderer";
+import { testFunctionStep } from "@/lib/api";
 
 interface FunctionPlaygroundProps {
   inputs: FunctionInput[];
@@ -90,6 +92,37 @@ export function FunctionPlayground({
 }: FunctionPlaygroundProps) {
   const [activeTab, setActiveTab] = useState<"output" | "trace" | "raw" | "history">("output");
   const [copied, setCopied] = useState(false);
+
+  // Step-level testing
+  const [testingStepIdx, setTestingStepIdx] = useState<number | null>(null);
+  const [stepResult, setStepResult] = useState<{
+    step_index: number;
+    tool: string;
+    executor: string;
+    status: string;
+    output?: Record<string, unknown>;
+    error_message?: string;
+    duration_ms: number;
+  } | null>(null);
+
+  const handleTestStep = async (stepIndex: number) => {
+    if (!functionId) return;
+    setTestingStepIdx(stepIndex);
+    setStepResult(null);
+    try {
+      const result = await testFunctionStep(functionId, stepIndex, testInputs);
+      setStepResult(result);
+      if (result.status === "success") {
+        toast.success(`Step ${stepIndex + 1} completed in ${(result.duration_ms / 1000).toFixed(1)}s`);
+      } else {
+        toast.error(`Step ${stepIndex + 1} failed: ${result.error_message}`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Step test failed");
+    } finally {
+      setTestingStepIdx(null);
+    }
+  };
 
   // Auto-switch to output tab when result arrives
   useEffect(() => {
@@ -249,6 +282,7 @@ export function FunctionPlayground({
                 <div className="space-y-1.5">
                   {preview.steps.map((step) => {
                     const badge = EXECUTOR_BADGE[step.executor] || EXECUTOR_BADGE.ai_fallback;
+                    const isTestingThis = testingStepIdx === step.step_index;
                     return (
                       <div
                         key={step.step_index}
@@ -270,14 +304,58 @@ export function FunctionPlayground({
                           {badge.label}
                         </Badge>
                         {step.unresolved_variables.length > 0 && (
-                          <span className="text-xs text-amber-400 ml-auto">
+                          <span className="text-xs text-amber-400">
                             {step.unresolved_variables.length} unresolved
                           </span>
+                        )}
+                        {functionId && (
+                          <button
+                            onClick={() => handleTestStep(step.step_index)}
+                            disabled={isTestingThis || testingStepIdx !== null}
+                            className="ml-auto flex items-center gap-1 text-[10px] text-clay-400 hover:text-kiln-teal transition-colors disabled:opacity-40"
+                          >
+                            {isTestingThis ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Zap className="h-3 w-3" />
+                            )}
+                            Test
+                          </button>
                         )}
                       </div>
                     );
                   })}
                 </div>
+
+                {/* Step test result */}
+                {stepResult && (
+                  <div className={cn(
+                    "rounded border p-2.5 text-xs",
+                    stepResult.status === "success"
+                      ? "bg-emerald-500/10 border-emerald-500/30"
+                      : "bg-red-500/10 border-red-500/30"
+                  )}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      {stepResult.status === "success" ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                      ) : (
+                        <XCircle className="h-3.5 w-3.5 text-red-400" />
+                      )}
+                      <span className={stepResult.status === "success" ? "text-emerald-400" : "text-red-400"}>
+                        Step {stepResult.step_index + 1}: {stepResult.tool}
+                      </span>
+                      <span className="text-clay-500 ml-auto">{(stepResult.duration_ms / 1000).toFixed(1)}s</span>
+                    </div>
+                    {stepResult.status === "success" && stepResult.output && (
+                      <pre className="text-clay-300 bg-clay-900/50 rounded p-2 overflow-auto max-h-32 whitespace-pre-wrap">
+                        {JSON.stringify(stepResult.output, null, 2)}
+                      </pre>
+                    )}
+                    {stepResult.error_message && (
+                      <div className="text-red-300">{stepResult.error_message}</div>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-xs text-clay-500">
                   {Object.entries(preview.summary).map(([key, val]) => (
                     <span key={key}>

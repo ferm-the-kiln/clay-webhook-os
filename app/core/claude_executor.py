@@ -69,21 +69,18 @@ class ClaudeExecutor:
             out = stdout.decode().strip()
             logger.error("claude stderr: %s", err)
 
-            # Detect subscription exhaustion: exit code 1 + empty stderr,
-            # or stdout/stderr containing rate limit keywords
+            # Only flag subscription issues when rate limit keywords are present
             rate_limit_keywords = ["rate limit", "quota", "capacity", "usage limit", "token limit"]
             combined = (err + " " + out).lower()
-            is_subscription_issue = (
-                (proc.returncode == 1 and not err)
-                or any(kw in combined for kw in rate_limit_keywords)
-            )
-            if is_subscription_issue:
+            if any(kw in combined for kw in rate_limit_keywords):
                 raise SubscriptionLimitError(
                     f"Claude subscription limit likely reached (exit code {proc.returncode}). "
                     "Check your Claude Code Max usage."
                 )
 
-            raise RuntimeError(f"claude exited with code {proc.returncode}: {err}")
+            # Include stdout in error when stderr is empty (CLI often reports errors there)
+            detail = err or out[:500] or "no output"
+            raise RuntimeError(f"claude exited with code {proc.returncode}: {detail}")
 
         raw = stdout.decode().strip()
         if not raw:

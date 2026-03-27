@@ -1003,12 +1003,120 @@ export function assembleFunction(body: {
 }): Promise<{
   suggestion: Record<string, unknown>;
   reasoning: Record<string, unknown>;
+  warnings: string[];
   raw: string;
   duration_ms: number;
 }> {
   return apiFetch("/functions/assemble", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+// Streaming function assembly (SSE)
+export function streamAssembleFunction(
+  body: { description: string; context?: string },
+  callbacks: {
+    onChunk: (text: string) => void;
+    onComplete: (result: {
+      suggestion: Record<string, unknown>;
+      reasoning: Record<string, unknown>;
+      warnings: string[];
+      duration_ms: number;
+    }) => void;
+    onError: (message: string) => void;
+  }
+): AbortController {
+  const controller = new AbortController();
+  const url = `${API_URL}/functions/assemble/stream`;
+
+  fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": API_KEY,
+    },
+    body: JSON.stringify(body),
+    signal: controller.signal,
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        callbacks.onError(`API ${res.status}: ${res.statusText}`);
+        return;
+      }
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "chunk") callbacks.onChunk(event.text);
+            else if (event.type === "complete") callbacks.onComplete(event);
+            else if (event.type === "error") callbacks.onError(event.message);
+          } catch {
+            // skip malformed lines
+          }
+        }
+      }
+    })
+    .catch((e) => {
+      if (e.name !== "AbortError") callbacks.onError(e.message);
+    });
+
+  return controller;
+}
+
+// Function templates
+export function fetchTemplates(): Promise<{
+  templates: Array<{
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    inputs: Array<{ name: string; type: string; required: boolean; description: string }>;
+    outputs: Array<{ key: string; type: string; description: string }>;
+    steps: Array<{ tool: string; params: Record<string, string> }>;
+  }>;
+}> {
+  return apiFetch("/functions/templates");
+}
+
+// Explain function
+export function explainFunction(functionId: string): Promise<{
+  explanation: string;
+  use_case: string;
+  estimated_speed: string;
+}> {
+  return apiFetch(`/functions/${functionId}/explain`, { method: "POST" });
+}
+
+// Test single step
+export function testFunctionStep(
+  functionId: string,
+  stepIndex: number,
+  data: Record<string, string>
+): Promise<{
+  step_index: number;
+  tool: string;
+  executor: string;
+  status: string;
+  output?: Record<string, unknown>;
+  error_message?: string;
+  duration_ms: number;
+}> {
+  return apiFetch(`/functions/${functionId}/test-step`, {
+    method: "POST",
+    body: JSON.stringify({ step_index: stepIndex, data }),
   });
 }
 

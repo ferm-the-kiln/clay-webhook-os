@@ -45,12 +45,17 @@ DEEPLINE_PROVIDERS: list[dict] = [
 ]
 
 
+SPEED_MAP = {"native": "fast", "ai_single": "medium", "ai_agent": "slow"}
+COST_MAP = {"native": "low", "ai_single": "medium", "ai_agent": "high"}
+
+
 def get_tool_catalog() -> list[dict]:
     """Return all available tools: Deepline providers + existing skills."""
     tools = []
 
     # Add Deepline providers
     for provider in DEEPLINE_PROVIDERS:
+        mode = provider.get("execution_mode", "ai_single")
         tools.append({
             "id": provider["id"],
             "name": provider["name"],
@@ -61,8 +66,10 @@ def get_tool_catalog() -> list[dict]:
             "outputs": provider.get("outputs", []),
             "has_native_api": provider.get("has_native_api", False),
             "native_api_provider": provider.get("native_api_provider"),
-            "execution_mode": provider.get("execution_mode", "ai_single"),
+            "execution_mode": mode,
             "ai_fallback_description": provider.get("ai_fallback_description", ""),
+            "speed": SPEED_MAP.get(mode, "medium"),
+            "cost": COST_MAP.get(mode, "medium"),
         })
 
     # Add existing skills as tools
@@ -77,6 +84,9 @@ def get_tool_catalog() -> list[dict]:
             "inputs": [{"name": "data", "type": "json"}],
             "outputs": [{"key": "result", "type": "json"}],
             "model_tier": config.get("model_tier", "standard"),
+            "execution_mode": "ai_single",
+            "speed": "medium",
+            "cost": "medium",
         })
 
     return tools

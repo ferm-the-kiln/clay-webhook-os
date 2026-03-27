@@ -1,7 +1,9 @@
+import json
 import logging
+import time
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.core.tool_catalog import get_tool_catalog, get_tool_categories
 import re
@@ -84,50 +86,141 @@ async def delete_folder(request: Request, name: str):
 # ── AI Assembly (registered BEFORE {func_id} catch-all) ──
 
 
+def _build_assembly_prompt(description: str, context: str = "") -> str:
+    """Build an optimized prompt for AI function assembly."""
+    categories = get_tool_categories()
+    tool_block = ""
+    for cat in categories:
+        tool_block += f"\n## {cat['category']}\n"
+        for t in cat["tools"]:
+            inputs_str = ", ".join(f"{i['name']}:{i['type']}" for i in t.get("inputs", []))
+            outputs_str = ", ".join(f"{o['key']}:{o['type']}" for o in t.get("outputs", []))
+            mode = t.get("execution_mode", "ai_single")
+            speed = "fast" if mode == "native" else ("slow" if mode == "ai_agent" else "medium")
+            tool_block += f"  - `{t['id']}` — {t['description']} | in: ({inputs_str}) | out: ({outputs_str}) | speed: {speed}\n"
+
+    return f"""You are a function builder for a GTM data platform. Design the best tool chain for the user's request.
+
+# Available Tools (by category)
+{tool_block}
+
+# Examples
+
+## Example 1: Simple 2-step function
+Request: "Find someone's email from their LinkedIn profile and verify it"
+```json
+{{
+  "reasoning": {{
+    "thought_process": "Need to extract email from LinkedIn, then verify deliverability. Prospeo specializes in LinkedIn-to-email. ZeroBounce handles verification.",
+    "tools_considered": [
+      {{"tool_id": "prospeo", "name": "Prospeo", "why": "Best for LinkedIn URL to email conversion", "selected": true}},
+      {{"tool_id": "hunter", "name": "Hunter.io", "why": "Good for domain-based email finding but less ideal for LinkedIn", "selected": false}},
+      {{"tool_id": "zerobounce", "name": "ZeroBounce", "why": "Email verification after finding", "selected": true}}
+    ],
+    "confidence": 0.9
+  }},
+  "function": {{
+    "name": "LinkedIn Email Finder & Verifier",
+    "description": "Finds a person's email from their LinkedIn profile URL and verifies deliverability",
+    "inputs": [
+      {{"name": "linkedin_url", "type": "url", "required": true, "description": "LinkedIn profile URL"}}
+    ],
+    "outputs": [
+      {{"key": "email", "type": "string", "description": "Verified email address"}},
+      {{"key": "is_valid", "type": "boolean", "description": "Whether the email is deliverable"}}
+    ],
+    "steps": [
+      {{"tool": "prospeo", "params": {{"linkedin_url": "{{{{linkedin_url}}}}"}}}},
+      {{"tool": "zerobounce", "params": {{"email": "{{{{email}}}}"}}}}
+    ]
+  }}
+}}
+```
+
+## Example 2: Multi-step enrichment function
+Request: "Research a company and find the VP of Sales contact info"
+```json
+{{
+  "reasoning": {{
+    "thought_process": "First enrich the company to get firmographics, then search for VP of Sales, then find and verify their email.",
+    "tools_considered": [
+      {{"tool_id": "apollo_org", "name": "Apollo Org Enrich", "why": "Company enrichment for firmographics", "selected": true}},
+      {{"tool_id": "apollo_people", "name": "Apollo People Search", "why": "Find people by title at company", "selected": true}},
+      {{"tool_id": "findymail", "name": "Findymail", "why": "High-accuracy email finding with native API (fastest)", "selected": true}},
+      {{"tool_id": "hunter", "name": "Hunter.io", "why": "Alternative email finder but no native API", "selected": false}}
+    ],
+    "confidence": 0.85
+  }},
+  "function": {{
+    "name": "VP Sales Finder",
+    "description": "Researches a company and finds the VP of Sales with verified contact info",
+    "inputs": [
+      {{"name": "domain", "type": "string", "required": true, "description": "Company website domain"}},
+      {{"name": "company_name", "type": "string", "required": false, "description": "Company name (helps with research)"}}
+    ],
+    "outputs": [
+      {{"key": "company_summary", "type": "string", "description": "Brief company overview"}},
+      {{"key": "contact_name", "type": "string", "description": "VP of Sales full name"}},
+      {{"key": "contact_title", "type": "string", "description": "Exact title"}},
+      {{"key": "contact_email", "type": "string", "description": "Verified email address"}}
+    ],
+    "steps": [
+      {{"tool": "apollo_org", "params": {{"domain": "{{{{domain}}}}"}}}},
+      {{"tool": "apollo_people", "params": {{"domain": "{{{{domain}}}}", "title": "VP Sales"}}}},
+      {{"tool": "findymail", "params": {{"first_name": "{{{{contact_name}}}}", "last_name": "", "domain": "{{{{domain}}}}"}}}}
+    ]
+  }}
+}}
+```
+
+# Rules
+- Use `{{{{input_name}}}}` syntax in step params to reference function inputs
+- Later steps can reference outputs from earlier steps the same way
+- Prefer tools with speed: fast (native API) when available
+- Keep functions focused — 2-5 steps is ideal
+- Mark inputs as required only if the function can't work without them
+- Output keys should be snake_case
+
+# User Request
+{description}
+{f"Additional context: {context}" if context else ""}
+
+Return ONLY a valid JSON object with "reasoning" and "function" keys. No explanation text, no markdown fences."""
+
+
+def _validate_assembly(parsed: dict, tools: list[dict]) -> list[str]:
+    """Validate assembled function against tool catalog. Returns list of warnings."""
+    warnings = []
+    valid_ids = {t["id"] for t in tools}
+    func = parsed.get("function", parsed)
+    for i, step in enumerate(func.get("steps", [])):
+        tool_id = step.get("tool", "")
+        if tool_id and tool_id not in valid_ids and not tool_id.startswith("skill:"):
+            warnings.append(f"Step {i + 1}: unknown tool '{tool_id}'")
+    return warnings
+
+
 @router.post("/functions/assemble")
 async def assemble_function(request: Request, body: AssembleFunctionRequest):
     """AI-powered function assembly — user describes what they want, AI suggests tool chain."""
+    prompt = _build_assembly_prompt(body.description, body.context)
     tools = get_tool_catalog()
-    tool_summary = "\n".join(
-        f"- {t['id']}: {t['name']} ({t['category']}) — {t['description']}"
-        for t in tools
-    )
-
-    prompt = f"""You are a function builder assistant for a GTM data platform. The user wants to create a data function.
-
-Available tools:
-{tool_summary}
-
-User request: {body.description}
-{f"Additional context: {body.context}" if body.context else ""}
-
-Return a JSON object with exactly two top-level keys:
-
-1. "reasoning" — your thought process:
-   - "thought_process": Brief explanation of why you chose this tool chain
-   - "tools_considered": Array of {{"tool_id": "...", "name": "...", "why": "reason considered", "selected": true/false}}
-   - "confidence": 0.0-1.0 confidence score in this function design
-
-2. "function" — the function definition:
-   - name: Human-readable function name
-   - description: What the function does
-   - inputs: Array of {{name, type, required, description}} — the data fields needed
-   - outputs: Array of {{key, type, description}} — what the function returns
-   - steps: Array of {{tool, params}} — the tool chain to execute
-
-Types for inputs: string, number, url, email, boolean
-Types for outputs: string, number, boolean, json
-
-Return ONLY valid JSON, no explanation text.
-"""
-
     pool = request.app.state.pool
+
     try:
-        import time
         start = time.time()
-        result = await pool.submit(prompt, "sonnet", 60)
+        result = await pool.submit(prompt, "sonnet", 90)
         duration = int((time.time() - start) * 1000)
         parsed = result.get("result", {})
+
+        # Retry once if we got bad output
+        if not isinstance(parsed, dict) or ("function" not in parsed and "name" not in parsed):
+            logger.warning("[functions] Assembly returned non-dict or missing keys, retrying")
+            retry_prompt = prompt + "\n\nIMPORTANT: Your previous response was not valid JSON. Return ONLY a JSON object with 'reasoning' and 'function' keys."
+            result = await pool.submit(retry_prompt, "sonnet", 90)
+            duration = int((time.time() - start) * 1000)
+            parsed = result.get("result", {})
+
         # Handle both structured (reasoning+function) and flat responses
         if isinstance(parsed, dict) and "function" in parsed:
             suggestion = parsed["function"]
@@ -135,9 +228,14 @@ Return ONLY valid JSON, no explanation text.
         else:
             suggestion = parsed
             reasoning = {}
+
+        # Validate tool IDs
+        validation_warnings = _validate_assembly(parsed, tools)
+
         return {
             "suggestion": suggestion,
             "reasoning": reasoning,
+            "warnings": validation_warnings,
             "raw": result.get("raw_output", ""),
             "duration_ms": duration,
         }
@@ -146,6 +244,209 @@ Return ONLY valid JSON, no explanation text.
         return JSONResponse(
             status_code=500,
             content={"error": True, "error_message": f"AI assembly failed: {e}"},
+        )
+
+
+@router.post("/functions/assemble/stream")
+async def assemble_function_stream(request: Request, body: AssembleFunctionRequest):
+    """SSE streaming version of function assembly — sends chunks as they arrive."""
+    prompt = _build_assembly_prompt(body.description, body.context)
+    pool = request.app.state.pool
+    executor = pool._executor
+
+    async def event_stream():
+        start = time.time()
+        full_text = ""
+        try:
+            async for chunk in executor.stream_execute(prompt, model="sonnet", timeout=90):
+                if chunk.get("done"):
+                    duration = int((time.time() - start) * 1000)
+                    if "error" in chunk:
+                        yield f"data: {json.dumps({'type': 'error', 'message': chunk['error']})}\n\n"
+                    else:
+                        # Parse and validate final result
+                        tools = get_tool_catalog()
+                        parsed = chunk.get("result", {})
+                        if isinstance(parsed, str):
+                            try:
+                                parsed = json.loads(parsed)
+                            except json.JSONDecodeError:
+                                parsed = {}
+
+                        if isinstance(parsed, dict) and "function" in parsed:
+                            suggestion = parsed["function"]
+                            reasoning = parsed.get("reasoning", {})
+                        else:
+                            suggestion = parsed
+                            reasoning = {}
+
+                        warnings = _validate_assembly(parsed, tools)
+                        yield f"data: {json.dumps({'type': 'complete', 'suggestion': suggestion, 'reasoning': reasoning, 'warnings': warnings, 'duration_ms': duration})}\n\n"
+                elif "chunk" in chunk:
+                    full_text += chunk["chunk"]
+                    yield f"data: {json.dumps({'type': 'chunk', 'text': chunk['chunk']})}\n\n"
+        except Exception as e:
+            logger.error("[functions] Stream assembly error: %s", e)
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+# ── Function Templates ───────────────────────────────────
+
+FUNCTION_TEMPLATES = [
+    {
+        "id": "company-research",
+        "name": "Company Research",
+        "description": "Enrich a company with firmographics, tech stack, and recent news",
+        "category": "Research",
+        "inputs": [
+            {"name": "domain", "type": "string", "required": True, "description": "Company website domain"},
+        ],
+        "outputs": [
+            {"key": "company_name", "type": "string", "description": "Company name"},
+            {"key": "industry", "type": "string", "description": "Industry vertical"},
+            {"key": "employee_count", "type": "string", "description": "Estimated employee count"},
+            {"key": "company_summary", "type": "string", "description": "Brief company overview"},
+        ],
+        "steps": [
+            {"tool": "apollo_org", "params": {"domain": "{{domain}}"}},
+            {"tool": "exa", "params": {"query": "{{company_name}} company news 2024"}},
+        ],
+    },
+    {
+        "id": "find-verify-email",
+        "name": "Find & Verify Email",
+        "description": "Find a person's email address and verify deliverability",
+        "category": "Email",
+        "inputs": [
+            {"name": "first_name", "type": "string", "required": True, "description": "Person's first name"},
+            {"name": "last_name", "type": "string", "required": True, "description": "Person's last name"},
+            {"name": "domain", "type": "string", "required": True, "description": "Company domain"},
+        ],
+        "outputs": [
+            {"key": "email", "type": "string", "description": "Email address found"},
+            {"key": "is_valid", "type": "boolean", "description": "Whether the email is deliverable"},
+        ],
+        "steps": [
+            {"tool": "findymail", "params": {"first_name": "{{first_name}}", "last_name": "{{last_name}}", "domain": "{{domain}}"}},
+            {"tool": "zerobounce", "params": {"email": "{{email}}"}},
+        ],
+    },
+    {
+        "id": "people-finder",
+        "name": "People Finder",
+        "description": "Find key contacts at a company by title and get their info",
+        "category": "People",
+        "inputs": [
+            {"name": "domain", "type": "string", "required": True, "description": "Company domain"},
+            {"name": "title", "type": "string", "required": True, "description": "Target job title (e.g., VP Sales)"},
+        ],
+        "outputs": [
+            {"key": "contact_name", "type": "string", "description": "Full name"},
+            {"key": "contact_title", "type": "string", "description": "Exact job title"},
+            {"key": "contact_email", "type": "string", "description": "Email address"},
+            {"key": "linkedin_url", "type": "string", "description": "LinkedIn profile URL"},
+        ],
+        "steps": [
+            {"tool": "apollo_people", "params": {"domain": "{{domain}}", "title": "{{title}}"}},
+            {"tool": "findymail", "params": {"first_name": "{{contact_name}}", "domain": "{{domain}}"}},
+        ],
+    },
+    {
+        "id": "website-scraper",
+        "name": "Website Scraper & Analyzer",
+        "description": "Scrape a website and extract structured insights with AI",
+        "category": "Scraping",
+        "inputs": [
+            {"name": "url", "type": "url", "required": True, "description": "URL to scrape"},
+            {"name": "extract_prompt", "type": "string", "required": False, "description": "What to extract (e.g., pricing, features)"},
+        ],
+        "outputs": [
+            {"key": "extracted_data", "type": "json", "description": "Structured data extracted from the page"},
+            {"key": "summary", "type": "string", "description": "AI summary of the page content"},
+        ],
+        "steps": [
+            {"tool": "firecrawl", "params": {"url": "{{url}}"}},
+            {"tool": "call_ai", "params": {"prompt": "{{extract_prompt}}", "data": "{{content}}"}},
+        ],
+    },
+    {
+        "id": "lead-qualifier",
+        "name": "Lead Qualifier",
+        "description": "Research a company and score whether they match your ICP",
+        "category": "Strategy",
+        "inputs": [
+            {"name": "domain", "type": "string", "required": True, "description": "Company domain"},
+            {"name": "icp_criteria", "type": "string", "required": False, "description": "Your ICP criteria (e.g., B2B SaaS, 50-500 employees)"},
+        ],
+        "outputs": [
+            {"key": "company_name", "type": "string", "description": "Company name"},
+            {"key": "fit_score", "type": "number", "description": "ICP fit score 0-100"},
+            {"key": "fit_reasoning", "type": "string", "description": "Why this score was assigned"},
+            {"key": "recommendation", "type": "string", "description": "Recommended next action"},
+        ],
+        "steps": [
+            {"tool": "apollo_org", "params": {"domain": "{{domain}}"}},
+            {"tool": "exa", "params": {"query": "{{company_name}} funding news"}},
+            {"tool": "call_ai", "params": {"prompt": "Score this company against ICP: {{icp_criteria}}", "data": "{{company}}"}},
+        ],
+    },
+]
+
+
+@router.get("/functions/templates")
+async def list_templates():
+    """Return pre-built function templates."""
+    return {"templates": FUNCTION_TEMPLATES}
+
+
+# ── Explain Function ─────────────────────────────────────
+
+
+@router.post("/functions/{func_id}/explain")
+async def explain_function(request: Request, func_id: str):
+    """AI-generated plain English explanation of what a function does."""
+    store = request.app.state.function_store
+    func = store.get(func_id)
+    if func is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": True, "error_message": f"Function '{func_id}' not found"},
+        )
+
+    steps_desc = "\n".join(
+        f"  Step {i + 1}: Use {s.tool} with params {s.params}"
+        for i, s in enumerate(func.steps)
+    )
+    inputs_desc = ", ".join(f"{i.name} ({i.type})" for i in func.inputs)
+    outputs_desc = ", ".join(f"{o.key} ({o.type})" for o in func.outputs)
+
+    prompt = f"""Explain this data function in 2-3 sentences of plain English that a non-technical salesperson would understand.
+
+Function: {func.name}
+Description: {func.description}
+Inputs: {inputs_desc}
+Outputs: {outputs_desc}
+Steps:
+{steps_desc}
+
+Return a JSON object with:
+- "explanation": Plain English explanation (2-3 sentences)
+- "use_case": When you'd use this function (1 sentence)
+- "estimated_speed": "fast" (under 10s), "medium" (10-30s), or "slow" (30s+) based on the steps involved
+
+Return ONLY valid JSON."""
+
+    pool = request.app.state.pool
+    try:
+        result = await pool.submit(prompt, "haiku", 30)
+        return result.get("result", {})
+    except Exception as e:
+        logger.error("[functions] Explain error: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content={"error": True, "error_message": f"AI explanation failed: {e}"},
         )
 
 
@@ -909,6 +1210,126 @@ async def execute_single_step(request: Request, func_id: str, body: StepExecutio
         status_code=400,
         content={"error": True, "error_message": f"Step {body.step_index} (tool={tool_id}) is not a native API step. Execute it locally via SDK."},
     )
+
+
+@router.post("/functions/{func_id}/test-step")
+async def test_single_step(request: Request, func_id: str, body: StepExecutionRequest):
+    """Test a single step with sample data — works for both native and AI steps."""
+    store = request.app.state.function_store
+    func = store.get(func_id)
+    if func is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": True, "error_message": f"Function '{func_id}' not found"},
+        )
+
+    if body.step_index < 0 or body.step_index >= len(func.steps):
+        return JSONResponse(
+            status_code=400,
+            content={"error": True, "error_message": f"Invalid step_index {body.step_index}"},
+        )
+
+    step = func.steps[body.step_index]
+    tool_id = step.tool
+    start_time = time.time()
+
+    # Resolve params
+    resolved_params: dict[str, str] = {}
+    for key, val in step.params.items():
+        resolved = val
+        for inp_name, inp_val in body.data.items():
+            resolved = resolved.replace("{{" + str(inp_name) + "}}", str(inp_val))
+        resolved_params[key] = resolved
+
+    # Determine executor type
+    from app.core.tool_catalog import DEEPLINE_PROVIDERS
+    provider_map = {p["id"]: p for p in DEEPLINE_PROVIDERS}
+
+    if tool_id == "findymail" and settings.findymail_api_key:
+        # Native API step — delegate to existing execute-step
+        try:
+            from app.core import findymail_client
+            result = await findymail_client.enrich_company(
+                name=resolved_params.get("name") or resolved_params.get("company_name"),
+                domain=resolved_params.get("domain"),
+                linkedin_url=resolved_params.get("linkedin_url"),
+                api_key=settings.findymail_api_key,
+                base_url=settings.findymail_base_url,
+                timeout=settings.findymail_timeout,
+            )
+            duration_ms = int((time.time() - start_time) * 1000)
+            return {
+                "step_index": body.step_index,
+                "tool": tool_id,
+                "executor": "native_api",
+                "status": "success",
+                "output": result if isinstance(result, dict) else {"result": result},
+                "duration_ms": duration_ms,
+            }
+        except Exception as e:
+            return {"step_index": body.step_index, "tool": tool_id, "executor": "native_api", "status": "error", "error_message": str(e), "duration_ms": int((time.time() - start_time) * 1000)}
+
+    # AI-powered step — build a focused prompt and execute
+    pool = request.app.state.pool
+    provider = provider_map.get(tool_id)
+
+    if tool_id.startswith("skill:"):
+        # Skill step — run via webhook logic
+        executor_type = "skill"
+        ai_prompt = f"You are running the skill '{tool_id}'. Process this data and return JSON results.\n\nData: {json.dumps(resolved_params)}\n\nReturn ONLY valid JSON."
+    elif tool_id == "call_ai":
+        executor_type = "call_ai"
+        custom_prompt = resolved_params.get("prompt", "Analyze this data")
+        data = resolved_params.get("data", "{}")
+        ai_prompt = f"{custom_prompt}\n\nData: {data}\n\nReturn ONLY valid JSON."
+    elif provider:
+        executor_type = provider.get("execution_mode", "ai_single")
+        desc = provider.get("ai_fallback_description", provider["description"])
+        output_keys = [o["key"] for o in provider.get("outputs", [])]
+        ai_prompt = f"""You are a data lookup tool. {desc}
+
+Input parameters: {json.dumps(resolved_params)}
+
+Return a JSON object with these keys: {', '.join(output_keys)}
+If you cannot find the data, return null for that key.
+Return ONLY valid JSON."""
+    else:
+        return JSONResponse(
+            status_code=400,
+            content={"error": True, "error_message": f"Unknown tool '{tool_id}'"},
+        )
+
+    try:
+        model = "sonnet"
+        if executor_type == "ai_agent":
+            # Use agent executor for web search tools
+            agent_executor = getattr(request.app.state, "agent_executor", None)
+            if agent_executor:
+                result = await agent_executor.execute(ai_prompt, model=model, timeout=60)
+            else:
+                result = await pool.submit(ai_prompt, model, 60)
+        else:
+            result = await pool.submit(ai_prompt, model, 60)
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        return {
+            "step_index": body.step_index,
+            "tool": tool_id,
+            "executor": executor_type,
+            "status": "success",
+            "output": result.get("result", {}),
+            "duration_ms": duration_ms,
+        }
+    except Exception as e:
+        duration_ms = int((time.time() - start_time) * 1000)
+        return {
+            "step_index": body.step_index,
+            "tool": tool_id,
+            "executor": executor_type,
+            "status": "error",
+            "error_message": str(e),
+            "duration_ms": duration_ms,
+        }
 
 
 @router.post("/functions/{func_id}/preview")

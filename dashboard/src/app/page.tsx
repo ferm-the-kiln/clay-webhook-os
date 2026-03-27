@@ -17,7 +17,8 @@ import {
   moveFunction,
   createFolder,
   deleteFolder,
-  assembleFunction,
+  streamAssembleFunction,
+  fetchTemplates,
 } from "@/lib/api";
 import type { FunctionDefinition, FolderDefinition, FunctionInput, FunctionOutput, FunctionStep } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,12 @@ import {
   Blocks,
   LayoutGrid,
   Settings2,
+  Sparkles,
+  ChevronDown,
+  AlertTriangle,
+  Zap,
+  Clock,
+  Brain,
 } from "lucide-react";
 import { CatalogGrid } from "@/components/functions/catalog-grid";
 import { FavoritesStrip } from "@/components/functions/favorites-strip";
@@ -500,10 +507,28 @@ function FunctionBuilderPanel({
   folders: FolderDefinition[];
   onCreated: () => void;
 }) {
-  const [step, setStep] = useState<"describe" | "review">("describe");
+  const [step, setStep] = useState<"describe" | "streaming" | "review">("describe");
   const [prompt, setPrompt] = useState("");
-  const [assembling, setAssembling] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [streamText, setStreamText] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Reasoning from AI
+  const [reasoning, setReasoning] = useState<{
+    thought_process?: string;
+    tools_considered?: Array<{ tool_id: string; name: string; why: string; selected: boolean }>;
+    confidence?: number;
+  }>({});
+  const [assemblyWarnings, setAssemblyWarnings] = useState<string[]>([]);
+  const [assemblyDuration, setAssemblyDuration] = useState(0);
+  const [reasoningOpen, setReasoningOpen] = useState(false);
+
+  // Templates
+  const [templates, setTemplates] = useState<Array<{
+    id: string; name: string; description: string; category: string;
+    inputs: FunctionInput[]; outputs: FunctionOutput[]; steps: FunctionStep[];
+  }>>([]);
+  const [showTemplates, setShowTemplates] = useState(true);
 
   // Editable suggestion fields
   const [name, setName] = useState("");
@@ -513,26 +538,59 @@ function FunctionBuilderPanel({
   const [outputs, setOutputs] = useState<FunctionOutput[]>([]);
   const [steps, setSteps] = useState<FunctionStep[]>([]);
 
-  const handleAssemble = async () => {
+  // Load templates on mount
+  useEffect(() => {
+    fetchTemplates().then((res) => setTemplates(res.templates)).catch(() => {});
+  }, []);
+
+  const handleAssemble = () => {
     if (!prompt.trim()) {
       toast.error("Describe what you want the function to do");
       return;
     }
-    setAssembling(true);
-    try {
-      const res = await assembleFunction({ description: prompt });
-      const s = res.suggestion as Record<string, unknown>;
-      setName(String(s.name || ""));
-      setDescription(String(s.description || ""));
-      setInputs((s.inputs as FunctionInput[]) || []);
-      setOutputs((s.outputs as FunctionOutput[]) || []);
-      setSteps((s.steps as FunctionStep[]) || []);
-      setStep("review");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "AI assembly failed");
-    } finally {
-      setAssembling(false);
-    }
+    setStreamText("");
+    setReasoning({});
+    setAssemblyWarnings([]);
+    setStep("streaming");
+
+    abortRef.current = streamAssembleFunction(
+      { description: prompt },
+      {
+        onChunk: (text) => setStreamText((prev) => prev + text),
+        onComplete: (result) => {
+          const s = result.suggestion as Record<string, unknown>;
+          setName(String(s.name || ""));
+          setDescription(String(s.description || ""));
+          setInputs((s.inputs as FunctionInput[]) || []);
+          setOutputs((s.outputs as FunctionOutput[]) || []);
+          setSteps((s.steps as FunctionStep[]) || []);
+          setReasoning(result.reasoning as typeof reasoning);
+          setAssemblyWarnings(result.warnings || []);
+          setAssemblyDuration(result.duration_ms);
+          setStep("review");
+        },
+        onError: (msg) => {
+          toast.error(msg);
+          setStep("describe");
+        },
+      }
+    );
+  };
+
+  const handleUseTemplate = (tpl: typeof templates[0]) => {
+    setName(tpl.name);
+    setDescription(tpl.description);
+    setInputs(tpl.inputs as FunctionInput[]);
+    setOutputs(tpl.outputs as FunctionOutput[]);
+    setSteps(tpl.steps as FunctionStep[]);
+    setReasoning({});
+    setAssemblyWarnings([]);
+    setStep("review");
+  };
+
+  const handleCancel = () => {
+    if (abortRef.current) abortRef.current.abort();
+    onOpenChange(false);
   };
 
   const handleSave = async () => {
@@ -574,6 +632,14 @@ function FunctionBuilderPanel({
   const handleUpdateOutput = (i: number, field: keyof FunctionOutput, value: string) =>
     setOutputs(outputs.map((out, idx) => idx === i ? { ...out, [field]: value } : out));
 
+  // Speed icon helper
+  const speedIcon = (tool: string) => {
+    if (tool === "findymail") return <Zap className="h-3 w-3 text-emerald-400" />;
+    const agentTools = ["exa", "crustdata", "google_search", "apollo_people", "dropleads", "peopledatalabs", "apollo_org", "leadmagic", "parallel", "firecrawl", "apify", "scrapegraph"];
+    if (agentTools.includes(tool)) return <Clock className="h-3 w-3 text-amber-400" />;
+    return <Brain className="h-3 w-3 text-blue-400" />;
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:w-[520px] sm:max-w-[520px] p-0 flex flex-col">
@@ -585,10 +651,43 @@ function FunctionBuilderPanel({
       {step === "describe" && (
         <>
           <div className="flex-1 overflow-auto p-4 space-y-4">
+            {/* Templates */}
+            {templates.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowTemplates(!showTemplates)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-clay-300 hover:text-clay-100 mb-2"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-kiln-teal" />
+                  Start from template
+                  <ChevronDown className={cn("h-3 w-3 transition-transform", showTemplates && "rotate-180")} />
+                </button>
+                {showTemplates && (
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {templates.map((tpl) => (
+                      <button
+                        key={tpl.id}
+                        onClick={() => handleUseTemplate(tpl)}
+                        className="text-left p-2.5 rounded-lg bg-clay-900/50 border border-clay-700 hover:border-kiln-teal/50 hover:bg-clay-800/50 transition-colors"
+                      >
+                        <div className="text-xs font-medium text-clay-100 mb-0.5">{tpl.name}</div>
+                        <div className="text-[10px] text-clay-300 line-clamp-2">{tpl.description}</div>
+                        <div className="flex gap-1 mt-1.5">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-clay-700/50 text-clay-300">{tpl.inputs.length} in</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-clay-700/50 text-clay-300">{tpl.outputs.length} out</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-clay-700/50 text-clay-300">{tpl.steps.length} steps</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="bg-clay-900/50 border border-clay-700 rounded-lg p-4">
               <div className="text-sm font-medium text-clay-100 mb-1">Describe your function</div>
               <p className="text-xs text-clay-300 mb-3">
-                Tell me what data you want in and what results you want out. I'll suggest the right tools and build the function for you.
+                Tell me what data you want in and what results you want out. I&apos;ll suggest the right tools and build the function for you.
               </p>
               <Textarea
                 value={prompt}
@@ -632,22 +731,37 @@ function FunctionBuilderPanel({
           </div>
 
           <div className="p-4 border-t border-clay-600 flex items-center gap-2 justify-end">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="border-clay-600 text-clay-300">
+            <Button variant="outline" onClick={handleCancel} className="border-clay-600 text-clay-300">
               Cancel
             </Button>
             <Button
               onClick={handleAssemble}
-              disabled={assembling || !prompt.trim()}
+              disabled={!prompt.trim()}
               className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light font-semibold"
             >
-              {assembling ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-3 w-3 border-2 border-clay-950/30 border-t-clay-950 rounded-full animate-spin" />
-                  Building...
-                </span>
-              ) : (
-                "Build Function"
-              )}
+              <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+              Build Function
+            </Button>
+          </div>
+        </>
+      )}
+
+      {/* Step 1.5: Streaming AI response */}
+      {step === "streaming" && (
+        <>
+          <div className="flex-1 overflow-auto p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="h-3 w-3 border-2 border-kiln-teal/30 border-t-kiln-teal rounded-full animate-spin" />
+              <span className="text-sm font-medium text-clay-100">Building your function...</span>
+            </div>
+            <div className="bg-clay-900/50 border border-clay-700 rounded-lg p-4 font-mono text-xs text-clay-300 whitespace-pre-wrap max-h-[60vh] overflow-auto">
+              {streamText || "Analyzing your request..."}
+              <span className="inline-block w-1.5 h-3.5 bg-kiln-teal/70 animate-pulse ml-0.5" />
+            </div>
+          </div>
+          <div className="p-4 border-t border-clay-600 flex items-center gap-2 justify-end">
+            <Button variant="outline" onClick={() => { if (abortRef.current) abortRef.current.abort(); setStep("describe"); }} className="border-clay-600 text-clay-300">
+              Cancel
             </Button>
           </div>
         </>
@@ -657,6 +771,69 @@ function FunctionBuilderPanel({
       {step === "review" && (
         <>
           <div className="flex-1 overflow-auto p-4 space-y-4">
+            {/* AI Reasoning Panel (collapsible) */}
+            {reasoning.thought_process && (
+              <div className="bg-clay-900/30 border border-clay-700 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setReasoningOpen(!reasoningOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-clay-800/30 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Brain className="h-3.5 w-3.5 text-blue-400" />
+                    <span className="text-clay-200 font-medium">AI Reasoning</span>
+                    {reasoning.confidence != null && (
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                        reasoning.confidence >= 0.8 ? "bg-emerald-500/15 text-emerald-400" :
+                        reasoning.confidence >= 0.5 ? "bg-amber-500/15 text-amber-400" :
+                        "bg-red-500/15 text-red-400"
+                      )}>
+                        {Math.round(reasoning.confidence * 100)}% confidence
+                      </span>
+                    )}
+                    {assemblyDuration > 0 && (
+                      <span className="text-[10px] text-clay-400">{(assemblyDuration / 1000).toFixed(1)}s</span>
+                    )}
+                  </div>
+                  <ChevronDown className={cn("h-3.5 w-3.5 text-clay-400 transition-transform", reasoningOpen && "rotate-180")} />
+                </button>
+                {reasoningOpen && (
+                  <div className="px-3 pb-3 space-y-2 border-t border-clay-700/50">
+                    <p className="text-xs text-clay-300 mt-2">{reasoning.thought_process}</p>
+                    {reasoning.tools_considered && reasoning.tools_considered.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-[10px] text-clay-400 font-medium">Tools considered:</div>
+                        {reasoning.tools_considered.map((t, i) => (
+                          <div key={i} className="flex items-center gap-2 text-[10px]">
+                            <span className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              t.selected ? "bg-emerald-400" : "bg-clay-500"
+                            )} />
+                            <span className={t.selected ? "text-clay-100" : "text-clay-400"}>{t.name}</span>
+                            <span className="text-clay-500">—</span>
+                            <span className="text-clay-400">{t.why}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Validation Warnings */}
+            {assemblyWarnings.length > 0 && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-1.5 text-xs text-amber-400 font-medium mb-1">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Validation warnings
+                </div>
+                {assemblyWarnings.map((w, i) => (
+                  <div key={i} className="text-[10px] text-amber-300/80">{w}</div>
+                ))}
+              </div>
+            )}
+
             {/* Name & Description */}
             <div>
               <label className="text-xs font-medium text-clay-300 mb-1 block">Name</label>
@@ -761,18 +938,26 @@ function FunctionBuilderPanel({
               </div>
             </div>
 
-            {/* Steps */}
+            {/* Steps with speed indicators */}
             <div>
               <div className="text-xs font-medium text-clay-300 mb-1">Steps ({steps.length})</div>
               <div className="space-y-1">
                 {steps.map((s, i) => (
                   <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded bg-clay-900/50 border border-clay-700 text-xs">
                     <span className="text-clay-300 w-4">{i + 1}</span>
+                    {speedIcon(s.tool)}
                     <span className="font-medium text-clay-100">{s.tool}</span>
                   </div>
                 ))}
                 {steps.length === 0 && <div className="text-xs text-clay-300 py-1">No steps — add tools after creation</div>}
               </div>
+              {steps.length > 0 && (
+                <div className="flex items-center gap-3 mt-2 text-[10px] text-clay-400">
+                  <span className="flex items-center gap-1"><Zap className="h-2.5 w-2.5 text-emerald-400" /> fast (native)</span>
+                  <span className="flex items-center gap-1"><Brain className="h-2.5 w-2.5 text-blue-400" /> medium (AI)</span>
+                  <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5 text-amber-400" /> slow (web search)</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -781,7 +966,7 @@ function FunctionBuilderPanel({
               Regenerate
             </Button>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)} className="border-clay-600 text-clay-300">
+              <Button variant="outline" onClick={handleCancel} className="border-clay-600 text-clay-300">
                 Cancel
               </Button>
               <Button

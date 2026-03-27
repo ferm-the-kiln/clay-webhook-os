@@ -491,6 +491,16 @@ export interface FolderDefinition {
   function_count?: number;
 }
 
+export interface FunctionTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  inputs: FunctionInput[];
+  outputs: FunctionOutput[];
+  steps: FunctionStep[];
+}
+
 export interface ToolDefinition {
   id: string;
   name: string;
@@ -500,9 +510,11 @@ export interface ToolDefinition {
   inputs: { name: string; type: string }[];
   outputs: { key: string; type: string }[];
   model_tier?: string;
+  execution_mode?: string;
+  speed?: "fast" | "medium" | "slow";
+  cost?: "low" | "medium" | "high";
   has_native_api?: boolean;
   native_api_provider?: string;
-  execution_mode?: "native" | "ai_agent" | "ai_single";
   ai_fallback_description?: string;
 }
 
