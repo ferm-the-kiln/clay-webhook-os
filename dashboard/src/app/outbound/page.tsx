@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Header } from "@/components/layout/header";
 import { EmailLabContent } from "@/components/email-lab/email-lab-content";
 import { SequenceLabContent } from "@/components/sequence-lab/sequence-lab-content";
+import { CampaignWizardButton } from "@/components/campaign-wizard/campaign-wizard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Mail, ListOrdered, Loader2 } from "lucide-react";
 
@@ -13,7 +14,7 @@ export default function OutboundPage() {
       <Header title="Outbound" />
 
       <Tabs defaultValue="email-lab" className="flex flex-col flex-1">
-        <div className="border-b border-clay-600 px-4 md:px-6">
+        <div className="border-b border-clay-600 px-4 md:px-6 flex items-center justify-between">
           <TabsList variant="line">
             <TabsTrigger value="email-lab">
               <Mail className="h-4 w-4" />
@@ -24,6 +25,7 @@ export default function OutboundPage() {
               Sequence Lab
             </TabsTrigger>
           </TabsList>
+          <CampaignWizardButton />
         </div>
 
         <TabsContent value="email-lab" className="flex-1">
