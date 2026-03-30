@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Menu, Search, Wifi, WifiOff, Activity, RefreshCw, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { CommandPalette } from "@/components/command-palette";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 import { formatTokens, formatNumber } from "@/lib/utils";
@@ -258,7 +259,8 @@ export function Header({ title, breadcrumbs, lastUpdated, onRefresh }: HeaderPro
                 size="icon-sm"
                 className="text-clay-400 hover:text-clay-100"
                 onClick={async () => {
-                  await fetch("/api/auth", { method: "DELETE" });
+                  const supabase = createClient();
+                  await supabase.auth.signOut();
                   router.push("/login");
                   router.refresh();
                 }}
