@@ -56,6 +56,16 @@ class Settings(BaseSettings):
     deepline_base_url: str = "https://code.deepline.com"
     deepline_timeout: int = 60
 
+    # Serper.dev web search (company qualification)
+    serper_api_key: str = ""
+    serper_base_url: str = "https://google.serper.dev"
+    serper_timeout: int = 15
+
+    # Tavily web search (company qualification — secondary source)
+    tavily_api_key: str = ""
+    tavily_base_url: str = "https://api.tavily.com"
+    tavily_timeout: int = 15
+
     # Supabase
     supabase_url: str = ""
     supabase_anon_key: str = ""

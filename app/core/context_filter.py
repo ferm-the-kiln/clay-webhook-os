@@ -120,6 +120,14 @@ SKILL_CLIENT_SECTIONS: dict[str, list[str]] = {
         "Competitive Landscape",
         "Battle Cards",
     ],
+    # --- Qualification (1) ---
+    "company-qualifier": [
+        "What They Sell",
+        "Target ICP",
+        "Qualification Criteria",
+        "Competitive Landscape",
+        "Closed-Won Archetypes",
+    ],
 }
 
 

@@ -217,3 +217,64 @@ async def get_learnings_digest(client_slug: str, request: Request):
     if not engine:
         return {"client_slug": client_slug, "total_learnings": 0, "by_skill": {}, "patterns": []}
     return engine.get_digest(client_slug=client_slug)
+
+
+# ── Qualification Outcome (False Positive/Negative Tracking) ───
+
+
+@router.post("/qualification-outcome")
+async def record_qualification_outcome(request: Request):
+    """Record the actual outcome of a company qualification for learning.
+
+    Accepts: company_name, original_verdict (Y/N), actual_outcome
+    (closed_won/closed_lost/disqualified), and optional notes.
+    Feeds the learning engine to improve future qualification accuracy.
+    """
+    body = await request.json()
+    company_name = body.get("company_name", "")
+    original_verdict = body.get("original_verdict", "")
+    actual_outcome = body.get("actual_outcome", "")
+    notes = body.get("notes", "")
+    client_slug = body.get("client_slug", "")
+
+    if not company_name or not original_verdict or not actual_outcome:
+        return {"error": True, "error_message": "company_name, original_verdict, and actual_outcome are required"}
+
+    valid_outcomes = {"closed_won", "closed_lost", "disqualified"}
+    if actual_outcome not in valid_outcomes:
+        return {"error": True, "error_message": f"actual_outcome must be one of: {', '.join(valid_outcomes)}"}
+
+    # Determine if this was a correct or incorrect qualification
+    is_false_positive = original_verdict == "Y" and actual_outcome in ("closed_lost", "disqualified")
+    is_false_negative = original_verdict == "N" and actual_outcome == "closed_won"
+    is_correct = not is_false_positive and not is_false_negative
+
+    # Feed into learning engine if incorrect
+    learning = None
+    learning_engine = getattr(request.app.state, "learning_engine", None)
+    if learning_engine and (is_false_positive or is_false_negative):
+        error_type = "false_positive" if is_false_positive else "false_negative"
+        learning_note = (
+            f"Qualification {error_type} for {company_name}: "
+            f"predicted {original_verdict}, actual {actual_outcome}. {notes}"
+        )
+        try:
+            learning = learning_engine.extract_learning(
+                skill="company-qualifier",
+                client_slug=client_slug,
+                note=learning_note,
+                rating="thumbs_down",
+            )
+        except Exception as e:
+            logger.warning("[qualification-outcome] Learning extraction failed: %s", e)
+
+    return {
+        "ok": True,
+        "company_name": company_name,
+        "original_verdict": original_verdict,
+        "actual_outcome": actual_outcome,
+        "is_correct": is_correct,
+        "is_false_positive": is_false_positive,
+        "is_false_negative": is_false_negative,
+        "learning_extracted": learning is not None,
+    }

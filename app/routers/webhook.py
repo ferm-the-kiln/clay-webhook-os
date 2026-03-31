@@ -17,6 +17,8 @@ from app.core.research_fetcher import (
     fetch_competitor_intel,
     fetch_deepline_company,
     fetch_deepline_email,
+    fetch_qualification_waterfall,
+    quick_qualify_check,
 )
 from app.core.skill_loader import load_context_files, load_skill, load_skill_config
 from app.core.token_estimator import estimate_cost, estimate_tokens
@@ -92,6 +94,33 @@ async def _maybe_fetch_research(skill: str, data: dict, enrichment_cache=None) -
             )
             if intel:
                 data["research_context"] = intel
+
+    elif skill == "company-qualifier":
+        domain = data.get("company_domain", "")
+        name = data.get("company_name", "")
+        if (domain or name) and settings.serper_api_key:
+            # Quick-qualify: check if Clay data alone gives confident verdict
+            qq_verdict, qq_confidence = quick_qualify_check(data, name, domain)
+            if qq_verdict and qq_confidence >= 0.8:
+                data["research_context"] = {
+                    "quick_qualified": True,
+                    "quick_verdict": qq_verdict,
+                    "quick_confidence": qq_confidence,
+                    "all_snippets": f"Quick-qualify: {qq_verdict} (confidence {qq_confidence})",
+                    "source_coverage": {"quick_qualify": True},
+                    "sources_with_data": 1,
+                }
+            else:
+                waterfall_result = await fetch_qualification_waterfall(
+                    company_name=name,
+                    company_domain=domain,
+                    serper_key=settings.serper_api_key,
+                    tavily_key=settings.tavily_api_key,
+                    parallel_key=settings.parallel_api_key,
+                    deepline_key=settings.deepline_api_key,
+                    enrichment_cache=enrichment_cache,
+                )
+                data["research_context"] = waterfall_result
 
 
 @router.post("/webhook")

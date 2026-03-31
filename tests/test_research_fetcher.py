@@ -493,3 +493,298 @@ class TestFormatHelpers:
         from app.core.research_fetcher import _format_extract_content
         assert _format_extract_content([]) == ""
         assert _format_extract_content([_FakeExtractResult(full_content="")]) == ""
+
+
+# ── Tavily qualification tests ────────────────────────────────────
+
+
+class TestFetchTavilyQualification:
+    @pytest.mark.asyncio
+    async def test_returns_results_on_success(self):
+        from app.core.research_fetcher import fetch_tavily_qualification
+
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            "results": [
+                {"title": "Acme GPS Tracker", "url": "https://acme.com", "content": "Acme builds GPS trackers with LTE connectivity"},
+            ],
+        }
+        fake_response.raise_for_status = MagicMock()
+
+        with patch("app.core.research_fetcher.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.post = AsyncMock(return_value=fake_response)
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=client)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await fetch_tavily_qualification("Acme", "acme.com", "fake-key")
+
+        assert len(result["product_search"]) > 0
+        assert "Acme GPS Tracker" in result["all_snippets"]
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_failure(self):
+        from app.core.research_fetcher import fetch_tavily_qualification
+
+        with patch("app.core.research_fetcher.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.post = AsyncMock(side_effect=Exception("timeout"))
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=client)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await fetch_tavily_qualification("Acme", "acme.com", "fake-key")
+
+        assert result["product_search"] == []
+        assert result["connectivity_search"] == []
+        assert result["deployment_search"] == []
+
+    @pytest.mark.asyncio
+    async def test_uses_cache(self):
+        from app.core.research_fetcher import fetch_tavily_qualification
+
+        cached_data = {
+            "product_search": [{"title": "cached"}],
+            "connectivity_search": [],
+            "deployment_search": [],
+            "all_snippets": "cached snippet",
+        }
+        cache = AsyncMock()
+        cache.get = AsyncMock(return_value=cached_data)
+        cache.log_api_call = AsyncMock()
+
+        result = await fetch_tavily_qualification(
+            "Acme", "acme.com", "fake-key", enrichment_cache=cache,
+        )
+
+        assert result == cached_data
+        cache.get.assert_called_once()
+
+
+# ── Homepage content tests ────────────────────────────────────────
+
+
+class TestFetchHomepageContent:
+    @pytest.mark.asyncio
+    async def test_returns_stripped_html(self):
+        from app.core.research_fetcher import fetch_homepage_content
+
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        fake_response.text = "<html><body><h1>Acme IoT</h1><p>We build sensors</p></body></html>"
+
+        with patch("app.core.research_fetcher.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.get = AsyncMock(return_value=fake_response)
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=client)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await fetch_homepage_content("acme.com")
+
+        assert "Acme IoT" in result["homepage_text"]
+        assert "We build sensors" in result["homepage_text"]
+        assert "<html>" not in result["homepage_text"]
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_no_domain(self):
+        from app.core.research_fetcher import fetch_homepage_content
+
+        result = await fetch_homepage_content("")
+        assert result["homepage_text"] == ""
+        assert result["products_text"] == ""
+        assert result["solutions_text"] == ""
+
+    @pytest.mark.asyncio
+    async def test_handles_fetch_failure(self):
+        from app.core.research_fetcher import fetch_homepage_content
+
+        with patch("app.core.research_fetcher.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.get = AsyncMock(side_effect=Exception("DNS error"))
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=client)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await fetch_homepage_content("nonexistent.com")
+
+        assert result["homepage_text"] == ""
+
+
+# ── Serper signal search tests ────────────────────────────────────
+
+
+class TestFetchSpecSheetSearch:
+    @pytest.mark.asyncio
+    async def test_returns_results(self):
+        from app.core.research_fetcher import fetch_spec_sheet_search
+
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            "organic": [
+                {"title": "Acme Spec Sheet.pdf", "link": "https://acme.com/spec.pdf", "snippet": "LTE-M modem specifications"},
+            ],
+        }
+        fake_response.raise_for_status = MagicMock()
+
+        with patch("app.core.research_fetcher.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.post = AsyncMock(return_value=fake_response)
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=client)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await fetch_spec_sheet_search("Acme", "fake-key")
+
+        assert len(result["spec_results"]) == 1
+        assert "LTE-M" in result["spec_snippets"]
+
+
+class TestFetchGithubSignal:
+    @pytest.mark.asyncio
+    async def test_returns_results(self):
+        from app.core.research_fetcher import fetch_github_signal
+
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            "organic": [
+                {"title": "acme/modem-firmware", "link": "https://github.com/acme/modem", "snippet": "AT command handler for cellular modem"},
+            ],
+        }
+        fake_response.raise_for_status = MagicMock()
+
+        with patch("app.core.research_fetcher.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.post = AsyncMock(return_value=fake_response)
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=client)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await fetch_github_signal("Acme", "acme.com", "fake-key")
+
+        assert len(result["github_results"]) == 1
+        assert "modem" in result["github_snippets"]
+
+
+class TestFetchLinkedinSignal:
+    @pytest.mark.asyncio
+    async def test_returns_snippet(self):
+        from app.core.research_fetcher import fetch_linkedin_signal
+
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            "organic": [
+                {"title": "Acme IoT | LinkedIn", "link": "https://linkedin.com/company/acme-iot", "snippet": "Acme IoT provides cellular connectivity solutions for IoT devices"},
+            ],
+        }
+        fake_response.raise_for_status = MagicMock()
+
+        with patch("app.core.research_fetcher.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.post = AsyncMock(return_value=fake_response)
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=client)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await fetch_linkedin_signal("Acme IoT", "fake-key")
+
+        assert "cellular connectivity" in result["linkedin_snippet"]
+
+
+class TestFetchJobPostingSignal:
+    @pytest.mark.asyncio
+    async def test_returns_results(self):
+        from app.core.research_fetcher import fetch_job_posting_signal
+
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            "organic": [
+                {"title": "Firmware Engineer at Acme", "link": "https://jobs.com/acme", "snippet": "Looking for embedded engineer with experience in LTE-M and NB-IoT"},
+            ],
+        }
+        fake_response.raise_for_status = MagicMock()
+
+        with patch("app.core.research_fetcher.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.post = AsyncMock(return_value=fake_response)
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=client)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await fetch_job_posting_signal("Acme", "fake-key")
+
+        assert len(result["job_results"]) == 1
+        assert "LTE-M" in result["job_snippets"]
+
+
+# ── Waterfall orchestrator tests ──────────────────────────────────
+
+
+class TestFetchQualificationWaterfall:
+    @pytest.mark.asyncio
+    async def test_combines_all_sources(self):
+        from app.core.research_fetcher import fetch_qualification_waterfall
+
+        serper_result = {
+            "product_search": [{"title": "test"}],
+            "connectivity_search": [],
+            "deployment_search": [],
+            "knowledge_graph": {},
+            "all_snippets": "--- PRODUCT SEARCH ---\n[test] snippet",
+        }
+
+        with patch("app.core.research_fetcher.fetch_serper_qualification", new_callable=AsyncMock, return_value=serper_result), \
+             patch("app.core.research_fetcher.fetch_homepage_content", new_callable=AsyncMock, return_value={"homepage_text": "IoT devices", "products_text": "", "solutions_text": ""}), \
+             patch("app.core.research_fetcher.fetch_spec_sheet_search", new_callable=AsyncMock, return_value={"spec_results": [], "spec_snippets": ""}), \
+             patch("app.core.research_fetcher.fetch_github_signal", new_callable=AsyncMock, return_value={"github_results": [], "github_snippets": ""}), \
+             patch("app.core.research_fetcher.fetch_linkedin_signal", new_callable=AsyncMock, return_value={"linkedin_results": [], "linkedin_snippet": ""}), \
+             patch("app.core.research_fetcher.fetch_job_posting_signal", new_callable=AsyncMock, return_value={"job_results": [], "job_snippets": ""}):
+
+            result = await fetch_qualification_waterfall("SolidGPS", "solidgps.com", "fake-key")
+
+        assert "PRODUCT SEARCH" in result["all_snippets"]
+        assert "HOMEPAGE CONTENT" in result["all_snippets"]
+        assert result["source_coverage"]["serper"] is True
+        assert result["source_coverage"]["homepage"] is True
+        assert result["sources_with_data"] >= 2
+        assert "domain_analysis" in result
+
+    @pytest.mark.asyncio
+    async def test_handles_source_failures_gracefully(self):
+        from app.core.research_fetcher import fetch_qualification_waterfall
+
+        with patch("app.core.research_fetcher.fetch_serper_qualification", new_callable=AsyncMock, side_effect=Exception("serper down")), \
+             patch("app.core.research_fetcher.fetch_homepage_content", new_callable=AsyncMock, side_effect=Exception("DNS fail")), \
+             patch("app.core.research_fetcher.fetch_spec_sheet_search", new_callable=AsyncMock, return_value={"spec_results": [], "spec_snippets": ""}), \
+             patch("app.core.research_fetcher.fetch_github_signal", new_callable=AsyncMock, return_value={"github_results": [], "github_snippets": ""}), \
+             patch("app.core.research_fetcher.fetch_linkedin_signal", new_callable=AsyncMock, return_value={"linkedin_results": [], "linkedin_snippet": ""}), \
+             patch("app.core.research_fetcher.fetch_job_posting_signal", new_callable=AsyncMock, return_value={"job_results": [], "job_snippets": ""}):
+
+            result = await fetch_qualification_waterfall("SolidGPS", "solidgps.com", "fake-key")
+
+        # Should not raise — gracefully handles failures
+        assert result["source_coverage"]["serper"] is False
+        assert result["source_coverage"]["homepage"] is False
+        assert "domain_analysis" in result
+
+    @pytest.mark.asyncio
+    async def test_includes_tavily_when_key_provided(self):
+        from app.core.research_fetcher import fetch_qualification_waterfall
+
+        tavily_result = {
+            "product_search": [{"title": "tavily found"}],
+            "connectivity_search": [],
+            "deployment_search": [],
+            "all_snippets": "--- TAVILY PRODUCT SEARCH ---\n[tavily found] IoT device",
+        }
+
+        with patch("app.core.research_fetcher.fetch_serper_qualification", new_callable=AsyncMock, return_value={"product_search": [], "connectivity_search": [], "deployment_search": [], "knowledge_graph": {}, "all_snippets": ""}), \
+             patch("app.core.research_fetcher.fetch_tavily_qualification", new_callable=AsyncMock, return_value=tavily_result), \
+             patch("app.core.research_fetcher.fetch_homepage_content", new_callable=AsyncMock, return_value={"homepage_text": "", "products_text": "", "solutions_text": ""}), \
+             patch("app.core.research_fetcher.fetch_spec_sheet_search", new_callable=AsyncMock, return_value={"spec_results": [], "spec_snippets": ""}), \
+             patch("app.core.research_fetcher.fetch_github_signal", new_callable=AsyncMock, return_value={"github_results": [], "github_snippets": ""}), \
+             patch("app.core.research_fetcher.fetch_linkedin_signal", new_callable=AsyncMock, return_value={"linkedin_results": [], "linkedin_snippet": ""}), \
+             patch("app.core.research_fetcher.fetch_job_posting_signal", new_callable=AsyncMock, return_value={"job_results": [], "job_snippets": ""}):
+
+            result = await fetch_qualification_waterfall("Acme", "acme.com", "serper-key", tavily_key="tavily-key")
+
+        assert result["source_coverage"]["tavily"] is True
+        assert "TAVILY PRODUCT SEARCH" in result["all_snippets"]
