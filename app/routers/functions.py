@@ -490,6 +490,100 @@ async def create_function(request: Request, body: CreateFunctionRequest):
     return func.model_dump()
 
 
+# ── Local queue/runner routes (MUST be before {func_id} wildcard) ──
+
+
+@router.get("/functions/local-runner/status")
+async def local_runner_status(request: Request):
+    """Check if the local runner daemon is active by looking at recent job activity."""
+    local_queue = request.app.state.local_job_queue
+    all_jobs = local_queue.list_all(limit=10)
+
+    last_activity = 0.0
+    for job in all_jobs:
+        for ts_key in ("completed_at", "running_at"):
+            ts = job.get(ts_key, 0)
+            if ts and ts > last_activity:
+                last_activity = ts
+
+    now = time.time()
+    active = (now - last_activity) < 120 if last_activity else False
+    pending_count = len([j for j in all_jobs if j.get("status") == "pending"])
+
+    return {
+        "active": active,
+        "last_activity": last_activity,
+        "seconds_ago": int(now - last_activity) if last_activity else None,
+        "pending_jobs": pending_count,
+    }
+
+
+@router.get("/functions/local-queue")
+async def list_local_queue(request: Request, status: str | None = None, limit: int = 20):
+    """List jobs in the local execution queue. Used by clay-run --watch."""
+    local_queue = request.app.state.local_job_queue
+
+    if status == "pending":
+        jobs = local_queue.list_pending(limit=limit)
+    else:
+        jobs = local_queue.list_all(limit=limit)
+
+    summary = []
+    for job in jobs:
+        summary.append({
+            "id": job.get("id"),
+            "function_id": job.get("function_id"),
+            "function_name": job.get("function_name"),
+            "model": job.get("model"),
+            "status": job.get("status"),
+            "queued_at": job.get("queued_at"),
+            "prompt_chars": len(job.get("prompt", "")),
+            "output_keys": job.get("output_keys", []),
+        })
+
+    return {"jobs": summary, "count": len(summary)}
+
+
+@router.patch("/functions/local-queue/{job_id}")
+async def update_local_job(request: Request, job_id: str, body: UpdateJobStatusRequest):
+    """Update job status. Used by clay-run to mark jobs as running/completed/failed."""
+    local_queue = request.app.state.local_job_queue
+
+    job = local_queue.get(job_id)
+    if job is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": True, "error_message": f"Job '{job_id}' not found"},
+        )
+
+    if body.status not in ("running", "completed", "failed"):
+        return JSONResponse(
+            status_code=400,
+            content={"error": True, "error_message": f"Invalid status: {body.status}"},
+        )
+
+    updated = local_queue.update_status(job_id, body.status)
+    return updated or {"error": True, "error_message": "Failed to update job"}
+
+
+@router.get("/functions/local-queue/{job_id}")
+async def get_local_job(request: Request, job_id: str):
+    """Get a single local job by ID, including the full prompt."""
+    local_queue = request.app.state.local_job_queue
+
+    job = local_queue.get(job_id)
+    if job is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": True, "error_message": f"Job '{job_id}' not found"},
+        )
+
+    return job
+
+
+# ── Per-function routes ──────────────────────────────────
+
+
 @router.get("/functions/{func_id}")
 async def get_function(request: Request, func_id: str):
     store = request.app.state.function_store
@@ -1576,91 +1670,3 @@ async def submit_local_result(request: Request, func_id: str, body: SubmitResult
     }
 
 
-@router.get("/functions/local-runner/status")
-async def local_runner_status(request: Request):
-    """Check if the local runner daemon is active by looking at recent job activity."""
-    local_queue = request.app.state.local_job_queue
-    all_jobs = local_queue.list_all(limit=10)
-
-    # Check if any job was picked up (moved to running/completed) recently
-    last_activity = 0.0
-    for job in all_jobs:
-        for ts_key in ("completed_at", "running_at"):
-            ts = job.get(ts_key, 0)
-            if ts and ts > last_activity:
-                last_activity = ts
-
-    now = time.time()
-    active = (now - last_activity) < 120 if last_activity else False  # Active if activity in last 2 min
-    pending_count = len([j for j in all_jobs if j.get("status") == "pending"])
-
-    return {
-        "active": active,
-        "last_activity": last_activity,
-        "seconds_ago": int(now - last_activity) if last_activity else None,
-        "pending_jobs": pending_count,
-    }
-
-
-@router.get("/functions/local-queue")
-async def list_local_queue(request: Request, status: str | None = None, limit: int = 20):
-    """List jobs in the local execution queue. Used by clay-run --watch."""
-    local_queue = request.app.state.local_job_queue
-
-    if status == "pending":
-        jobs = local_queue.list_pending(limit=limit)
-    else:
-        jobs = local_queue.list_all(limit=limit)
-
-    # Strip prompt from list view to keep response small
-    summary = []
-    for job in jobs:
-        summary.append({
-            "id": job.get("id"),
-            "function_id": job.get("function_id"),
-            "function_name": job.get("function_name"),
-            "model": job.get("model"),
-            "status": job.get("status"),
-            "queued_at": job.get("queued_at"),
-            "prompt_chars": len(job.get("prompt", "")),
-            "output_keys": job.get("output_keys", []),
-        })
-
-    return {"jobs": summary, "count": len(summary)}
-
-
-@router.patch("/functions/local-queue/{job_id}")
-async def update_local_job(request: Request, job_id: str, body: UpdateJobStatusRequest):
-    """Update job status. Used by clay-run to mark jobs as running/completed/failed."""
-    local_queue = request.app.state.local_job_queue
-
-    job = local_queue.get(job_id)
-    if job is None:
-        return JSONResponse(
-            status_code=404,
-            content={"error": True, "error_message": f"Job '{job_id}' not found"},
-        )
-
-    if body.status not in ("running", "completed", "failed"):
-        return JSONResponse(
-            status_code=400,
-            content={"error": True, "error_message": f"Invalid status: {body.status}"},
-        )
-
-    updated = local_queue.update_status(job_id, body.status)
-    return updated or {"error": True, "error_message": "Failed to update job"}
-
-
-@router.get("/functions/local-queue/{job_id}")
-async def get_local_job(request: Request, job_id: str):
-    """Get a single local job by ID, including the full prompt."""
-    local_queue = request.app.state.local_job_queue
-
-    job = local_queue.get(job_id)
-    if job is None:
-        return JSONResponse(
-            status_code=404,
-            content={"error": True, "error_message": f"Job '{job_id}' not found"},
-        )
-
-    return job
