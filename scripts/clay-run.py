@@ -352,6 +352,7 @@ def run_claude_streaming(
     proc.stdin.close()
 
     final_text = ""
+    all_text_chunks: list[str] = []  # Collect all assistant text for JSON extraction
     batch: list[dict] = []
     BATCH_SIZE = 3
 
@@ -371,9 +372,17 @@ def run_claude_streaming(
                 client.push_logs(job_id, batch)
                 batch = []
 
-        # Capture final result text
+        # Collect all text content from assistant messages (JSON is here)
+        if event.get("type") == "assistant":
+            for block in event.get("message", {}).get("content", []):
+                if block.get("type") == "text":
+                    all_text_chunks.append(block["text"])
+
+        # Also capture the result event's text
         if event.get("type") == "result":
-            final_text = event.get("result", "")
+            result_text = event.get("result", "")
+            if result_text:
+                all_text_chunks.append(result_text)
 
     # Flush remaining batch
     if batch:
@@ -386,7 +395,12 @@ def run_claude_streaming(
 
     duration_ms = (time.time() - start) * 1000
 
-    # If no final text captured, check stderr
+    # Build final text from all collected chunks — try each for valid JSON
+    # Check result text first, then concatenated chunks, then individual chunks
+    combined = "\n".join(all_text_chunks)
+    final_text = combined
+
+    # If no text captured, check stderr
     if not final_text:
         stderr = proc.stderr.read().strip() if proc.stderr else ""
         if stderr:
