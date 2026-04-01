@@ -733,10 +733,12 @@ async def webhook_function_consolidated_stream(function_id: str, body: FunctionW
 
             ai_start = _time.time()
             if consolidated.needs_agent:
+                # Consolidated prompts combine multiple tasks — need more turns
+                # for web research + JSON generation
                 ai_result = await pool.submit(
-                    prompt, consolidated.model, 300,
+                    prompt, consolidated.model, 600,
                     executor_type="agent",
-                    max_turns=5,
+                    max_turns=15,
                     allowed_tools=["WebSearch", "WebFetch"],
                 )
             else:
@@ -1327,9 +1329,9 @@ async def _run_function_consolidated(body: WebhookRequest, request: Request) -> 
     ai_start = time.time()
     if consolidated.needs_agent:
         result = await pool.submit(
-            prompt, consolidated.model, 300,
+            prompt, consolidated.model, 600,
             executor_type="agent",
-            max_turns=5,
+            max_turns=15,
             allowed_tools=["WebSearch", "WebFetch"],
         )
     else:
