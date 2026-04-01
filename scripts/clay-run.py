@@ -186,6 +186,9 @@ def run_claude(prompt: str, model: str = "sonnet") -> tuple[str, float]:
 
     cmd = ["claude", "-p", "--output-format", "text", "--model", model]
 
+    # Remove ANTHROPIC_API_KEY so claude -p uses Max subscription (OAuth) instead of API credits
+    env = {k: v for k, v in os.environ.items() if k not in ("ANTHROPIC_API_KEY", "CLAUDECODE")}
+
     try:
         proc = subprocess.run(
             cmd,
@@ -193,6 +196,7 @@ def run_claude(prompt: str, model: str = "sonnet") -> tuple[str, float]:
             capture_output=True,
             text=True,
             timeout=300,
+            env=env,
         )
     except FileNotFoundError:
         print("Error: 'claude' CLI not found. Install Claude Code first.")
