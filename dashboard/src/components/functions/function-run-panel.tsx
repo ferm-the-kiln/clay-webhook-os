@@ -103,18 +103,18 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
     return () => clearInterval(interval);
   }, [localJobId, localWaiting]);
 
-  // Keyboard shortcut: Cmd+Enter to run
+  // Keyboard shortcut: Cmd+Enter to run locally
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !running) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !running && !localWaiting) {
         e.preventDefault();
-        handleRunServer();
+        handleRunLocally();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, func]);
+  }, [running, localWaiting, func]);
 
   // ── Handlers ──────────────────────────────────────────
 
@@ -344,17 +344,17 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           <Button
-            onClick={handleRunServer}
-            disabled={running}
+            onClick={handleRunLocally}
+            disabled={running || localWaiting}
             className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light"
             size="sm"
           >
-            {running ? (
+            {localWaiting ? (
               <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
             ) : (
               <Play className="h-3.5 w-3.5 mr-1.5" />
             )}
-            {running ? "Running..." : "Run"}
+            {localWaiting ? "Running..." : "Run"}
           </Button>
 
           <div className="h-5 w-px bg-clay-700" />
@@ -372,15 +372,15 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
           </Button>
 
           <Button
-            onClick={handleRunLocally}
-            disabled={localWaiting}
+            onClick={handleRunServer}
+            disabled={running}
             variant="outline"
             size="sm"
             className="border-clay-700 text-clay-400 hover:text-clay-100"
-            title="Queue for local execution via clay-run CLI"
+            title="Execute on server via VPS (uses server's Claude subscription)"
           >
-            <Terminal className="h-3.5 w-3.5 mr-1.5" />
-            {localWaiting ? "Queued..." : "Run Locally"}
+            <Zap className="h-3.5 w-3.5 mr-1.5" />
+            {running ? "Running..." : "Server"}
           </Button>
 
           <span className="text-[10px] text-clay-600 ml-auto hidden sm:block">
