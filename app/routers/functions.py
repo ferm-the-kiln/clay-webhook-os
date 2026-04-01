@@ -1576,6 +1576,32 @@ async def submit_local_result(request: Request, func_id: str, body: SubmitResult
     }
 
 
+@router.get("/functions/local-runner/status")
+async def local_runner_status(request: Request):
+    """Check if the local runner daemon is active by looking at recent job activity."""
+    local_queue = request.app.state.local_job_queue
+    all_jobs = local_queue.list_all(limit=10)
+
+    # Check if any job was picked up (moved to running/completed) recently
+    last_activity = 0.0
+    for job in all_jobs:
+        for ts_key in ("completed_at", "running_at"):
+            ts = job.get(ts_key, 0)
+            if ts and ts > last_activity:
+                last_activity = ts
+
+    now = time.time()
+    active = (now - last_activity) < 120 if last_activity else False  # Active if activity in last 2 min
+    pending_count = len([j for j in all_jobs if j.get("status") == "pending"])
+
+    return {
+        "active": active,
+        "last_activity": last_activity,
+        "seconds_ago": int(now - last_activity) if last_activity else None,
+        "pending_jobs": pending_count,
+    }
+
+
 @router.get("/functions/local-queue")
 async def list_local_queue(request: Request, status: str | None = None, limit: int = 20):
     """List jobs in the local execution queue. Used by clay-run --watch."""

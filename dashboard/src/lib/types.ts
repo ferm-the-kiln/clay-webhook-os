@@ -981,6 +981,7 @@ export interface LocalJob {
   queued_at: number;
   data: Record<string, unknown>;
   instructions?: string | null;
+  exec_id?: string;
 }
 
 export interface LocalJobSummary {

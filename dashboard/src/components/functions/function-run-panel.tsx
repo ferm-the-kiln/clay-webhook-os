@@ -34,6 +34,7 @@ import {
   queueLocalJob,
   submitLocalResult,
   fetchLocalJob,
+  fetchExecution,
   streamFunctionExecution,
 } from "@/lib/api";
 
@@ -86,7 +87,23 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
         const job = await fetchLocalJob(localJobId);
         if (job.status === "completed" || job.status === "failed") {
           setLocalWaiting(false);
-          if (job.status === "completed") {
+          setLocalJobId(null);
+          if (job.status === "completed" && job.exec_id) {
+            // Fetch the actual execution result
+            try {
+              const exec = await fetchExecution(func.id, job.exec_id);
+              if (exec?.outputs) {
+                setResult(exec.outputs as Record<string, unknown>);
+                toast.success(`Done in ${((exec.duration_ms || 0) / 1000).toFixed(1)}s`);
+              } else {
+                toast.success("Local execution complete — check History tab");
+                setActiveTab("history");
+              }
+            } catch {
+              toast.success("Local execution complete — check History tab");
+              setActiveTab("history");
+            }
+          } else if (job.status === "completed") {
             toast.success("Local execution complete — check History tab");
             setActiveTab("history");
           } else {
@@ -99,7 +116,7 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, [localJobId, localWaiting]);
+  }, [localJobId, localWaiting, func.id]);
 
   // Keyboard shortcut: Cmd+Enter to run locally
   useEffect(() => {
@@ -131,11 +148,11 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
 
   const handleRunLocally = async () => {
     setLocalWaiting(true);
+    setResult(null);
     try {
       const job = await queueLocalJob(func.id, testInputs);
       setLocalJobId(job.job_id);
-      setPasteMode(true);
-      toast.success("Job queued — run clay-run --watch or paste result below");
+      toast.success("Executing locally via Claude Code...");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to queue job");
       setLocalWaiting(false);
@@ -361,51 +378,27 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
           </span>
         </div>
 
-        {/* Paste Result panel */}
-        {pasteMode && localJobId && (
-          <div className="space-y-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
-            <div className="flex items-center gap-2 text-xs text-amber-400">
-              <ClipboardPaste className="h-3.5 w-3.5" />
-              <span className="font-medium">Paste Result from Claude Code</span>
-              {localWaiting && (
-                <span className="flex items-center gap-1 ml-auto text-clay-500">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Waiting for clay-run...
-                </span>
-              )}
+        {/* Local execution status */}
+        {localWaiting && localJobId && (
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-kiln-teal/20 bg-kiln-teal/5">
+            <Loader2 className="h-4 w-4 animate-spin text-kiln-teal shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-clay-200 font-medium">Executing locally via Claude Code...</div>
+              <div className="text-[10px] text-clay-500 mt-0.5">
+                Picked up by local runner. Result will appear automatically.
+              </div>
             </div>
-            <textarea
-              value={pastedJson}
-              onChange={(e) => setPastedJson(e.target.value)}
-              placeholder='{"field": "value", ...}'
-              className="w-full h-24 bg-clay-900 border border-clay-700 rounded text-xs text-clay-200 p-2 font-mono resize-y focus:outline-none focus:border-amber-500/50"
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleSubmitPasted}
-                disabled={!pastedJson.trim()}
-                size="sm"
-                className="bg-amber-600 text-white hover:bg-amber-500 h-7 text-xs"
-              >
-                Submit Result
-              </Button>
-              <Button
-                onClick={() => {
-                  setPasteMode(false);
-                  setPastedJson("");
-                  setLocalJobId(null);
-                  setLocalWaiting(false);
-                }}
-                variant="ghost"
-                size="sm"
-                className="text-clay-500 h-7 text-xs"
-              >
-                Cancel
-              </Button>
-              <span className="text-[10px] text-clay-600 ml-auto font-mono">
-                {localJobId}
-              </span>
-            </div>
+            <Button
+              onClick={() => {
+                setLocalJobId(null);
+                setLocalWaiting(false);
+              }}
+              variant="ghost"
+              size="sm"
+              className="text-clay-500 h-7 text-xs shrink-0"
+            >
+              Cancel
+            </Button>
           </div>
         )}
 

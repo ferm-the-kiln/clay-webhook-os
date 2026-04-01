@@ -359,6 +359,77 @@ def cmd_watch(client: ClayClient) -> None:
             time.sleep(10)
 
 
+def cmd_daemon(client: ClayClient) -> None:
+    """Daemon mode: same as watch but logs to file, runs silently in background."""
+    import logging
+
+    log_path = os.path.expanduser("~/Library/Logs/clay-run.log")
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    logging.basicConfig(
+        filename=log_path,
+        level=logging.INFO,
+        format="%(asctime)s [clay-run] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    log = logging.getLogger("clay-run")
+
+    pid_path = os.path.expanduser("~/.clay-run.pid")
+    with open(pid_path, "w") as f:
+        f.write(str(os.getpid()))
+
+    heartbeat_path = os.path.expanduser("~/.clay-run-heartbeat")
+
+    log.info("Daemon started (PID %d)", os.getpid())
+
+    while True:
+        try:
+            # Write heartbeat timestamp
+            with open(heartbeat_path, "w") as f:
+                f.write(str(time.time()))
+
+            jobs = client.list_pending_jobs()
+            if jobs:
+                job_summary = jobs[0]
+                log.info("Picked up: %s (%s)", job_summary["function_name"], job_summary["id"])
+
+                job = client.get_job(job_summary["id"])
+                client.update_job_status(job["id"], "running")
+
+                log.info("Running in Claude Code (%s)...", job["model"])
+                output, duration_ms = run_claude(job["prompt"], model=job["model"])
+
+                if not output:
+                    client.update_job_status(job["id"], "failed")
+                    log.warning("Failed: No output for job %s", job["id"])
+                    continue
+
+                result = parse_json_output(output)
+                if result is None:
+                    client.update_job_status(job["id"], "failed")
+                    log.warning("Failed: Could not parse JSON for job %s", job["id"])
+                    continue
+
+                response = client.submit_result(
+                    job["function_id"], job["id"], result, int(duration_ms)
+                )
+                log.info("Done in %.1fs — saved as %s", duration_ms / 1000, response.get("exec_id"))
+
+            time.sleep(5)
+
+        except KeyboardInterrupt:
+            log.info("Daemon stopped")
+            break
+        except Exception as e:
+            log.error("Error: %s", e)
+            time.sleep(10)
+
+    # Clean up PID file
+    try:
+        os.remove(pid_path)
+    except OSError:
+        pass
+
+
 def cmd_batch(client: ClayClient, func_id: str, csv_path: str,
               instructions: str | None = None, model: str | None = None) -> None:
     """Batch mode: process CSV rows one at a time."""
@@ -526,6 +597,7 @@ Examples:
     parser.add_argument("--model", help="Model override (opus/sonnet/haiku)")
     parser.add_argument("--dry-run", action="store_true", help="Show prompt without executing")
     parser.add_argument("--watch", action="store_true", help="Watch for queued jobs")
+    parser.add_argument("--daemon", action="store_true", help="Background daemon mode (logs to ~/Library/Logs/clay-run.log)")
     parser.add_argument("--list", action="store_true", help="List available functions")
     parser.add_argument("--setup", action="store_true", help="Configure server URL and API key")
     parser.add_argument("--open", action="store_true", help="Open in a new terminal tab (macOS)")
@@ -549,6 +621,11 @@ Examples:
     # Watch mode
     if args.watch:
         cmd_watch(client)
+        return
+
+    # Daemon mode (background)
+    if args.daemon:
+        cmd_daemon(client)
         return
 
     # Need function_id for remaining commands
