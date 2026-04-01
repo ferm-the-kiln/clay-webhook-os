@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # Channel server (free chat via Claude Code Channels)
     channel_server_url: str = "http://127.0.0.1:8789"
     max_workers: int = 6
-    default_model: str = "opus"
+    default_model: str = "sonnet"
     request_timeout: int = 120
     cache_ttl: int = 3600
     cache_max_entries: int = 200
