@@ -610,6 +610,11 @@ def cmd_daemon(client: ClayClient) -> None:
                     log.warning("Failed: Could not parse JSON for job %s", job["id"])
                     continue
 
+                # Filter to only declared output keys (drop intermediate values like 'people')
+                output_keys = job.get("output_keys", [])
+                if output_keys:
+                    result = {k: v for k, v in result.items() if k in output_keys}
+
                 response = client.submit_result(
                     job["function_id"], job["id"], result, int(duration_ms)
                 )
