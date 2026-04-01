@@ -274,39 +274,47 @@ def assemble_prompt(
                 "\nIMPORTANT: Use the output from prior tasks as additional context for this task."
             )
 
-    # Memory
-    if memory_store is not None:
-        entries = memory_store.query(data)
-        if entries:
-            memory_text = memory_store.format_for_prompt(entries)
-            parts.append(f"\n\n---\n\n{memory_text}")
+    # Only inject memory, learnings, and semantic context for functions that
+    # have content-generation steps (skills or call_ai). Pure data lookup
+    # functions (only provider tools) don't need personas, frameworks, etc.
+    has_content_steps = bool(ts.context) or any(
+        s.tool.startswith("skill:") or s.tool == "call_ai" for s in func.steps
+    )
 
-    # Learnings
-    if learning_engine is not None:
-        client_slug = data.get("client_slug")
-        learnings_text = learning_engine.format_for_prompt(client_slug=client_slug)
-        if learnings_text:
-            parts.append(f"\n\n---\n\n{learnings_text}")
+    if has_content_steps:
+        # Memory
+        if memory_store is not None:
+            entries = memory_store.query(data)
+            if entries:
+                memory_text = memory_store.format_for_prompt(entries)
+                parts.append(f"\n\n---\n\n{memory_text}")
 
-    # Context files (deduplicated, sorted generic → specific)
-    if ts.context:
-        sorted_ctx = sorted(ts.context, key=_context_priority)
-        parts.append(f"\n\n---\n\n# Loaded Context ({len(sorted_ctx)} files, deduplicated)\n")
-        for i, ctx in enumerate(sorted_ctx, 1):
-            role = _get_role(ctx["path"])
-            parts.append(f"{i}. `{ctx['path']}` — {role}")
-        parts.append("")
-        for ctx in sorted_ctx:
-            parts.append(f"\n## {ctx['path']}\n\n{ctx['content']}")
+        # Learnings
+        if learning_engine is not None:
+            client_slug = data.get("client_slug")
+            learnings_text = learning_engine.format_for_prompt(client_slug=client_slug)
+            if learnings_text:
+                parts.append(f"\n\n---\n\n{learnings_text}")
 
-    # Semantic context
-    if context_index is not None:
-        semantic_hits = context_index.search_by_data(data, top_k=3)
-        for rel_path, score in semantic_hits:
-            if rel_path not in ts.seen_paths:
-                content = load_file(rel_path)
-                if content:
-                    parts.append(f"\n## {rel_path}\n\n{content}")
+        # Context files (deduplicated, sorted generic → specific)
+        if ts.context:
+            sorted_ctx = sorted(ts.context, key=_context_priority)
+            parts.append(f"\n\n---\n\n# Loaded Context ({len(sorted_ctx)} files, deduplicated)\n")
+            for i, ctx in enumerate(sorted_ctx, 1):
+                role = _get_role(ctx["path"])
+                parts.append(f"{i}. `{ctx['path']}` — {role}")
+            parts.append("")
+            for ctx in sorted_ctx:
+                parts.append(f"\n## {ctx['path']}\n\n{ctx['content']}")
+
+        # Semantic context
+        if context_index is not None:
+            semantic_hits = context_index.search_by_data(data, top_k=3)
+            for rel_path, score in semantic_hits:
+                if rel_path not in ts.seen_paths:
+                    content = load_file(rel_path)
+                    if content:
+                        parts.append(f"\n## {rel_path}\n\n{content}")
 
     # Data payload
     if is_batch:
