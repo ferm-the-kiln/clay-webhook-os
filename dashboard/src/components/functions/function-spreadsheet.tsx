@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { toast } from "sonner";
 import { TableToolbar } from "@/components/table-builder/table-toolbar";
 import { TableGrid } from "@/components/table-builder/table-grid";
 import { ColumnCommandPalette } from "@/components/table-builder/column-command-palette";
 import { ColumnConfigPanel } from "@/components/table-builder/column-config-panel";
 import { CellDetailPanel } from "@/components/table-builder/cell-detail-panel";
+import { TableStatusBar } from "@/components/table-builder/table-status-bar";
+import { TableFormulaBar } from "@/components/table-builder/table-formula-bar";
+import { TableSearchOverlay } from "@/components/table-builder/table-search-overlay";
+import { ColumnSuggestionsBar } from "@/components/table-builder/column-suggestions-bar";
+import { KeyboardShortcutsHelp } from "@/components/table-builder/keyboard-shortcuts-help";
+import { CostEstimatePopover } from "@/components/table-builder/cost-estimate-popover";
 import { FunctionSettingsPanel } from "./function-settings-panel";
+import { useBrowserNotification } from "@/hooks/use-browser-notification";
 import type { UseFunctionTableReturn } from "@/hooks/use-function-table";
-import type { ToolDefinition, TableColumn } from "@/lib/types";
+import type { ToolDefinition, TableColumn, TableExecutionEvent } from "@/lib/types";
 
 interface FunctionSpreadsheetProps {
   ft: UseFunctionTableReturn;
@@ -24,12 +32,79 @@ export function FunctionSpreadsheet({ ft }: FunctionSpreadsheetProps) {
   const [selectedTool, setSelectedTool] = useState<ToolDefinition | null>(null);
   const [initialType, setInitialType] = useState<string | null>(null);
 
+  // Search state
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatches, setSearchMatches] = useState(0);
+  const [currentMatch, setCurrentMatch] = useState(0);
+
+  // Browser notifications
+  const { notify } = useBrowserNotification();
+
+  // Notify on execution complete when tab is backgrounded
+  useEffect(() => {
+    if (!ft.executing) return;
+    // Watch for execution to complete
+    const checkComplete = () => {
+      if (!ft.executing) {
+        const done = Object.values(ft.columnProgress).reduce((s, p) => s + p.done, 0);
+        const errors = Object.values(ft.columnProgress).reduce((s, p) => s + p.errors, 0);
+        const total = Object.values(ft.columnProgress).reduce((s, p) => s + p.total, 0);
+        if (total > 0) {
+          notify(
+            "Enrichment Complete",
+            `${done}/${total} cells succeeded${errors > 0 ? ` (${errors} errors)` : ""}`,
+          );
+        }
+      }
+    };
+    return checkComplete;
+  }, [ft.executing, ft.columnProgress, notify]);
+
+  // Cmd+F to open search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // Search logic
+  const handleSearch = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      if (!query) {
+        setSearchMatches(0);
+        setCurrentMatch(0);
+        return;
+      }
+      const q = query.toLowerCase();
+      let count = 0;
+      for (const row of ft.rows) {
+        for (const key of Object.keys(row)) {
+          if (key.endsWith("__value")) {
+            const val = row[key];
+            if (val !== null && val !== undefined && String(val).toLowerCase().includes(q)) {
+              count++;
+            }
+          }
+        }
+      }
+      setSearchMatches(count);
+      setCurrentMatch(0);
+    },
+    [ft.rows],
+  );
+
   // Open command palette from "+" button
   const handleAddColumnClick = useCallback(() => {
     setPaletteOpen(true);
   }, []);
 
-  // Handle palette selections
   const handleSelectEnrichment = useCallback((tool: ToolDefinition) => {
     setSelectedTool(tool);
     setInitialType("enrichment");
@@ -62,7 +137,6 @@ export function FunctionSpreadsheet({ ft }: FunctionSpreadsheetProps) {
     await ft.addColumn({ name: "New Column", column_type: "static" });
   }, [ft]);
 
-  // Save column config
   const handleSaveColumn = useCallback(
     async (config: Record<string, unknown>) => {
       if (editingColumn) {
@@ -74,7 +148,6 @@ export function FunctionSpreadsheet({ ft }: FunctionSpreadsheetProps) {
     [ft, editingColumn],
   );
 
-  // "Add as column" from cell detail panel
   const handleAddAsColumn = useCallback(
     async (path: string, _value: unknown) => {
       if (!ft.selectedCell) return;
@@ -85,6 +158,31 @@ export function FunctionSpreadsheet({ ft }: FunctionSpreadsheetProps) {
         extract_path: path,
         formula: `{{${ft.selectedCell.columnId}}}`,
       });
+    },
+    [ft],
+  );
+
+  // Smart suggestion handler
+  const handleAddSuggestion = useCallback(
+    async (toolId: string, name: string) => {
+      // Find a domain/company input column for auto-wiring params
+      const inputCols = ft.table?.columns.filter((c) => c.column_type === "input") || [];
+      const domainCol = inputCols.find((c) => c.id === "domain" || c.id === "website" || c.name.toLowerCase().includes("domain"));
+      const companyCol = inputCols.find((c) => c.id === "company" || c.id === "company_name" || c.name.toLowerCase().includes("company"));
+
+      const params: Record<string, string> = {};
+      if (toolId === "findymail" && domainCol) params.domain = `{{${domainCol.id}}}`;
+      else if (toolId === "web_search" && (domainCol || companyCol)) params.query = `{{${(domainCol || companyCol)!.id}}} company info`;
+      else if (toolId === "apollo_people" && companyCol) params.company = `{{${companyCol.id}}}`;
+      else if (toolId === "apollo_org" && (domainCol || companyCol)) params.domain = `{{${(domainCol || companyCol)!.id}}}`;
+
+      await ft.addColumn({
+        name,
+        column_type: "enrichment",
+        tool: toolId,
+        params,
+      });
+      toast.success(`Added ${name} column`);
     },
     [ft],
   );
@@ -117,7 +215,21 @@ export function FunctionSpreadsheet({ ft }: FunctionSpreadsheetProps) {
         onSettings={() => ft.setSettingsOpen(true)}
       />
 
-      <div className="flex-1 overflow-hidden">
+      {/* Smart suggestions (shows when no enrichment columns yet) */}
+      <ColumnSuggestionsBar
+        table={ft.table}
+        onAddSuggestion={handleAddSuggestion}
+      />
+
+      {/* Formula bar */}
+      <TableFormulaBar
+        table={ft.table}
+        selectedCell={ft.selectedCell}
+        rows={ft.rows}
+      />
+
+      {/* Main grid */}
+      <div className="flex-1 overflow-hidden relative">
         <TableGrid
           table={ft.table}
           rows={ft.rows}
@@ -136,7 +248,38 @@ export function FunctionSpreadsheet({ ft }: FunctionSpreadsheetProps) {
           onAddColumn={handleAddColumnClick}
           onDeleteColumn={ft.deleteColumn}
         />
+
+        {/* Search overlay */}
+        <TableSearchOverlay
+          open={searchOpen}
+          onClose={() => {
+            setSearchOpen(false);
+            setSearchQuery("");
+            setSearchMatches(0);
+          }}
+          onSearch={handleSearch}
+          matchCount={searchMatches}
+          currentMatch={currentMatch}
+          onNavigate={(dir) => {
+            if (searchMatches === 0) return;
+            setCurrentMatch((prev) =>
+              dir === "down"
+                ? (prev + 1) % searchMatches
+                : (prev - 1 + searchMatches) % searchMatches,
+            );
+          }}
+        />
       </div>
+
+      {/* Status bar */}
+      <TableStatusBar
+        table={ft.table}
+        rows={ft.rows}
+        executing={ft.executing}
+      />
+
+      {/* Keyboard shortcuts help */}
+      <KeyboardShortcutsHelp />
 
       {/* Column command palette */}
       <ColumnCommandPalette

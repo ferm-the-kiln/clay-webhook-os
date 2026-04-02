@@ -97,6 +97,53 @@ export function ColumnCommandPalette({
                 No results found.
               </Command.Empty>
 
+              {/* Quick templates */}
+              <Command.Group heading="Templates" className="[&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-kiln-teal [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5">
+                <Command.Item
+                  className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:text-white"
+                  onSelect={() => {
+                    onSelectEnrichment({ id: "findymail", name: "Email Waterfall", description: "Find email using Findymail", category: "Email Finding", inputs: [{ name: "domain", type: "string" }], outputs: [{ key: "email", type: "string" }], speed: "fast" } as ToolDefinition);
+                    onClose();
+                  }}
+                  value="email waterfall findymail hunter"
+                >
+                  <Mail className="w-4 h-4 text-emerald-400" />
+                  <div>
+                    <div className="font-medium">Email Finding</div>
+                    <div className="text-xs text-zinc-500">Find email by domain (Findymail)</div>
+                  </div>
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">fast</span>
+                </Command.Item>
+                <Command.Item
+                  className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:text-white"
+                  onSelect={() => {
+                    onSelectEnrichment({ id: "web_search", name: "Company Research", description: "Research company via web search", category: "Research", inputs: [{ name: "query", type: "string" }], outputs: [{ key: "results", type: "json" }], speed: "slow" } as ToolDefinition);
+                    onClose();
+                  }}
+                  value="company research web search intel"
+                >
+                  <Globe className="w-4 h-4 text-blue-400" />
+                  <div>
+                    <div className="font-medium">Company Research</div>
+                    <div className="text-xs text-zinc-500">Web search for company intelligence</div>
+                  </div>
+                </Command.Item>
+                <Command.Item
+                  className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:text-white"
+                  onSelect={() => {
+                    onSelectEnrichment({ id: "apollo_people", name: "Contact Finder", description: "Find people at company via Apollo", category: "People Search", inputs: [{ name: "company", type: "string" }], outputs: [{ key: "people", type: "json" }], speed: "medium" } as ToolDefinition);
+                    onClose();
+                  }}
+                  value="contact finder people apollo search"
+                >
+                  <Users className="w-4 h-4 text-amber-400" />
+                  <div>
+                    <div className="font-medium">Contact Finder</div>
+                    <div className="text-xs text-zinc-500">Find people at company (Apollo)</div>
+                  </div>
+                </Command.Item>
+              </Command.Group>
+
               {/* Built-in column types */}
               <Command.Group heading="Column Types" className="[&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-zinc-500 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5">
                 <Command.Item
