@@ -19,8 +19,9 @@ import {
   deleteFolder,
   streamAssembleFunction,
   fetchTemplates,
+  fetchToolCategories,
 } from "@/lib/api";
-import type { FunctionDefinition, FolderDefinition, FunctionInput, FunctionOutput, FunctionStep } from "@/lib/types";
+import type { FunctionDefinition, FolderDefinition, FunctionInput, FunctionOutput, FunctionStep, ToolCategory } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   Plus,
@@ -42,6 +43,7 @@ import {
   Zap,
   Clock,
   Brain,
+  Filter,
 } from "lucide-react";
 import { CatalogGrid } from "@/components/functions/catalog-grid";
 import { FavoritesStrip } from "@/components/functions/favorites-strip";
@@ -538,9 +540,14 @@ function FunctionBuilderPanel({
   const [outputs, setOutputs] = useState<FunctionOutput[]>([]);
   const [steps, setSteps] = useState<FunctionStep[]>([]);
 
-  // Load templates on mount
+  // Tool catalog for step adding
+  const [toolCategories, setToolCategories] = useState<ToolCategory[]>([]);
+  const [showAddStep, setShowAddStep] = useState(false);
+
+  // Load templates + tool catalog on mount
   useEffect(() => {
     fetchTemplates().then((res) => setTemplates(res.templates)).catch(() => {});
+    fetchToolCategories().then((res) => setToolCategories(res.categories)).catch(() => {});
   }, []);
 
   const handleAssemble = () => {
@@ -634,8 +641,10 @@ function FunctionBuilderPanel({
 
   // Speed icon helper
   const speedIcon = (tool: string) => {
+    if (tool === "gate") return <Filter className="h-3 w-3 text-amber-400" />;
+    if (tool.startsWith("function:")) return <Blocks className="h-3 w-3 text-indigo-400" />;
     if (tool === "findymail") return <Zap className="h-3 w-3 text-emerald-400" />;
-    const agentTools = ["exa", "crustdata", "google_search", "apollo_people", "dropleads", "peopledatalabs", "apollo_org", "leadmagic", "parallel", "firecrawl", "apify", "scrapegraph"];
+    const agentTools = ["exa", "crustdata", "google_search", "apollo_people", "dropleads", "peopledatalabs", "apollo_org", "leadmagic", "parallel", "firecrawl", "apify", "scrapegraph", "web_search"];
     if (agentTools.includes(tool)) return <Clock className="h-3 w-3 text-amber-400" />;
     return <Brain className="h-3 w-3 text-blue-400" />;
   };
@@ -958,22 +967,104 @@ function FunctionBuilderPanel({
 
             {/* Steps with speed indicators */}
             <div>
-              <div className="text-xs font-medium text-clay-300 mb-1">Steps ({steps.length})</div>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-xs font-medium text-clay-300">Steps ({steps.length})</div>
+                <button
+                  onClick={() => setShowAddStep(!showAddStep)}
+                  className="flex items-center gap-1 text-[10px] text-clay-300 hover:text-clay-100"
+                >
+                  <Plus className="h-3 w-3" /> Add Step
+                </button>
+              </div>
+
+              {/* Add step picker */}
+              {showAddStep && (
+                <div className="mb-2 bg-clay-900/80 border border-clay-600 rounded-lg p-2 max-h-48 overflow-auto space-y-2">
+                  {toolCategories
+                    .filter(cat => ["Flow Control", "Functions", "AI Processing", "Recommended", "Research", "People Search", "Email Finding", "Company Enrichment", "Scraping"].includes(cat.category))
+                    .sort((a, b) => {
+                      const order = ["Flow Control", "Functions", "AI Processing", "Recommended"];
+                      const ai = order.indexOf(a.category);
+                      const bi = order.indexOf(b.category);
+                      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                    })
+                    .map(cat => (
+                    <div key={cat.category}>
+                      <div className="text-[10px] text-clay-400 font-medium mb-1">{cat.category}</div>
+                      <div className="flex flex-wrap gap-1">
+                        {cat.tools.map(tool => (
+                          <button
+                            key={tool.id}
+                            onClick={() => {
+                              const params: Record<string, string> = {};
+                              for (const inp of tool.inputs) params[inp.name] = "";
+                              setSteps([...steps, { tool: tool.id, params }]);
+                              setShowAddStep(false);
+                            }}
+                            className={cn(
+                              "text-[10px] px-2 py-1 rounded border transition-colors",
+                              tool.id === "gate"
+                                ? "border-amber-700/50 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40"
+                                : tool.source === "function"
+                                  ? "border-indigo-700/40 bg-indigo-950/20 text-indigo-300 hover:bg-indigo-900/30"
+                                  : "border-clay-600 bg-clay-800/50 text-clay-200 hover:bg-clay-700/50"
+                            )}
+                          >
+                            {tool.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="space-y-1">
                 {steps.map((s, i) => (
-                  <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded bg-clay-900/50 border border-clay-700 text-xs">
+                  <div
+                    key={i}
+                    className={cn(
+                      "group flex items-center gap-2 px-2 py-1.5 rounded border text-xs",
+                      s.tool === "gate"
+                        ? "bg-amber-950/30 border-amber-700/50"
+                        : s.tool.startsWith("function:")
+                          ? "bg-indigo-950/20 border-indigo-700/40"
+                          : "bg-clay-900/50 border-clay-700"
+                    )}
+                  >
                     <span className="text-clay-300 w-4">{i + 1}</span>
                     {speedIcon(s.tool)}
-                    <span className="font-medium text-clay-100">{s.tool}</span>
+                    <span className="font-medium text-clay-100 flex-1">{s.tool}</span>
+                    {/* Editable params for gate condition */}
+                    {s.tool === "gate" && (
+                      <Input
+                        value={s.params.condition || ""}
+                        onChange={(e) => {
+                          const updated = [...steps];
+                          updated[i] = { ...updated[i], params: { ...updated[i].params, condition: e.target.value } };
+                          setSteps(updated);
+                        }}
+                        placeholder="e.g. qualified == 'Y'"
+                        className="h-5 w-40 bg-transparent border-0 px-1 text-[10px] text-amber-300 focus-visible:ring-0 placeholder:text-amber-800"
+                      />
+                    )}
+                    <button
+                      onClick={() => setSteps(steps.filter((_, idx) => idx !== i))}
+                      className="opacity-0 group-hover:opacity-100 text-clay-300 hover:text-red-400 transition-opacity"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
                   </div>
                 ))}
-                {steps.length === 0 && <div className="text-xs text-clay-300 py-1">No steps — add tools after creation</div>}
+                {steps.length === 0 && <div className="text-xs text-clay-300 py-1">No steps yet — click &quot;+ Add Step&quot; above</div>}
               </div>
               {steps.length > 0 && (
                 <div className="flex items-center gap-3 mt-2 text-[10px] text-clay-400">
                   <span className="flex items-center gap-1"><Zap className="h-2.5 w-2.5 text-emerald-400" /> fast (native)</span>
                   <span className="flex items-center gap-1"><Brain className="h-2.5 w-2.5 text-blue-400" /> medium (AI)</span>
                   <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5 text-amber-400" /> slow (web search)</span>
+                  <span className="flex items-center gap-1"><Filter className="h-2.5 w-2.5 text-amber-400" /> gate</span>
+                  <span className="flex items-center gap-1"><Blocks className="h-2.5 w-2.5 text-indigo-400" /> function</span>
                 </div>
               )}
             </div>
