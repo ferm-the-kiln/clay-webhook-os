@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Send,
   FolderTree,
+  Table2,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -53,6 +54,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/", label: "Functions", icon: Blocks, shortcut: "1" },
       { href: "/chat", label: "Chat", icon: MessageSquare, shortcut: "2" },
       { href: "/workbench", label: "Workbench", icon: FlaskConical, shortcut: "3" },
+      { href: "/tables", label: "Tables", icon: Table2, shortcut: "T" },
       { href: "/review", label: "Review", icon: ClipboardCheck, shortcut: "4" },
       { href: "/outbound", label: "Outbound", icon: Send, shortcut: "5" },
       { href: "/context", label: "Context", icon: FolderTree, shortcut: "6" },

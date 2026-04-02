@@ -1020,3 +1020,104 @@ export interface LocalJobSummary {
   prompt_chars: number;
   output_keys: string[];
 }
+
+// --- Table Builder ---
+
+export type CellState =
+  | "empty"
+  | "pending"
+  | "running"
+  | "done"
+  | "error"
+  | "skipped"
+  | "filtered";
+
+export type TableColumnType =
+  | "input"
+  | "enrichment"
+  | "ai"
+  | "formula"
+  | "gate"
+  | "static";
+
+export interface TableColumn {
+  id: string;
+  name: string;
+  column_type: TableColumnType;
+  position: number;
+  width: number;
+  frozen: boolean;
+  color: string | null;
+  hidden: boolean;
+  // Enrichment
+  tool: string | null;
+  params: Record<string, string>;
+  output_key: string | null;
+  // AI
+  ai_prompt: string | null;
+  ai_model: string;
+  // Formula
+  formula: string | null;
+  // Gate
+  condition: string | null;
+  condition_label: string | null;
+  // Parent-child
+  parent_column_id: string | null;
+  extract_path: string | null;
+  // Dependencies
+  depends_on: string[];
+}
+
+export interface TableDefinition {
+  id: string;
+  name: string;
+  description: string;
+  columns: TableColumn[];
+  row_count: number;
+  created_at: number;
+  updated_at: number;
+  source_function_id: string | null;
+}
+
+export interface TableSummary {
+  id: string;
+  name: string;
+  description: string;
+  row_count: number;
+  column_count: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface TableRow {
+  _row_id: string;
+  [key: string]: unknown;
+}
+
+export interface TableCellUpdate {
+  type: "cell_update";
+  row_id: string;
+  column_id: string;
+  status: CellState;
+  value?: unknown;
+  error?: string;
+  duration_ms?: number;
+}
+
+export interface TableColumnProgress {
+  type: "column_progress";
+  column_id: string;
+  done: number;
+  total: number;
+  errors: number;
+  percent: number;
+}
+
+export type TableExecutionEvent =
+  | { type: "execute_start"; total_rows: number; total_columns: number; waves: number }
+  | { type: "column_start"; column_id: string; column_name: string; wave: number; rows_to_process: number }
+  | TableCellUpdate
+  | TableColumnProgress
+  | { type: "column_complete"; column_id: string; done: number; errors: number; avg_duration_ms: number }
+  | { type: "gate_result"; column_id: string; passed: number; filtered: number; total: number }
+  | { type: "execute_complete"; total_duration_ms: number; cells_done: number; cells_errored: number };

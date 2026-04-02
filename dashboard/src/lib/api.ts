@@ -69,6 +69,10 @@ import type {
   StepTrace,
   LogEntry,
   WebhookResponse,
+  TableDefinition,
+  TableSummary,
+  TableRow,
+  TableExecutionEvent,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
@@ -2210,4 +2214,199 @@ export function prepareConsolidatedPrompt(
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+// ─── Table Builder ────────────────────────────────────────────────────────────
+
+export function fetchTables(): Promise<{ tables: TableSummary[] }> {
+  return apiFetch("/tables");
+}
+
+export function fetchTable(tableId: string): Promise<TableDefinition> {
+  return apiFetch(`/tables/${tableId}`);
+}
+
+export function createTable(body: { name: string; description?: string }): Promise<TableDefinition> {
+  return apiFetch("/tables", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function updateTable(
+  tableId: string,
+  body: { name?: string; description?: string },
+): Promise<TableDefinition> {
+  return apiFetch(`/tables/${tableId}`, { method: "PUT", body: JSON.stringify(body) });
+}
+
+export function deleteTable(tableId: string): Promise<{ deleted: boolean }> {
+  return apiFetch(`/tables/${tableId}`, { method: "DELETE" });
+}
+
+export function addTableColumn(
+  tableId: string,
+  body: Record<string, unknown>,
+): Promise<TableDefinition> {
+  return apiFetch(`/tables/${tableId}/columns`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export function updateTableColumn(
+  tableId: string,
+  columnId: string,
+  body: Record<string, unknown>,
+): Promise<TableDefinition> {
+  return apiFetch(`/tables/${tableId}/columns/${columnId}`, { method: "PUT", body: JSON.stringify(body) });
+}
+
+export function removeTableColumn(
+  tableId: string,
+  columnId: string,
+): Promise<TableDefinition> {
+  return apiFetch(`/tables/${tableId}/columns/${columnId}`, { method: "DELETE" });
+}
+
+export function reorderTableColumns(
+  tableId: string,
+  columnIds: string[],
+): Promise<TableDefinition> {
+  return apiFetch(`/tables/${tableId}/columns/reorder`, {
+    method: "POST",
+    body: JSON.stringify({ column_ids: columnIds }),
+  });
+}
+
+export function fetchTableRows(
+  tableId: string,
+  offset = 0,
+  limit = 100,
+): Promise<{ rows: TableRow[]; total: number; offset: number; limit: number }> {
+  return apiFetch(`/tables/${tableId}/rows?offset=${offset}&limit=${limit}`);
+}
+
+export function importTableRows(
+  tableId: string,
+  rows: Record<string, unknown>[],
+): Promise<{ imported: number; table: TableDefinition }> {
+  return apiFetch(`/tables/${tableId}/rows/import`, {
+    method: "POST",
+    body: JSON.stringify({ rows }),
+  });
+}
+
+export function importTableCsv(
+  tableId: string,
+  file: File,
+): Promise<{ imported: number; table: TableDefinition }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiFetch(`/tables/${tableId}/rows/import-csv`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function addTableRow(
+  tableId: string,
+  data: Record<string, unknown>,
+): Promise<TableRow> {
+  return apiFetch(`/tables/${tableId}/rows`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteTableRows(
+  tableId: string,
+  rowIds: string[],
+): Promise<{ deleted: number }> {
+  return apiFetch(`/tables/${tableId}/rows`, {
+    method: "DELETE",
+    body: JSON.stringify({ row_ids: rowIds }),
+  });
+}
+
+/** Stream table execution via SSE — returns AbortController for cancellation */
+export function streamTableExecution(
+  tableId: string,
+  onEvent: (event: TableExecutionEvent) => void,
+  onError: (error: string) => void,
+  options?: {
+    row_ids?: string[];
+    column_ids?: string[];
+    model?: string;
+    limit?: number;
+  },
+): AbortController {
+  const controller = new AbortController();
+  const body: Record<string, unknown> = {};
+  if (options?.row_ids) body.row_ids = options.row_ids;
+  if (options?.column_ids) body.column_ids = options.column_ids;
+  if (options?.model) body.model = options.model;
+  if (options?.limit !== undefined) body.limit = options.limit;
+
+  fetch(`${API_URL}/tables/${tableId}/execute`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": API_KEY,
+    },
+    body: JSON.stringify(body),
+    signal: controller.signal,
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error_message: res.statusText }));
+        onError(err.error_message || `HTTP ${res.status}`);
+        return;
+      }
+      const reader = res.body?.getReader();
+      if (!reader) return;
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const event = JSON.parse(line.slice(6));
+              onEvent(event as TableExecutionEvent);
+            } catch {
+              // skip malformed events
+            }
+          }
+        }
+      }
+    })
+    .catch((err) => {
+      if (err.name !== "AbortError") {
+        onError(err.message || "Connection failed");
+      }
+    });
+
+  return controller;
+}
+
+export function createTableFromFunction(
+  tableId: string,
+  functionId: string,
+): Promise<TableDefinition> {
+  return apiFetch(`/tables/${tableId}/from-function/${functionId}`, { method: "POST" });
+}
+
+export function exportTableToFunction(
+  tableId: string,
+): Promise<FunctionDefinition> {
+  return apiFetch(`/tables/${tableId}/to-function`, { method: "POST" });
+}
+
+export function duplicateTable(
+  tableId: string,
+): Promise<TableDefinition> {
+  return apiFetch(`/tables/${tableId}/duplicate`, { method: "POST" });
 }

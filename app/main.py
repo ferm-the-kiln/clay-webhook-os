@@ -55,6 +55,7 @@ from app.routers import (
     plays,
     portal,
     sheets,
+    tables,
     usage,
     webhook,
 )
@@ -103,6 +104,7 @@ app.include_router(functions.router)
 app.include_router(evals.router)
 app.include_router(sheets.router)
 app.include_router(portal.router)
+app.include_router(tables.router)
 app.include_router(channels.router)
 
 
@@ -169,6 +171,11 @@ async def startup():
     # Function store
     app.state.function_store = FunctionStore(functions_dir=settings.functions_dir)
     app.state.function_store.load()
+
+    # Table store (Clay-style table builder)
+    from app.core.table_store import TableStore
+    app.state.table_store = TableStore(data_dir=settings.data_dir)
+    app.state.table_store.load()
 
     # Execution history (function run records)
     app.state.execution_history = ExecutionHistory(data_dir=settings.data_dir)
