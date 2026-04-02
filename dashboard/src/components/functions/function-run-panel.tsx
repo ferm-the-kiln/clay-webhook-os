@@ -25,7 +25,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Papa from "papaparse";
-import type { FunctionDefinition, FunctionInput, StepTrace, LogEntry } from "@/lib/types";
+import type { FunctionDefinition, FunctionInput, StepTrace, LogEntry, FunnelStage } from "@/lib/types";
 import { OutputRenderer } from "@/components/output/output-renderer";
 import { ExecutionTrace } from "./execution-trace";
 import { ExecutionHistoryPanel } from "./execution-history";
@@ -37,6 +37,7 @@ import {
   fetchExecution,
   fetchJobLogs,
   streamFunctionExecution,
+  streamBatchExecution,
 } from "@/lib/api";
 
 interface FunctionRunPanelProps {
@@ -74,8 +75,12 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
   const [batchResults, setBatchResults] = useState<Array<{ input: Record<string, string>; output: Record<string, unknown> | null; error: string | null }>>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Funnel state (for batch pipeline with gates)
+  const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
+  const hasGates = func.steps.some((s) => s.tool === "gate");
+
   // UI state
-  const [activeTab, setActiveTab] = useState<"output" | "trace" | "raw" | "history">("output");
+  const [activeTab, setActiveTab] = useState<"output" | "trace" | "raw" | "history" | "funnel">("output");
   const [copied, setCopied] = useState(false);
 
   // Auto-switch to output when result arrives
@@ -244,8 +249,51 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
     if (!csvRows || csvRows.length === 0) return;
     setBatchRunning(true);
     setBatchResults([]);
+    setFunnelStages([]);
     setBatchProgress({ done: 0, total: csvRows.length, errors: 0 });
 
+    // If function has gates, use batch pipeline execution (server-side with funnel)
+    if (hasGates) {
+      await new Promise<void>((resolve) => {
+        const controller = streamBatchExecution(
+          func.id,
+          csvRows,
+          (event) => {
+            if (event.type === "batch_start") {
+              setBatchProgress({ done: 0, total: event.total_rows as number, errors: 0 });
+            } else if (event.type === "stage_complete" || event.type === "gate_result") {
+              setFunnelStages((prev) => [...prev, event as unknown as FunnelStage]);
+            } else if (event.type === "chunk_complete") {
+              setBatchProgress((prev) => ({ ...prev, done: event.processed as number }));
+            } else if (event.type === "result") {
+              const rows = (event.rows as Record<string, unknown>[]) || [];
+              const results = rows.map((row) => ({
+                input: row as Record<string, string>,
+                output: row,
+                error: (row._error as string) || null,
+              }));
+              setBatchResults(results);
+              setBatchProgress({
+                done: event.total_rows_input as number,
+                total: event.total_rows_input as number,
+                errors: rows.filter((r) => r._error).length,
+              });
+              setActiveTab("funnel");
+              resolve();
+            }
+          },
+          (err) => {
+            toast.error(err);
+            resolve();
+          },
+        );
+        abortRef.current = controller;
+      });
+      setBatchRunning(false);
+      return;
+    }
+
+    // Standard batch: process rows one by one
     const results: typeof batchResults = [];
     let errors = 0;
 
@@ -693,6 +741,11 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
                 <TabsTrigger value="history" className="text-xs h-6 data-[state=active]:bg-clay-700">
                   History
                 </TabsTrigger>
+                {funnelStages.length > 0 && (
+                  <TabsTrigger value="funnel" className="text-xs h-6 data-[state=active]:bg-clay-700">
+                    Funnel
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="output" className="mt-2">
@@ -714,6 +767,53 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
               <TabsContent value="history" className="mt-2">
                 <ExecutionHistoryPanel functionId={func.id} />
               </TabsContent>
+
+              {funnelStages.length > 0 && (
+                <TabsContent value="funnel" className="mt-2">
+                  <div className="space-y-1">
+                    {funnelStages.map((stage, i) => {
+                      const barWidth = funnelStages[0]?.rows_in
+                        ? Math.max(5, (stage.rows_out / funnelStages[0].rows_in) * 100)
+                        : 100;
+                      const passColor =
+                        stage.pass_rate > 0.5
+                          ? "bg-emerald-500/40"
+                          : stage.pass_rate > 0.25
+                            ? "bg-amber-500/40"
+                            : "bg-red-500/40";
+                      const isGate = stage.step_type === "gate";
+
+                      return (
+                        <div key={i} className="space-y-0.5">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className={cn(
+                              "font-medium",
+                              isGate ? "text-amber-400" : "text-clay-200"
+                            )}>
+                              {isGate ? `Gate: ${stage.name}` : stage.name}
+                            </span>
+                            <span className="text-clay-400">
+                              {stage.rows_in} → {stage.rows_out}
+                              {isGate && ` (${(stage.pass_rate * 100).toFixed(0)}%)`}
+                              {!isGate && stage.duration_ms > 0 && ` · ${(stage.duration_ms / 1000).toFixed(1)}s`}
+                            </span>
+                          </div>
+                          <div className="h-2 rounded-full bg-clay-800 overflow-hidden">
+                            <div
+                              className={cn("h-full rounded-full transition-all", isGate ? passColor : "bg-indigo-500/50")}
+                              style={{ width: `${barWidth}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center justify-between text-xs text-clay-300 pt-2 border-t border-clay-700 mt-2">
+                      <span>Total: {funnelStages[0]?.rows_in ?? 0} in → {funnelStages[funnelStages.length - 1]?.rows_out ?? 0} out</span>
+                      <span>{((funnelStages.reduce((sum, s) => sum + s.duration_ms, 0)) / 1000).toFixed(1)}s</span>
+                    </div>
+                  </div>
+                </TabsContent>
+              )}
             </Tabs>
           </div>
         )}

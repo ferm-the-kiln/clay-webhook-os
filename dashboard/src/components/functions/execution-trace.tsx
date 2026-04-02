@@ -17,6 +17,8 @@ import {
   Cpu,
   AlertTriangle,
   Eye,
+  Filter,
+  Blocks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StepTrace } from "@/lib/types";
@@ -50,6 +52,16 @@ const EXECUTOR_CONFIG: Record<
     color: "bg-amber-500/15 text-amber-400 border-amber-500/30",
     icon: Bot,
   },
+  gate: {
+    label: "Gate",
+    color: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    icon: Filter,
+  },
+  function: {
+    label: "Function",
+    color: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30",
+    icon: Blocks,
+  },
   unknown: {
     label: "Unknown",
     color: "bg-clay-500/15 text-clay-300 border-clay-500/30",
@@ -57,10 +69,11 @@ const EXECUTOR_CONFIG: Record<
   },
 };
 
-const STATUS_ICON = {
+const STATUS_ICON: Record<string, React.ReactElement> = {
   success: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />,
   error: <XCircle className="h-3.5 w-3.5 text-red-400" />,
   skipped: <SkipForward className="h-3.5 w-3.5 text-clay-300" />,
+  gated_out: <XCircle className="h-3.5 w-3.5 text-amber-400" />,
 };
 
 interface ExecutionTraceProps {

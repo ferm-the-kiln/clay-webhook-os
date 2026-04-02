@@ -890,6 +890,60 @@ async def _run_function_stream(body: WebhookRequest, request: Request):
 
         logger.info("[functions/stream] Step %d: tool=%s", step_idx, tool_id)
 
+        # Gate step — evaluate condition, skip remaining steps if it fails
+        if tool_id == "gate":
+            from app.core.pipeline_runner import evaluate_condition
+            condition = resolved_params.get("condition", "")
+            label = resolved_params.get("label", f"gate_{step_idx}")
+            trace["tool_name"] = f"Gate: {label}"
+            trace["executor"] = "gate"
+            current_data = {**body.data, **accumulated_output}
+            if condition and not evaluate_condition(condition, current_data):
+                trace["status"] = "gated_out"
+                trace["error_message"] = f"Condition not met: {condition}"
+                trace["duration_ms"] = int((time.time() - step_start) * 1000)
+                step_traces.append(trace)
+                yield ("step", trace)
+                # Stop processing — this row didn't pass the gate
+                break
+            trace["duration_ms"] = int((time.time() - step_start) * 1000)
+            step_traces.append(trace)
+            yield ("step", trace)
+            continue
+
+        # Function step — execute sub-function via consolidated runner
+        if tool_id.startswith("function:"):
+            sub_func_id = tool_id.split(":", 1)[1]
+            trace["tool_name"] = sub_func_id
+            trace["executor"] = "function"
+            sub_func = function_store.get(sub_func_id) if function_store else None
+            if sub_func is None:
+                trace["status"] = "error"
+                trace["error_message"] = f"Sub-function '{sub_func_id}' not found"
+                trace["duration_ms"] = int((time.time() - step_start) * 1000)
+                step_traces.append(trace)
+                yield ("step", trace)
+                continue
+            sub_body = WebhookRequest(
+                function=sub_func_id,
+                data={**body.data, **accumulated_output, **resolved_params},
+                instructions=body.instructions,
+                model=body.model,
+            )
+            try:
+                step_result = await _run_function(sub_body, request)
+                if isinstance(step_result, dict):
+                    step_result.pop("_meta", None)
+                    accumulated_output.update(step_result)
+                    trace["output_keys"] = list(step_result.keys())
+            except Exception as e:
+                trace["status"] = "error"
+                trace["error_message"] = str(e)
+            trace["duration_ms"] = int((time.time() - step_start) * 1000)
+            step_traces.append(trace)
+            yield ("step", trace)
+            continue
+
         # Route to skill or Deepline tool (same logic as _run_function)
         if tool_id.startswith("skill:"):
             skill_name = tool_id.removeprefix("skill:")
@@ -1482,6 +1536,55 @@ async def _run_function(body: WebhookRequest, request: Request) -> dict:
 
         logger.info("[functions] Step %d: tool=%s, params=%s, remaining_keys=%s",
                      step_idx, tool_id, list(resolved_params.keys()), remaining_output_keys)
+
+        # Gate step — evaluate condition, stop if it fails
+        if tool_id == "gate":
+            from app.core.pipeline_runner import evaluate_condition
+            condition = resolved_params.get("condition", "")
+            label = resolved_params.get("label", f"gate_{step_idx}")
+            trace["tool_name"] = f"Gate: {label}"
+            trace["executor"] = "gate"
+            current_data = {**body.data, **accumulated_output}
+            if condition and not evaluate_condition(condition, current_data):
+                trace["status"] = "gated_out"
+                trace["error_message"] = f"Condition not met: {condition}"
+                trace["duration_ms"] = int((time.time() - step_start) * 1000)
+                step_traces.append(trace)
+                break
+            trace["duration_ms"] = int((time.time() - step_start) * 1000)
+            step_traces.append(trace)
+            continue
+
+        # Function step — execute sub-function recursively
+        if tool_id.startswith("function:"):
+            sub_func_id = tool_id.split(":", 1)[1]
+            trace["tool_name"] = sub_func_id
+            trace["executor"] = "function"
+            sub_func = function_store.get(sub_func_id) if function_store else None
+            if sub_func is None:
+                trace["status"] = "error"
+                trace["error_message"] = f"Sub-function '{sub_func_id}' not found"
+                trace["duration_ms"] = int((time.time() - step_start) * 1000)
+                step_traces.append(trace)
+                continue
+            sub_body = WebhookRequest(
+                function=sub_func_id,
+                data={**body.data, **accumulated_output, **resolved_params},
+                instructions=body.instructions,
+                model=body.model,
+            )
+            try:
+                step_result = await _run_function(sub_body, request)
+                if isinstance(step_result, dict):
+                    step_result.pop("_meta", None)
+                    accumulated_output.update(step_result)
+                    trace["output_keys"] = list(step_result.keys())
+            except Exception as e:
+                trace["status"] = "error"
+                trace["error_message"] = str(e)
+            trace["duration_ms"] = int((time.time() - step_start) * 1000)
+            step_traces.append(trace)
+            continue
 
         # Route to skill or pass through (Deepline tools are future execution)
         if tool_id.startswith("skill:"):

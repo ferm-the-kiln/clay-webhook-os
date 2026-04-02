@@ -621,7 +621,14 @@ export function FunctionBuilder({
                 return (
                   <div
                     key={i}
-                    className="rounded bg-clay-900/50 border border-clay-700"
+                    className={cn(
+                      "rounded border",
+                      step.tool === "gate"
+                        ? "bg-amber-950/30 border-amber-700/50"
+                        : step.tool.startsWith("function:")
+                          ? "bg-indigo-950/20 border-indigo-700/40"
+                          : "bg-clay-900/50 border-clay-700"
+                    )}
                   >
                     <div className="flex items-center gap-2 p-2">
                       <span className="text-[10px] text-clay-300 w-4">
@@ -687,18 +694,26 @@ export function FunctionBuilder({
                           variant="outline"
                           className={cn(
                             "text-[9px] px-1.5 py-0 h-4 shrink-0 border",
-                            toolDef.has_native_api
-                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                              : toolDef.execution_mode === "ai_agent"
-                                ? "bg-purple-500/15 text-purple-400 border-purple-500/30"
-                                : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                            toolDef.execution_mode === "gate"
+                              ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                              : toolDef.execution_mode === "function"
+                                ? "bg-indigo-500/15 text-indigo-400 border-indigo-500/30"
+                                : toolDef.has_native_api
+                                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                                  : toolDef.execution_mode === "ai_agent"
+                                    ? "bg-purple-500/15 text-purple-400 border-purple-500/30"
+                                    : "bg-amber-500/15 text-amber-400 border-amber-500/30"
                           )}
                         >
-                          {toolDef.has_native_api
-                            ? `API: ${toolDef.native_api_provider || "Native"}`
-                            : toolDef.execution_mode === "ai_agent"
-                              ? "AI Agent"
-                              : "AI Powered"}
+                          {toolDef.execution_mode === "gate"
+                            ? "Gate"
+                            : toolDef.execution_mode === "function"
+                              ? "Function"
+                              : toolDef.has_native_api
+                                ? `API: ${toolDef.native_api_provider || "Native"}`
+                                : toolDef.execution_mode === "ai_agent"
+                                  ? "AI Agent"
+                                  : "AI Powered"}
                         </Badge>
                       )}
                       {/* Speed badge */}

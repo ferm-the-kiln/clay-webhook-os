@@ -208,3 +208,23 @@ class LocalJob(BaseModel):
 
 class UpdateJobStatusRequest(BaseModel):
     status: str = Field(..., description="New status: running, completed, failed")
+
+
+# ── Batch pipeline execution models ─────
+
+
+class BatchExecutionRequest(BaseModel):
+    rows: list[dict] = Field(..., description="Rows to process through the function pipeline")
+    instructions: str | None = Field(None, description="Optional campaign instructions")
+    model: str | None = Field(None, description="Model override (opus/sonnet/haiku)")
+    chunk_size: int = Field(5, description="Number of rows per AI call")
+
+
+class FunnelStage(BaseModel):
+    step_index: int = Field(..., description="Function step index")
+    name: str = Field(..., description="Step name or label")
+    step_type: str = Field(..., description="gate, function, skill, call_ai, etc.")
+    rows_in: int = Field(..., description="Rows entering this stage")
+    rows_out: int = Field(..., description="Rows exiting this stage")
+    pass_rate: float = Field(..., description="Fraction of rows that passed (0.0-1.0)")
+    duration_ms: int = Field(0, description="Stage execution time")

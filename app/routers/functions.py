@@ -11,9 +11,11 @@ import re
 from app.config import settings
 from app.models.functions import (
     AssembleFunctionRequest,
+    BatchExecutionRequest,
     ConsolidatedPrompt,
     CreateFolderRequest,
     CreateFunctionRequest,
+    FunnelStage,
     MoveFunctionRequest,
     PrepareRequest,
     PreparedFunction,
@@ -89,9 +91,9 @@ async def delete_folder(request: Request, name: str):
 # ── AI Assembly (registered BEFORE {func_id} catch-all) ──
 
 
-def _build_assembly_prompt(description: str, context: str = "") -> str:
+def _build_assembly_prompt(description: str, context: str = "", function_store=None) -> str:
     """Build an optimized prompt for AI function assembly."""
-    categories = get_tool_categories()
+    categories = get_tool_categories(function_store=function_store)
     tool_block = ""
     for cat in categories:
         tool_block += f"\n## {cat['category']}\n"
@@ -208,8 +210,9 @@ def _validate_assembly(parsed: dict, tools: list[dict]) -> list[str]:
 @router.post("/functions/assemble")
 async def assemble_function(request: Request, body: AssembleFunctionRequest):
     """AI-powered function assembly — user describes what they want, AI suggests tool chain."""
-    prompt = _build_assembly_prompt(body.description, body.context)
-    tools = get_tool_catalog()
+    function_store = request.app.state.function_store
+    prompt = _build_assembly_prompt(body.description, body.context, function_store=function_store)
+    tools = get_tool_catalog(function_store=function_store)
     pool = request.app.state.pool
 
     try:
@@ -255,7 +258,8 @@ async def assemble_function(request: Request, body: AssembleFunctionRequest):
 @router.post("/functions/assemble/stream")
 async def assemble_function_stream(request: Request, body: AssembleFunctionRequest):
     """SSE streaming version of function assembly — sends chunks as they arrive."""
-    prompt = _build_assembly_prompt(body.description, body.context)
+    function_store = request.app.state.function_store
+    prompt = _build_assembly_prompt(body.description, body.context, function_store=function_store)
     pool = request.app.state.pool
     executor = pool._executor
 
@@ -270,7 +274,7 @@ async def assemble_function_stream(request: Request, body: AssembleFunctionReque
                         yield f"data: {json.dumps({'type': 'error', 'message': chunk['error']})}\n\n"
                     else:
                         # Parse and validate final result
-                        tools = get_tool_catalog()
+                        tools = get_tool_catalog(function_store=function_store)
                         parsed = chunk.get("result", {})
                         if isinstance(parsed, str):
                             try:
@@ -752,7 +756,8 @@ async def generate_clay_config(request: Request, func_id: str):
 
 @router.get("/tools")
 async def list_tools(request: Request, category: str | None = None):
-    tools = get_tool_catalog()
+    function_store = request.app.state.function_store
+    tools = get_tool_catalog(function_store=function_store)
     if category:
         tools = [t for t in tools if t["category"].lower() == category.lower()]
     return {"tools": tools, "total": len(tools)}
@@ -760,19 +765,235 @@ async def list_tools(request: Request, category: str | None = None):
 
 @router.get("/tools/categories")
 async def list_tool_categories(request: Request):
-    return {"categories": get_tool_categories()}
+    function_store = request.app.state.function_store
+    return {"categories": get_tool_categories(function_store=function_store)}
 
 
 @router.get("/tools/{tool_id}")
 async def get_tool_detail(request: Request, tool_id: str):
     """Return full tool detail including execution metadata."""
-    tools = get_tool_catalog()
+    function_store = request.app.state.function_store
+    tools = get_tool_catalog(function_store=function_store)
     for tool in tools:
         if tool["id"] == tool_id:
             return tool
     return JSONResponse(
         status_code=404,
         content={"error": True, "error_message": f"Tool '{tool_id}' not found"},
+    )
+
+
+# ── Batch Pipeline Execution ──────────────────────────────
+
+
+@router.post("/functions/{func_id}/batch-stream")
+async def batch_stream(request: Request, func_id: str, body: BatchExecutionRequest):
+    """SSE streaming batch execution — process rows through function steps with gate filtering.
+
+    Gates filter the row set between stages. Emits progress events per stage
+    and a final result with funnel metrics.
+    """
+    import time as _time
+    from app.core.pipeline_runner import evaluate_condition
+    from app.core.consolidated_runner import (
+        build_consolidated_prompt,
+        parse_consolidated_output,
+        build_task_sections,
+        assemble_prompt,
+    )
+
+    store = request.app.state.function_store
+    func = store.get(func_id)
+    if func is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": True, "error_message": f"Function '{func_id}' not found"},
+        )
+
+    model = body.model or settings.default_model
+    pool = request.app.state.pool
+    chunk_size = max(1, min(body.chunk_size, 20))
+
+    async def event_gen():
+        try:
+            pipeline_start = _time.time()
+            # Tag each row with an ID for tracking
+            active_rows: list[dict] = []
+            for i, row in enumerate(body.rows):
+                r = dict(row)
+                r.setdefault("_row_id", f"row_{i}")
+                active_rows.append(r)
+
+            funnel: list[dict] = []
+            total_input = len(active_rows)
+
+            yield f"data: {json.dumps({'type': 'batch_start', 'total_rows': total_input, 'total_steps': len(func.steps)})}\n\n"
+
+            for step_idx, step in enumerate(func.steps):
+                tool_id = step.tool
+                stage_start = _time.time()
+                rows_in = len(active_rows)
+
+                if rows_in == 0:
+                    break
+
+                # ── Gate step: filter rows ──
+                if tool_id == "gate":
+                    condition = step.params.get("condition", "")
+                    label = step.params.get("label", f"gate_{step_idx}")
+
+                    yield f"data: {json.dumps({'type': 'stage_start', 'step_index': step_idx, 'tool': 'gate', 'name': label, 'rows_count': rows_in})}\n\n"
+
+                    passed = []
+                    failed = []
+                    for row in active_rows:
+                        if condition and evaluate_condition(condition, row):
+                            passed.append(row)
+                        elif not condition:
+                            passed.append(row)
+                        else:
+                            failed.append(row)
+
+                    active_rows = passed
+                    rows_out = len(active_rows)
+                    pass_rate = rows_out / rows_in if rows_in > 0 else 0.0
+                    stage_ms = int((_time.time() - stage_start) * 1000)
+
+                    stage_info = {
+                        "step_index": step_idx, "name": label, "step_type": "gate",
+                        "rows_in": rows_in, "rows_out": rows_out,
+                        "pass_rate": round(pass_rate, 3), "duration_ms": stage_ms,
+                    }
+                    funnel.append(stage_info)
+
+                    yield f"data: {json.dumps({'type': 'gate_result', **stage_info, 'failed_count': len(failed)})}\n\n"
+                    continue
+
+                # ── Processing step (function, skill, call_ai, provider) ──
+                step_name = tool_id
+                if tool_id.startswith("function:"):
+                    sub_func_id = tool_id.split(":", 1)[1]
+                    sub_func = store.get(sub_func_id)
+                    step_name = sub_func.name if sub_func else sub_func_id
+                elif tool_id.startswith("skill:"):
+                    step_name = tool_id.removeprefix("skill:")
+
+                yield f"data: {json.dumps({'type': 'stage_start', 'step_index': step_idx, 'tool': tool_id, 'name': step_name, 'rows_count': rows_in})}\n\n"
+
+                # Process rows in chunks
+                processed_rows: list[dict] = []
+                errors = 0
+
+                for chunk_start in range(0, len(active_rows), chunk_size):
+                    chunk = active_rows[chunk_start:chunk_start + chunk_size]
+
+                    # Build a temporary function with just this one step for consolidated execution
+                    from app.models.functions import FunctionDefinition, FunctionStep
+                    single_step_func = FunctionDefinition(
+                        id=f"{func.id}__step_{step_idx}",
+                        name=f"{func.name} - Step {step_idx + 1}",
+                        description="",
+                        inputs=func.inputs,
+                        outputs=func.outputs,
+                        steps=[step],
+                    )
+
+                    # For function steps, use the sub-function directly
+                    if tool_id.startswith("function:") and sub_func:
+                        single_step_func = sub_func
+
+                    try:
+                        function_store_ref = request.app.state.function_store
+                        memory_store = getattr(request.app.state, "memory_store", None)
+                        context_index = getattr(request.app.state, "context_index", None)
+                        learning_engine = getattr(request.app.state, "learning_engine", None)
+
+                        ts = build_task_sections(single_step_func, chunk[0], function_store=function_store_ref)
+
+                        if not ts.sections:
+                            # Non-AI step (e.g., native API) — process individually
+                            for row in chunk:
+                                processed_rows.append(row)
+                            continue
+
+                        prompt = assemble_prompt(
+                            ts, single_step_func, chunk[0], body.instructions,
+                            memory_store, learning_engine, context_index,
+                            batch_rows=chunk if len(chunk) > 1 else None,
+                        )
+
+                        if ts.needs_agent:
+                            result = await pool.submit(
+                                prompt, model, 600,
+                                executor_type="agent", max_turns=15,
+                                allowed_tools=["WebSearch", "WebFetch"],
+                            )
+                        else:
+                            result = await pool.submit(prompt, model, 180)
+
+                        raw_output = result.get("result", {})
+                        output_keys = [o.key for o in single_step_func.outputs]
+
+                        if len(chunk) > 1 and isinstance(raw_output, dict) and "rows" in raw_output:
+                            # Batch response — merge per-row outputs
+                            for i, row_result in enumerate(raw_output["rows"]):
+                                if i < len(chunk):
+                                    merged = dict(chunk[i])
+                                    row_result.pop("row_id", None)
+                                    merged.update(row_result)
+                                    processed_rows.append(merged)
+                        else:
+                            # Single row or flat response — merge into first/only row
+                            parsed = parse_consolidated_output(raw_output, ts.task_keys, output_keys)
+                            for row in chunk:
+                                merged = dict(row)
+                                merged.update(parsed)
+                                processed_rows.append(merged)
+
+                    except Exception as e:
+                        logger.warning("[batch] Chunk error at step %d: %s", step_idx, e)
+                        errors += len(chunk)
+                        for row in chunk:
+                            row["_error"] = str(e)
+                            processed_rows.append(row)
+
+                    # Emit progress
+                    yield f"data: {json.dumps({'type': 'chunk_complete', 'step_index': step_idx, 'processed': len(processed_rows), 'total': rows_in})}\n\n"
+
+                active_rows = processed_rows
+                rows_out = len(active_rows)
+                stage_ms = int((_time.time() - stage_start) * 1000)
+
+                stage_info = {
+                    "step_index": step_idx, "name": step_name,
+                    "step_type": "gate" if tool_id == "gate" else ("function" if tool_id.startswith("function:") else tool_id),
+                    "rows_in": rows_in, "rows_out": rows_out,
+                    "pass_rate": 1.0, "duration_ms": stage_ms,
+                }
+                funnel.append(stage_info)
+
+                yield f"data: {json.dumps({'type': 'stage_complete', **stage_info, 'errors': errors})}\n\n"
+
+            # Final result
+            pipeline_ms = int((_time.time() - pipeline_start) * 1000)
+            final = {
+                "type": "result",
+                "funnel": funnel,
+                "total_rows_input": total_input,
+                "total_rows_output": len(active_rows),
+                "total_duration_ms": pipeline_ms,
+                "rows": active_rows,
+            }
+            yield f"data: {json.dumps(final)}\n\n"
+
+        except Exception as e:
+            logger.error("[batch] Pipeline error: %s", e)
+            yield f"data: {json.dumps({'type': 'error', 'error': True, 'error_message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
 
 
@@ -1203,7 +1424,8 @@ async def prepare_consolidated(request: Request, func_id: str, body: PrepareRequ
     data = dict(batch_rows[0])
 
     # Build task sections using the shared function (single source of truth)
-    ts = build_task_sections(func, data)
+    function_store = request.app.state.function_store
+    ts = build_task_sections(func, data, function_store=function_store)
 
     if not ts.sections:
         return JSONResponse(
@@ -1559,7 +1781,8 @@ async def queue_local_job(request: Request, func_id: str, body: QueueLocalReques
     data = dict(batch_rows[0])
 
     # Build task sections and assemble prompt (reuse consolidated_runner)
-    ts = build_task_sections(func, data)
+    function_store = request.app.state.function_store
+    ts = build_task_sections(func, data, function_store=function_store)
     if not ts.sections:
         return JSONResponse(
             status_code=400,

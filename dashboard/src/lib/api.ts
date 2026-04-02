@@ -1057,6 +1057,81 @@ export function streamConsolidatedExecution(
   return controller;
 }
 
+// Stream batch pipeline execution via SSE (rows through steps with gate filtering)
+export function streamBatchExecution(
+  functionId: string,
+  rows: Record<string, unknown>[],
+  onEvent: (event: { type: string; [key: string]: unknown }) => void,
+  onError: (error: string) => void,
+  options?: { instructions?: string; model?: string; chunk_size?: number },
+): AbortController {
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+      const res = await fetch(`${API_URL}/functions/${functionId}/batch-stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": API_KEY,
+        },
+        body: JSON.stringify({
+          rows,
+          instructions: options?.instructions,
+          model: options?.model,
+          chunk_size: options?.chunk_size ?? 5,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        onError(`HTTP ${res.status}: ${text}`);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        onError("No response body");
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const payload = JSON.parse(line.slice(6));
+              if (payload.type === "error") {
+                onError(payload.error_message || "Batch error");
+              } else {
+                onEvent(payload);
+              }
+            } catch {
+              // skip malformed JSON
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") {
+        onError(e instanceof Error ? e.message : "Batch stream failed");
+      }
+    }
+  })();
+
+  return controller;
+}
+
 // Execution history
 export function fetchExecutions(
   functionId: string,

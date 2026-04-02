@@ -67,12 +67,14 @@ class TaskSectionsResult:
 # ── Shared helpers (used by both execute and preview paths) ──────────
 
 
-def build_task_sections(func: FunctionDefinition, data: dict) -> TaskSectionsResult:
+def build_task_sections(func: FunctionDefinition, data: dict, function_store=None) -> TaskSectionsResult:
     """Build task sections from function steps.
 
-    Handles three step types:
+    Handles five step types:
     - skill:* — loads skill.md content + context files
     - call_ai  — uses custom prompt if provided, else falls back to a skill
+    - function:* — loads sub-function and inlines its task sections
+    - gate — skipped (evaluated at execution time, not in the prompt)
     - provider  — AI fallback prompt with task-aware goal description
 
     For multi-step functions, intermediate steps use their catalog-level
@@ -106,9 +108,59 @@ def build_task_sections(func: FunctionDefinition, data: dict) -> TaskSectionsRes
                 resolved = resolved.replace("{{" + str(inp_name) + "}}", str(inp_val))
             resolved_params[key] = resolved
 
+        # Gate steps are evaluated at execution time, not in the prompt
+        if tool_id == "gate":
+            continue
+
+        # Function steps — load sub-function and inline its task sections
+        if tool_id.startswith("function:") and function_store:
+            sub_func_id = tool_id.split(":", 1)[1]
+            sub_func = function_store.get(sub_func_id)
+            if sub_func is None:
+                logger.warning("[consolidated] Sub-function '%s' not found, skipping", sub_func_id)
+                continue
+
+            # Build sub-function's task sections with merged data
+            sub_data = {**data, **resolved_params}
+            sub_ts = build_task_sections(sub_func, sub_data, function_store=function_store)
+
+            # Merge sub-function's sections into parent, renaming task keys
+            for i, section in enumerate(sub_ts.sections):
+                parent_task_key = f"task_{len(ts.task_keys) + 1}"
+                sub_task_key = sub_ts.task_keys[i] if i < len(sub_ts.task_keys) else f"task_{i + 1}"
+                renamed_section = section.replace(
+                    f"===== {sub_task_key.upper()}:",
+                    f"===== {parent_task_key.upper()} ({sub_func.name}):",
+                    1,
+                )
+                ts.sections.append(renamed_section)
+                ts.task_keys.append(parent_task_key)
+                ts.task_step_indices.append(step_idx)
+                if i < len(sub_ts.task_output_keys):
+                    ts.task_output_keys.append(sub_ts.task_output_keys[i])
+                else:
+                    ts.task_output_keys.append([o.key for o in sub_func.outputs])
+
+            # Merge context (deduplicated)
+            for ctx in sub_ts.context:
+                if ctx["path"] not in ts.seen_paths:
+                    ts.context.append(ctx)
+                    ts.seen_paths.add(ctx["path"])
+
+            # Inherit agent mode
+            if sub_ts.needs_agent:
+                ts.needs_agent = True
+
+            # Inherit native step indices (offset to parent step index)
+            for native_idx in sub_ts.native_step_indices:
+                ts.native_step_indices.append(step_idx)
+
+            continue
+
         # Determine step-appropriate output keys
         step_keys, step_hints = get_step_target_keys(
             tool_id, step_idx, total_steps, func.outputs,
+            function_store=function_store,
         )
         is_final = step_idx >= total_steps - 1
 
@@ -395,8 +447,9 @@ def build_consolidated_prompt(
     memory_store = getattr(request.app.state, "memory_store", None)
     context_index = getattr(request.app.state, "context_index", None)
     learning_engine = getattr(request.app.state, "learning_engine", None)
+    function_store = getattr(request.app.state, "function_store", None)
 
-    ts = build_task_sections(func, data)
+    ts = build_task_sections(func, data, function_store=function_store)
 
     if not ts.sections:
         raise ValueError("No AI steps found in this function")

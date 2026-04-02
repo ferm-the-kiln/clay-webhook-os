@@ -1,8 +1,14 @@
-"""Tool catalog: lists available tools from Deepline providers + existing skills."""
+"""Tool catalog: lists available tools from Deepline providers + existing skills + functions."""
+
+from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from app.core.skill_loader import list_skills, load_skill_config
+
+if TYPE_CHECKING:
+    from app.core.function_store import FunctionStore
 
 logger = logging.getLogger("clay-webhook-os")
 
@@ -44,11 +50,13 @@ DEEPLINE_PROVIDERS: list[dict] = [
     {"id": "firecrawl", "name": "Firecrawl", "category": "Scraping", "description": "Web scraping and crawling", "inputs": [{"name": "url", "type": "url"}], "outputs": [{"key": "content", "type": "string"}], "has_native_api": False, "execution_mode": "ai_agent", "ai_fallback_description": "Claude fetches and extracts content from the URL", "alias_of": "web_search"},
     {"id": "apify", "name": "Apify", "category": "Scraping", "description": "Web scraping actors for any website", "inputs": [{"name": "url", "type": "url"}, {"name": "actor_id", "type": "string"}], "outputs": [{"key": "data", "type": "json"}], "has_native_api": False, "execution_mode": "ai_agent", "ai_fallback_description": "Claude fetches and scrapes the target URL", "alias_of": "web_search"},
     {"id": "scrapegraph", "name": "ScrapeGraph", "category": "Scraping", "description": "AI-powered smart web scraping", "inputs": [{"name": "url", "type": "url"}, {"name": "prompt", "type": "string"}], "outputs": [{"key": "data", "type": "json"}], "has_native_api": False, "execution_mode": "ai_agent", "ai_fallback_description": "Claude fetches the URL and extracts data per prompt", "alias_of": "web_search"},
+    # Flow Control
+    {"id": "gate", "name": "Gate (Filter Rows)", "category": "Flow Control", "description": "Filter rows in batch mode — only rows matching the condition pass through to subsequent steps", "inputs": [{"name": "condition", "type": "string"}, {"name": "label", "type": "string"}], "outputs": [], "has_native_api": False, "execution_mode": "gate", "ai_fallback_description": "Filters batch rows by evaluating a condition against each row's accumulated data"},
 ]
 
 
-SPEED_MAP = {"native": "fast", "ai_single": "medium", "ai_agent": "slow"}
-COST_MAP = {"native": "low", "ai_single": "medium", "ai_agent": "high"}
+SPEED_MAP = {"native": "fast", "ai_single": "medium", "ai_agent": "slow", "gate": "instant", "function": "slow"}
+COST_MAP = {"native": "low", "ai_single": "medium", "ai_agent": "high", "gate": "free", "function": "low"}
 
 # Lookup map for fast access
 _PROVIDER_MAP: dict[str, dict] = {p["id"]: p for p in DEEPLINE_PROVIDERS}
@@ -59,6 +67,7 @@ def get_step_target_keys(
     step_idx: int,
     total_steps: int,
     func_outputs: list,
+    function_store: FunctionStore | None = None,
 ) -> tuple[list[str], list[str]]:
     """Return (keys_to_find, output_hints) appropriate for this step.
 
@@ -69,10 +78,18 @@ def get_step_target_keys(
     (e.g., 'content' for firecrawl, 'people' for apollo_people). These
     intermediate values flow into later steps via {{variable}} substitution.
 
+    For GATE steps, returns empty lists (gates produce no output).
+
+    For FUNCTION steps, returns the sub-function's declared output keys.
+
     Returns:
         (keys_to_find, output_hints) — keys is a list of key names,
         hints is a list of formatted strings like "- key (type): description"
     """
+    # Gate steps produce no output
+    if tool_id == "gate":
+        return [], []
+
     is_final = step_idx >= total_steps - 1
 
     if is_final:
@@ -90,6 +107,15 @@ def get_step_target_keys(
             hints.append(hint)
         return keys, hints
 
+    # Function step — use the sub-function's declared outputs
+    if tool_id.startswith("function:") and function_store:
+        sub_func_id = tool_id.split(":", 1)[1]
+        sub_func = function_store.get(sub_func_id)
+        if sub_func and sub_func.outputs:
+            keys = [o.key for o in sub_func.outputs]
+            hints = [f"- {o.key} ({o.type}): {o.description}" if o.description else f"- {o.key} ({o.type})" for o in sub_func.outputs]
+            return keys, hints
+
     # Intermediate step — use catalog outputs
     provider = _PROVIDER_MAP.get(tool_id)
     if provider:
@@ -103,8 +129,8 @@ def get_step_target_keys(
     return get_step_target_keys(tool_id, total_steps - 1, total_steps, func_outputs)
 
 
-def get_tool_catalog() -> list[dict]:
-    """Return all available tools: Deepline providers + existing skills."""
+def get_tool_catalog(function_store: FunctionStore | None = None) -> list[dict]:
+    """Return all available tools: Deepline providers + existing skills + functions."""
     tools = []
 
     # Add Deepline providers
@@ -144,12 +170,28 @@ def get_tool_catalog() -> list[dict]:
             "cost": "medium",
         })
 
+    # Add saved functions as composable tools
+    if function_store:
+        for func in function_store.list_all():
+            tools.append({
+                "id": f"function:{func.id}",
+                "name": func.name,
+                "category": "Functions",
+                "description": func.description or f"Run the {func.name} function",
+                "source": "function",
+                "inputs": [{"name": i.name, "type": i.type} for i in func.inputs],
+                "outputs": [{"key": o.key, "type": o.type, "description": o.description} for o in func.outputs],
+                "execution_mode": "function",
+                "speed": SPEED_MAP.get("function", "slow"),
+                "cost": COST_MAP.get("function", "low"),
+            })
+
     return tools
 
 
-def get_tool_categories() -> list[dict]:
+def get_tool_categories(function_store: FunctionStore | None = None) -> list[dict]:
     """Return tools grouped by category."""
-    tools = get_tool_catalog()
+    tools = get_tool_catalog(function_store=function_store)
     categories: dict[str, list[dict]] = {}
     for tool in tools:
         cat = tool["category"]

@@ -506,13 +506,13 @@ export interface ToolDefinition {
   name: string;
   category: string;
   description: string;
-  source: "deepline" | "skill";
+  source: "deepline" | "skill" | "function";
   inputs: { name: string; type: string }[];
-  outputs: { key: string; type: string }[];
+  outputs: { key: string; type: string; description?: string }[];
   model_tier?: string;
   execution_mode?: string;
-  speed?: "fast" | "medium" | "slow";
-  cost?: "low" | "medium" | "high";
+  speed?: "fast" | "medium" | "slow" | "instant";
+  cost?: "low" | "medium" | "high" | "free";
   has_native_api?: boolean;
   native_api_provider?: string;
   ai_fallback_description?: string;
@@ -523,8 +523,8 @@ export interface StepTrace {
   step_index: number;
   tool: string;
   tool_name: string;
-  executor: "native_api" | "skill" | "call_ai" | "ai_agent" | "ai_fallback" | "unknown";
-  status: "success" | "error" | "skipped";
+  executor: "native_api" | "skill" | "call_ai" | "ai_agent" | "ai_fallback" | "gate" | "function" | "unknown";
+  status: "success" | "error" | "skipped" | "gated_out";
   duration_ms: number;
   resolved_params: Record<string, string>;
   output_keys: string[];
@@ -546,6 +546,25 @@ export interface ExecutionRecord {
   warnings: string[];
   step_count: number;
   sheet_url?: string;
+}
+
+// Batch pipeline / funnel types
+export interface FunnelStage {
+  step_index: number;
+  name: string;
+  step_type: string;
+  rows_in: number;
+  rows_out: number;
+  pass_rate: number;
+  duration_ms: number;
+}
+
+export interface BatchPipelineResult {
+  funnel: FunnelStage[];
+  total_rows_input: number;
+  total_rows_output: number;
+  total_duration_ms: number;
+  rows: Record<string, unknown>[];
 }
 
 // Google Sheets integration types
