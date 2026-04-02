@@ -44,6 +44,7 @@ import {
   Clock,
   Brain,
   Filter,
+  Globe,
 } from "lucide-react";
 import { CatalogGrid } from "@/components/functions/catalog-grid";
 import { FavoritesStrip } from "@/components/functions/favorites-strip";
@@ -543,6 +544,7 @@ function FunctionBuilderPanel({
   // Tool catalog for step adding
   const [toolCategories, setToolCategories] = useState<ToolCategory[]>([]);
   const [showAddStep, setShowAddStep] = useState(false);
+  const [toolSearchQuery, setToolSearchQuery] = useState("");
 
   // Load templates + tool catalog on mount
   useEffect(() => {
@@ -965,108 +967,150 @@ function FunctionBuilderPanel({
               </div>
             </div>
 
-            {/* Steps with speed indicators */}
+            {/* Steps */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-xs font-medium text-clay-300">Steps ({steps.length})</div>
+              <div className="text-xs font-medium text-clay-300 mb-2">Steps ({steps.length})</div>
+
+              {/* Quick-add row — always visible */}
+              <div className="flex flex-wrap items-center gap-1.5 mb-2">
                 <button
-                  onClick={() => setShowAddStep(!showAddStep)}
-                  className="flex items-center gap-1 text-[10px] text-clay-300 hover:text-clay-100"
+                  onClick={() => setSteps([...steps, { tool: "gate", params: { condition: "", label: "" } }])}
+                  className="text-[10px] px-2 py-1 rounded border border-amber-700/50 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40 flex items-center gap-1"
                 >
-                  <Plus className="h-3 w-3" /> Add Step
+                  <Filter className="h-2.5 w-2.5" /> Gate
+                </button>
+                <button
+                  onClick={() => setSteps([...steps, { tool: "call_ai", params: { prompt: "" } }])}
+                  className="text-[10px] px-2 py-1 rounded border border-blue-700/40 bg-blue-950/20 text-blue-300 hover:bg-blue-900/30 flex items-center gap-1"
+                >
+                  <Brain className="h-2.5 w-2.5" /> AI Analysis
+                </button>
+                <button
+                  onClick={() => setSteps([...steps, { tool: "web_search", params: { query: "" } }])}
+                  className="text-[10px] px-2 py-1 rounded border border-purple-700/40 bg-purple-950/20 text-purple-300 hover:bg-purple-900/30 flex items-center gap-1"
+                >
+                  <Globe className="h-2.5 w-2.5" /> Web Search
+                </button>
+                <button
+                  onClick={() => { setShowAddStep(!showAddStep); setToolSearchQuery(""); }}
+                  className="text-[10px] px-2 py-1 rounded border border-clay-600 bg-clay-800/50 text-clay-300 hover:bg-clay-700/50"
+                >
+                  Browse All...
                 </button>
               </div>
 
-              {/* Add step picker */}
+              {/* Full searchable catalog */}
               {showAddStep && (
-                <div className="mb-2 bg-clay-900/80 border border-clay-600 rounded-lg p-2 max-h-48 overflow-auto space-y-2">
-                  {toolCategories
-                    .filter(cat => ["Flow Control", "Functions", "AI Processing", "Recommended", "Research", "People Search", "Email Finding", "Company Enrichment", "Scraping"].includes(cat.category))
-                    .sort((a, b) => {
-                      const order = ["Flow Control", "Functions", "AI Processing", "Recommended"];
-                      const ai = order.indexOf(a.category);
-                      const bi = order.indexOf(b.category);
-                      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-                    })
-                    .map(cat => (
-                    <div key={cat.category}>
-                      <div className="text-[10px] text-clay-400 font-medium mb-1">{cat.category}</div>
-                      <div className="flex flex-wrap gap-1">
-                        {cat.tools.map(tool => (
-                          <button
-                            key={tool.id}
-                            onClick={() => {
-                              const params: Record<string, string> = {};
-                              for (const inp of tool.inputs) params[inp.name] = "";
-                              setSteps([...steps, { tool: tool.id, params }]);
-                              setShowAddStep(false);
-                            }}
-                            className={cn(
-                              "text-[10px] px-2 py-1 rounded border transition-colors",
-                              tool.id === "gate"
-                                ? "border-amber-700/50 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40"
-                                : tool.source === "function"
-                                  ? "border-indigo-700/40 bg-indigo-950/20 text-indigo-300 hover:bg-indigo-900/30"
-                                  : "border-clay-600 bg-clay-800/50 text-clay-200 hover:bg-clay-700/50"
-                            )}
-                          >
-                            {tool.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                <div className="mb-3 bg-clay-900/80 border border-clay-600 rounded-lg overflow-hidden">
+                  <div className="p-2 border-b border-clay-700">
+                    <Input
+                      value={toolSearchQuery}
+                      onChange={(e) => setToolSearchQuery(e.target.value)}
+                      placeholder="Search tools..."
+                      className="h-7 text-xs bg-clay-800 border-clay-600"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-auto p-1.5 space-y-1.5">
+                    {toolCategories
+                      .map(cat => ({
+                        ...cat,
+                        tools: cat.tools.filter(t =>
+                          !toolSearchQuery ||
+                          t.name.toLowerCase().includes(toolSearchQuery.toLowerCase()) ||
+                          t.id.toLowerCase().includes(toolSearchQuery.toLowerCase())
+                        ),
+                      }))
+                      .filter(cat => cat.tools.length > 0)
+                      .sort((a, b) => {
+                        const order = ["Flow Control", "Functions", "AI Processing", "Recommended"];
+                        const ai = order.indexOf(a.category);
+                        const bi = order.indexOf(b.category);
+                        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                      })
+                      .map(cat => (
+                        <div key={cat.category}>
+                          <div className="text-[9px] text-clay-400 font-medium px-1.5 py-0.5 sticky top-0 bg-clay-900/80">{cat.category}</div>
+                          {cat.tools.map(tool => (
+                            <button
+                              key={tool.id}
+                              onClick={() => {
+                                const params: Record<string, string> = {};
+                                for (const inp of tool.inputs) params[inp.name] = "";
+                                setSteps([...steps, { tool: tool.id, params }]);
+                                setShowAddStep(false);
+                                setToolSearchQuery("");
+                              }}
+                              className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-clay-800 flex items-center gap-2"
+                            >
+                              <span className="text-clay-100 font-medium truncate flex-1">{tool.name}</span>
+                              {tool.speed && (
+                                <span className={cn(
+                                  "text-[9px] px-1 rounded shrink-0",
+                                  tool.speed === "fast" || tool.speed === "instant" ? "text-emerald-400" :
+                                  tool.speed === "slow" ? "text-amber-400" : "text-clay-400"
+                                )}>{tool.speed}</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                  </div>
                 </div>
               )}
 
-              <div className="space-y-1">
+              {/* Step list */}
+              <div>
                 {steps.map((s, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "group flex items-center gap-2 px-2 py-1.5 rounded border text-xs",
-                      s.tool === "gate"
-                        ? "bg-amber-950/30 border-amber-700/50"
-                        : s.tool.startsWith("function:")
-                          ? "bg-indigo-950/20 border-indigo-700/40"
-                          : "bg-clay-900/50 border-clay-700"
-                    )}
-                  >
-                    <span className="text-clay-300 w-4">{i + 1}</span>
-                    {speedIcon(s.tool)}
-                    <span className="font-medium text-clay-100 flex-1">{s.tool}</span>
-                    {/* Editable params for gate condition */}
-                    {s.tool === "gate" && (
-                      <Input
-                        value={s.params.condition || ""}
-                        onChange={(e) => {
-                          const updated = [...steps];
-                          updated[i] = { ...updated[i], params: { ...updated[i].params, condition: e.target.value } };
-                          setSteps(updated);
-                        }}
-                        placeholder="e.g. qualified == 'Y'"
-                        className="h-5 w-40 bg-transparent border-0 px-1 text-[10px] text-amber-300 focus-visible:ring-0 placeholder:text-amber-800"
-                      />
-                    )}
-                    <button
-                      onClick={() => setSteps(steps.filter((_, idx) => idx !== i))}
-                      className="opacity-0 group-hover:opacity-100 text-clay-300 hover:text-red-400 transition-opacity"
+                  <div key={i}>
+                    <div
+                      className={cn(
+                        "group flex items-center gap-2 px-2 py-1.5 rounded border border-l-4 text-xs",
+                        s.tool === "gate"
+                          ? "bg-amber-950/30 border-amber-700/50 border-l-amber-500"
+                          : s.tool.startsWith("function:")
+                            ? "bg-indigo-950/20 border-indigo-700/40 border-l-indigo-500"
+                            : s.tool === "call_ai"
+                              ? "bg-clay-900/50 border-clay-700 border-l-blue-500"
+                              : "bg-clay-900/50 border-clay-700 border-l-clay-500"
+                      )}
                     >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                      <span className="flex items-center justify-center h-4 w-4 rounded-full bg-clay-800 border border-clay-600 text-[9px] text-clay-300 shrink-0">{i + 1}</span>
+                      {speedIcon(s.tool)}
+                      <span className="font-medium text-clay-100 flex-1 truncate">{s.tool}</span>
+                      {s.tool === "gate" && (
+                        <Input
+                          value={s.params.condition || ""}
+                          onChange={(e) => {
+                            const updated = [...steps];
+                            updated[i] = { ...updated[i], params: { ...updated[i].params, condition: e.target.value } };
+                            setSteps(updated);
+                          }}
+                          placeholder="qualified == 'Y'"
+                          className="h-5 w-36 bg-transparent border-0 px-1 text-[10px] text-amber-300 focus-visible:ring-0 placeholder:text-amber-800"
+                        />
+                      )}
+                      <button
+                        onClick={() => setSteps(steps.filter((_, idx) => idx !== i))}
+                        className="opacity-0 group-hover:opacity-100 text-clay-300 hover:text-red-400 transition-opacity"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                    {/* Flow connector */}
+                    {i < steps.length - 1 && (
+                      <div className="flex justify-center py-0.5">
+                        <div className="w-px h-3 bg-clay-600" />
+                      </div>
+                    )}
                   </div>
                 ))}
-                {steps.length === 0 && <div className="text-xs text-clay-300 py-1">No steps yet — click &quot;+ Add Step&quot; above</div>}
+                {steps.length === 0 && (
+                  <div className="text-center py-3 text-xs text-clay-400">
+                    Use the quick-add buttons above or &quot;Browse All&quot; to add steps
+                  </div>
+                )}
               </div>
-              {steps.length > 0 && (
-                <div className="flex items-center gap-3 mt-2 text-[10px] text-clay-400">
-                  <span className="flex items-center gap-1"><Zap className="h-2.5 w-2.5 text-emerald-400" /> fast (native)</span>
-                  <span className="flex items-center gap-1"><Brain className="h-2.5 w-2.5 text-blue-400" /> medium (AI)</span>
-                  <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5 text-amber-400" /> slow (web search)</span>
-                  <span className="flex items-center gap-1"><Filter className="h-2.5 w-2.5 text-amber-400" /> gate</span>
-                  <span className="flex items-center gap-1"><Blocks className="h-2.5 w-2.5 text-indigo-400" /> function</span>
-                </div>
-              )}
             </div>
           </div>
 

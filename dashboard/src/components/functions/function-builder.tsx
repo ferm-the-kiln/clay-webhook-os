@@ -34,14 +34,24 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
   Plus,
   Trash2,
   ChevronDown,
   ChevronRight,
   Blocks,
   GripVertical,
-  Settings,
   Wrench,
+  Search,
+  Filter,
+  Globe,
+  Bot,
+  Zap,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
@@ -571,8 +581,24 @@ export function FunctionBuilder({
         </CardHeader>
         <CardContent>
           {steps.length === 0 ? (
-            <div className="text-xs text-clay-300 py-2">
-              No steps defined. Add tools to build this function.
+            <div className="text-center py-6 space-y-2">
+              <Wrench className="h-6 w-6 text-clay-500 mx-auto" />
+              <div className="text-xs text-clay-300">
+                Steps are the tools that process your data.
+              </div>
+              <div className="text-[10px] text-clay-400">
+                Add AI analysis, web search, gates to filter rows, or reference other functions.
+              </div>
+              {editing && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addStep()}
+                  className="text-clay-300 h-7 text-xs mt-2 border-clay-600"
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add Your First Step
+                </Button>
+              )}
             </div>
           ) : editing ? (
             <DndContext
@@ -584,33 +610,51 @@ export function FunctionBuilder({
                 items={stepIds}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="space-y-2">
+                <div>
                   {steps.map((step, i) => (
-                    <SortableStepItem
-                      key={stepIds[i]}
-                      id={stepIds[i]}
-                      step={step}
-                      index={i}
-                      editing={editing}
-                      toolMap={toolMap}
-                      inputs={inputs}
-                      steps={steps}
-                      setSteps={setSteps}
-                      editingStepIdx={editingStepIdx}
-                      setEditingStepIdx={setEditingStepIdx}
-                      updateStepTool={updateStepTool}
-                      updateStepParam={updateStepParam}
-                      removeStepParam={removeStepParam}
-                      addStepParam={addStepParam}
-                      removeStep={removeStep}
-                      priorStepOutputs={getOutputKeysFromPriorSteps(i)}
-                    />
+                    <div key={stepIds[i]}>
+                      <SortableStepItem
+                        id={stepIds[i]}
+                        step={step}
+                        index={i}
+                        editing={editing}
+                        toolMap={toolMap}
+                        toolCategories={toolCategories}
+                        inputs={inputs}
+                        steps={steps}
+                        setSteps={setSteps}
+                        editingStepIdx={editingStepIdx}
+                        setEditingStepIdx={setEditingStepIdx}
+                        updateStepTool={updateStepTool}
+                        updateStepParam={updateStepParam}
+                        removeStepParam={removeStepParam}
+                        addStepParam={addStepParam}
+                        removeStep={removeStep}
+                        priorStepOutputs={getOutputKeysFromPriorSteps(i)}
+                      />
+                      {/* Flow connector between steps */}
+                      {i < steps.length - 1 && (
+                        <div className="flex justify-center py-0.5">
+                          {steps[i + 1]?.tool === "gate" ? (
+                            <div className="flex flex-col items-center">
+                              <div className="w-px h-2 bg-clay-600" />
+                              <div className="w-4 h-4 rounded-full border border-amber-700/60 bg-amber-950/30 flex items-center justify-center">
+                                <Filter className="h-2 w-2 text-amber-500" />
+                              </div>
+                              <div className="w-px h-2 bg-clay-600" />
+                            </div>
+                          ) : (
+                            <div className="w-px h-4 bg-clay-600" />
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </SortableContext>
             </DndContext>
           ) : (
-            <div className="space-y-2">
+            <div>
               {steps.map((step, i) => {
                 const toolDef = toolMap[step.tool];
                 const hasParams =
@@ -619,19 +663,23 @@ export function FunctionBuilder({
                 const wiredInputs = stepInputMap[i] || [];
 
                 return (
+                  <div key={i}>
                   <div
-                    key={i}
                     className={cn(
-                      "rounded border",
+                      "rounded border border-l-4",
                       step.tool === "gate"
-                        ? "bg-amber-950/30 border-amber-700/50"
+                        ? "bg-amber-950/30 border-amber-700/50 border-l-amber-500"
                         : step.tool.startsWith("function:")
-                          ? "bg-indigo-950/20 border-indigo-700/40"
-                          : "bg-clay-900/50 border-clay-700"
+                          ? "bg-indigo-950/20 border-indigo-700/40 border-l-indigo-500"
+                          : step.tool === "call_ai"
+                            ? "bg-clay-900/50 border-clay-700 border-l-blue-500"
+                            : step.tool.startsWith("skill:")
+                              ? "bg-clay-900/50 border-clay-700 border-l-emerald-500"
+                              : "bg-clay-900/50 border-clay-700 border-l-clay-500"
                     )}
                   >
                     <div className="flex items-center gap-2 p-2">
-                      <span className="text-[10px] text-clay-300 w-4">
+                      <span className="flex items-center justify-center h-5 w-5 rounded-full bg-clay-800 border border-clay-600 text-[10px] text-clay-300 shrink-0">
                         {i + 1}
                       </span>
                       {hasParams ? (
@@ -788,6 +836,35 @@ export function FunctionBuilder({
                         ))}
                       </div>
                     )}
+
+                    {/* Output badges */}
+                    {toolDef?.outputs && toolDef.outputs.length > 0 && (
+                      <div className="px-3 pb-1.5 flex items-center gap-1">
+                        <span className="text-[9px] text-clay-400">produces:</span>
+                        {toolDef.outputs.map((o) => (
+                          <Badge key={o.key} variant="outline" className="text-[9px] px-1 py-0 h-3.5 text-kiln-teal/70 border-kiln-teal/20">
+                            {o.key}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* Flow connector */}
+                  {i < steps.length - 1 && (
+                    <div className="flex justify-center py-0.5">
+                      {steps[i + 1]?.tool === "gate" ? (
+                        <div className="flex flex-col items-center">
+                          <div className="w-px h-2 bg-clay-600" />
+                          <div className="w-4 h-4 rounded-full border border-amber-700/60 bg-amber-950/30 flex items-center justify-center">
+                            <Filter className="h-2 w-2 text-amber-500" />
+                          </div>
+                          <div className="w-px h-2 bg-clay-600" />
+                        </div>
+                      ) : (
+                        <div className="w-px h-4 bg-clay-600" />
+                      )}
+                    </div>
+                  )}
                   </div>
                 );
               })}
@@ -806,6 +883,7 @@ function SortableStepItem({
   index: i,
   editing,
   toolMap,
+  toolCategories,
   inputs,
   steps,
   setSteps,
@@ -823,6 +901,7 @@ function SortableStepItem({
   index: number;
   editing: boolean;
   toolMap: Record<string, ToolDefinition>;
+  toolCategories: ToolCategory[];
   inputs: FunctionInput[];
   steps: FunctionStep[];
   setSteps: (v: FunctionStep[]) => void;
@@ -849,18 +928,57 @@ function SortableStepItem({
     transition,
   };
 
-  const isEditingParams = editing && editingStepIdx === i;
-  const isPromptParam = step.tool === "call_ai";
+  const [toolSearch, setToolSearch] = useState("");
+  const toolDef = toolMap[step.tool];
+  const isGate = step.tool === "gate";
+  const isFunction = step.tool.startsWith("function:");
+  const isCallAi = step.tool === "call_ai";
+  const hasParams = step.params && Object.keys(step.params).length > 0;
+
+  // Tool icon based on type
+  const toolIcon = isGate
+    ? <Filter className="h-3 w-3 text-amber-400" />
+    : isFunction
+      ? <Blocks className="h-3 w-3 text-indigo-400" />
+      : isCallAi
+        ? <Bot className="h-3 w-3 text-blue-400" />
+        : toolDef?.execution_mode === "ai_agent"
+          ? <Globe className="h-3 w-3 text-purple-400" />
+          : toolDef?.has_native_api
+            ? <Zap className="h-3 w-3 text-emerald-400" />
+            : <Wrench className="h-3 w-3 text-clay-400" />;
+
+  // Filter tools for search
+  const filteredCategories = toolCategories
+    .map(cat => ({
+      ...cat,
+      tools: cat.tools.filter(t =>
+        !toolSearch || t.name.toLowerCase().includes(toolSearch.toLowerCase()) ||
+        t.id.toLowerCase().includes(toolSearch.toLowerCase()) ||
+        t.description?.toLowerCase().includes(toolSearch.toLowerCase())
+      ),
+    }))
+    .filter(cat => cat.tools.length > 0);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded bg-clay-900/50 border border-clay-700",
+        "rounded border border-l-4",
+        isGate
+          ? "bg-amber-950/30 border-amber-700/50 border-l-amber-500"
+          : isFunction
+            ? "bg-indigo-950/20 border-indigo-700/40 border-l-indigo-500"
+            : isCallAi
+              ? "bg-clay-900/50 border-clay-700 border-l-blue-500"
+              : step.tool.startsWith("skill:")
+                ? "bg-clay-900/50 border-clay-700 border-l-emerald-500"
+                : "bg-clay-900/50 border-clay-700 border-l-clay-500",
         isDragging && "opacity-50 z-50"
       )}
     >
+      {/* Step header */}
       <div className="flex items-center gap-2 p-2">
         <button
           className="cursor-grab text-clay-300 hover:text-clay-200 touch-none"
@@ -869,61 +987,149 @@ function SortableStepItem({
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
-        <span className="text-[10px] text-clay-300 w-4">
+        <span className="flex items-center justify-center h-5 w-5 rounded-full bg-clay-800 border border-clay-600 text-[10px] text-clay-300 shrink-0">
           {i + 1}
         </span>
-        <Input
-          value={step.tool}
-          onChange={(e) => updateStepTool(i, e.target.value)}
-          placeholder="Tool ID"
-          className="bg-clay-900 border-clay-600 text-clay-100 text-xs h-7 flex-1"
-        />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            setEditingStepIdx(isEditingParams ? null : i)
-          }
-          className={cn(
-            "h-6 px-1.5 text-clay-300",
-            isEditingParams && "text-kiln-teal"
-          )}
-        >
-          <Settings className="h-3 w-3" />
-        </Button>
+
+        {/* Searchable tool picker */}
+        {toolIcon}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="text-xs font-medium text-clay-100 hover:text-white border-b border-dotted border-clay-500 truncate max-w-[200px]">
+              {toolDef?.name || step.tool || "Select tool..."}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-0 bg-clay-900 border-clay-600" align="start">
+            <div className="p-2 border-b border-clay-700">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-clay-400" />
+                <Input
+                  value={toolSearch}
+                  onChange={(e) => setToolSearch(e.target.value)}
+                  placeholder="Search tools..."
+                  className="h-7 pl-7 text-xs bg-clay-800 border-clay-600"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="max-h-60 overflow-auto p-1">
+              {filteredCategories.map(cat => (
+                <div key={cat.category} className="mb-1">
+                  <div className="text-[10px] text-clay-400 font-medium px-2 py-1 sticky top-0 bg-clay-900">{cat.category}</div>
+                  {cat.tools.map(tool => (
+                    <button
+                      key={tool.id}
+                      onClick={() => {
+                        // Auto-populate params from tool definition
+                        const params: Record<string, string> = {};
+                        for (const inp of tool.inputs) params[inp.name] = "";
+                        const updated = [...steps];
+                        updated[i] = { tool: tool.id, params };
+                        setSteps(updated);
+                        setToolSearch("");
+                      }}
+                      className={cn(
+                        "w-full text-left px-2 py-1.5 rounded text-xs hover:bg-clay-800 flex items-center gap-2",
+                        tool.id === step.tool && "bg-clay-800"
+                      )}
+                    >
+                      <span className="text-clay-100 font-medium truncate flex-1">{tool.name}</span>
+                      {tool.speed && (
+                        <span className={cn(
+                          "text-[9px] px-1 rounded",
+                          tool.speed === "fast" || tool.speed === "instant" ? "text-emerald-400" :
+                          tool.speed === "slow" ? "text-amber-400" : "text-clay-400"
+                        )}>
+                          {tool.speed}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ))}
+              {filteredCategories.length === 0 && (
+                <div className="text-xs text-clay-400 text-center py-3">No tools found</div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Category badge */}
+        {toolDef?.category && (
+          <span className="text-[9px] text-clay-400 hidden sm:inline">{toolDef.category}</span>
+        )}
+
+        <div className="flex-1" />
+
         <Button
           variant="ghost"
           size="sm"
           onClick={() => removeStep(i)}
-          className="h-6 w-6 p-0 text-red-400"
+          className="h-6 w-6 p-0 text-clay-400 hover:text-red-400"
         >
           <Trash2 className="h-3 w-3" />
         </Button>
       </div>
 
-      {/* Step param editor */}
-      {isEditingParams && (
-        <div className="border-t border-clay-700 px-4 py-3 space-y-2">
+      {/* Gate inline config */}
+      {isGate && editing && (
+        <div className="border-t border-amber-700/30 px-3 py-2 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-amber-400 font-medium w-16 shrink-0">Condition</span>
+            <Input
+              value={step.params.condition || ""}
+              onChange={(e) => updateStepParam(i, "condition", e.target.value)}
+              placeholder="e.g. qualified == 'Y' or score >= 70"
+              className="h-6 text-xs bg-amber-950/20 border-amber-700/30 text-amber-200 placeholder:text-amber-800"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-amber-400 font-medium w-16 shrink-0">Label</span>
+            <Input
+              value={step.params.label || ""}
+              onChange={(e) => updateStepParam(i, "label", e.target.value)}
+              placeholder="e.g. qualification-gate"
+              className="h-6 text-xs bg-amber-950/20 border-amber-700/30 text-amber-200 placeholder:text-amber-800"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Function step info */}
+      {isFunction && toolDef && (
+        <div className="border-t border-indigo-700/30 px-3 py-1.5">
+          <div className="text-[10px] text-indigo-300/70">{toolDef.description}</div>
+          {toolDef.outputs && toolDef.outputs.length > 0 && (
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-[9px] text-clay-400">outputs:</span>
+              {toolDef.outputs.map(o => (
+                <Badge key={o.key} variant="outline" className="text-[9px] px-1 py-0 h-3.5 text-indigo-400/70 border-indigo-500/20">
+                  {o.key}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step params (always visible in edit mode, except gate which has custom UI) */}
+      {editing && !isGate && hasParams && (
+        <div className="border-t border-clay-700 px-3 py-2 space-y-2">
           {Object.entries(step.params).map(([key, val]) => (
             <div key={key} className="flex items-start gap-2">
               <Input
                 value={key}
-                onChange={(e) =>
-                  updateStepParam(i, e.target.value, val, key)
-                }
-                className="bg-clay-900 border-clay-600 text-clay-100 text-xs h-7 w-28 font-mono shrink-0"
+                onChange={(e) => updateStepParam(i, e.target.value, val, key)}
+                className="bg-clay-900 border-clay-600 text-clay-100 text-xs h-7 w-24 font-mono shrink-0"
                 placeholder="key"
               />
               <span className="text-clay-300 text-xs mt-1.5">=</span>
-              {/* Multi-line textarea for call_ai prompt param */}
-              {isPromptParam && key === "prompt" ? (
+              {isCallAi && key === "prompt" ? (
                 <div className="flex-1 space-y-1">
                   <Textarea
                     value={val}
-                    onChange={(e) =>
-                      updateStepParam(i, key, e.target.value)
-                    }
-                    rows={6}
+                    onChange={(e) => updateStepParam(i, key, e.target.value)}
+                    rows={4}
                     className="bg-clay-900 border-clay-600 text-clay-100 text-xs font-mono resize-y"
                     placeholder="Enter your AI prompt..."
                   />
@@ -936,37 +1142,30 @@ function SortableStepItem({
               ) : (
                 <Input
                   value={val}
-                  onChange={(e) =>
-                    updateStepParam(i, key, e.target.value)
-                  }
+                  onChange={(e) => updateStepParam(i, key, e.target.value)}
                   className="bg-clay-900 border-clay-600 text-clay-100 text-xs h-7 flex-1"
-                  placeholder="value"
+                  placeholder="value or {{variable}}"
                 />
               )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => removeStepParam(i, key)}
-                className="h-6 w-6 p-0 text-red-400 shrink-0"
+                className="h-6 w-6 p-0 text-clay-400 hover:text-red-400 shrink-0"
               >
                 <Trash2 className="h-3 w-3" />
               </Button>
             </div>
           ))}
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => addStepParam(i)}
-              className="text-clay-300 h-6 text-[10px]"
-            >
-              <Plus className="h-3 w-3 mr-1" /> Add param
+
+          {/* Insert variable buttons */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <Button variant="ghost" size="sm" onClick={() => addStepParam(i)} className="text-clay-300 h-5 text-[10px] px-1.5">
+              <Plus className="h-2.5 w-2.5 mr-0.5" /> param
             </Button>
             {inputs.length > 0 && (
-              <div className="flex items-center gap-1 ml-2">
-                <span className="text-[10px] text-clay-300">
-                  Insert:
-                </span>
+              <>
+                <span className="text-[9px] text-clay-400">|</span>
                 {inputs.map((inp) => (
                   <button
                     key={inp.name}
@@ -974,11 +1173,7 @@ function SortableStepItem({
                       const paramKeys = Object.keys(step.params);
                       if (paramKeys.length > 0) {
                         const lastKey = paramKeys[paramKeys.length - 1];
-                        updateStepParam(
-                          i,
-                          lastKey,
-                          step.params[lastKey] + `{{${inp.name}}}`
-                        );
+                        updateStepParam(i, lastKey, step.params[lastKey] + `{{${inp.name}}}`);
                       } else {
                         addStepParam(i);
                         const updated = [...steps];
@@ -994,14 +1189,11 @@ function SortableStepItem({
                     {`{{${inp.name}}}`}
                   </button>
                 ))}
-              </div>
+              </>
             )}
-            {/* Step output references from prior steps */}
             {priorStepOutputs.length > 0 && (
-              <div className="flex items-center gap-1 ml-2">
-                <span className="text-[10px] text-clay-300">
-                  Prior outputs:
-                </span>
+              <>
+                <span className="text-[9px] text-clay-400">|</span>
                 {priorStepOutputs.flatMap((ps) =>
                   ps.outputKeys.map((outKey) => (
                     <button
@@ -1010,11 +1202,7 @@ function SortableStepItem({
                         const paramKeys = Object.keys(step.params);
                         if (paramKeys.length > 0) {
                           const lastKey = paramKeys[paramKeys.length - 1];
-                          updateStepParam(
-                            i,
-                            lastKey,
-                            step.params[lastKey] + `{{${outKey}}}`
-                          );
+                          updateStepParam(i, lastKey, step.params[lastKey] + `{{${outKey}}}`);
                         } else {
                           addStepParam(i);
                           const updated = [...steps];
@@ -1032,7 +1220,7 @@ function SortableStepItem({
                     </button>
                   ))
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>
