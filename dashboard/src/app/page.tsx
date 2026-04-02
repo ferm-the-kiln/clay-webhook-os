@@ -1065,7 +1065,7 @@ function FunctionBuilderPanel({
                   <div key={i}>
                     <div
                       className={cn(
-                        "group flex items-center gap-2 px-2 py-1.5 rounded border border-l-4 text-xs",
+                        "rounded border border-l-4",
                         s.tool === "gate"
                           ? "bg-amber-950/30 border-amber-700/50 border-l-amber-500"
                           : s.tool.startsWith("function:")
@@ -1075,27 +1075,132 @@ function FunctionBuilderPanel({
                               : "bg-clay-900/50 border-clay-700 border-l-clay-500"
                       )}
                     >
-                      <span className="flex items-center justify-center h-4 w-4 rounded-full bg-clay-800 border border-clay-600 text-[9px] text-clay-300 shrink-0">{i + 1}</span>
-                      {speedIcon(s.tool)}
-                      <span className="font-medium text-clay-100 flex-1 truncate">{s.tool}</span>
-                      {s.tool === "gate" && (
-                        <Input
-                          value={s.params.condition || ""}
-                          onChange={(e) => {
-                            const updated = [...steps];
-                            updated[i] = { ...updated[i], params: { ...updated[i].params, condition: e.target.value } };
-                            setSteps(updated);
-                          }}
-                          placeholder="qualified == 'Y'"
-                          className="h-5 w-36 bg-transparent border-0 px-1 text-[10px] text-amber-300 focus-visible:ring-0 placeholder:text-amber-800"
-                        />
+                      {/* Step header */}
+                      <div className="group flex items-center gap-2 px-2 py-1.5 text-xs">
+                        <span className="flex items-center justify-center h-4 w-4 rounded-full bg-clay-800 border border-clay-600 text-[9px] text-clay-300 shrink-0">{i + 1}</span>
+                        {speedIcon(s.tool)}
+                        <span className="font-medium text-clay-100 flex-1 truncate">
+                          {s.tool === "call_ai" ? "AI Analysis" : s.tool === "gate" ? "Gate" : s.tool}
+                        </span>
+                        <button
+                          onClick={() => setSteps(steps.filter((_, idx) => idx !== i))}
+                          className="opacity-0 group-hover:opacity-100 text-clay-300 hover:text-red-400 transition-opacity"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+
+                      {/* AI Analysis — inline prompt editor */}
+                      {s.tool === "call_ai" && (
+                        <div className="border-t border-clay-700 px-3 py-2 space-y-2">
+                          <div>
+                            <div className="text-[10px] text-clay-400 mb-1">Prompt</div>
+                            <Textarea
+                              value={s.params.prompt || ""}
+                              onChange={(e) => {
+                                const updated = [...steps];
+                                updated[i] = { ...updated[i], params: { ...updated[i].params, prompt: e.target.value } };
+                                setSteps(updated);
+                              }}
+                              placeholder={`For the company /{{domain}}, find out whether it's a B2B company...\n\nType / to insert a variable`}
+                              rows={4}
+                              className="text-xs bg-clay-900 border-clay-600 text-clay-100 resize-y font-mono"
+                            />
+                            {/* Variable insert buttons */}
+                            {inputs.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                                <span className="text-[9px] text-clay-400">Insert:</span>
+                                {inputs.map((inp) => (
+                                  <button
+                                    key={inp.name}
+                                    onClick={() => {
+                                      const updated = [...steps];
+                                      const current = updated[i].params.prompt || "";
+                                      updated[i] = { ...updated[i], params: { ...updated[i].params, prompt: current + `{{${inp.name}}}` } };
+                                      setSteps(updated);
+                                    }}
+                                    className="text-[10px] px-1.5 py-0.5 rounded bg-kiln-teal/10 text-kiln-teal hover:bg-kiln-teal/20 transition-colors"
+                                  >
+                                    {`{{${inp.name}}}`}
+                                  </button>
+                                ))}
+                                {/* Prior step outputs as insertable variables */}
+                                {steps.slice(0, i).some(ps => {
+                                  const td = toolCategories.flatMap(c => c.tools).find(t => t.id === ps.tool);
+                                  return td?.outputs && td.outputs.length > 0;
+                                }) && (
+                                  <>
+                                    <span className="text-[9px] text-clay-500">|</span>
+                                    {steps.slice(0, i).flatMap(ps => {
+                                      const td = toolCategories.flatMap(c => c.tools).find(t => t.id === ps.tool);
+                                      return (td?.outputs || []).map(o => o.key);
+                                    }).map(key => (
+                                      <button
+                                        key={key}
+                                        onClick={() => {
+                                          const updated = [...steps];
+                                          const current = updated[i].params.prompt || "";
+                                          updated[i] = { ...updated[i], params: { ...updated[i].params, prompt: current + `{{${key}}}` } };
+                                          setSteps(updated);
+                                        }}
+                                        className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors"
+                                      >
+                                        {`{{${key}}}`}
+                                      </button>
+                                    ))}
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {/* Define outputs for this AI step */}
+                          <div>
+                            <div className="text-[10px] text-clay-400 mb-1">Output keys (what should AI return?)</div>
+                            <Input
+                              value={s.params.output_keys || ""}
+                              onChange={(e) => {
+                                const updated = [...steps];
+                                updated[i] = { ...updated[i], params: { ...updated[i].params, output_keys: e.target.value } };
+                                setSteps(updated);
+                              }}
+                              placeholder="is_b2b, confidence, reasoning"
+                              className="h-6 text-xs bg-clay-900 border-clay-600 text-clay-100"
+                            />
+                          </div>
+                        </div>
                       )}
-                      <button
-                        onClick={() => setSteps(steps.filter((_, idx) => idx !== i))}
-                        className="opacity-0 group-hover:opacity-100 text-clay-300 hover:text-red-400 transition-opacity"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+
+                      {/* Gate — inline condition editor */}
+                      {s.tool === "gate" && (
+                        <div className="border-t border-amber-700/30 px-3 py-2 space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-amber-400 w-14 shrink-0">Condition</span>
+                            <Input
+                              value={s.params.condition || ""}
+                              onChange={(e) => {
+                                const updated = [...steps];
+                                updated[i] = { ...updated[i], params: { ...updated[i].params, condition: e.target.value } };
+                                setSteps(updated);
+                              }}
+                              placeholder="qualified == 'Y' or score >= 70"
+                              className="h-6 text-xs bg-amber-950/20 border-amber-700/30 text-amber-200 placeholder:text-amber-800"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-amber-400 w-14 shrink-0">Label</span>
+                            <Input
+                              value={s.params.label || ""}
+                              onChange={(e) => {
+                                const updated = [...steps];
+                                updated[i] = { ...updated[i], params: { ...updated[i].params, label: e.target.value } };
+                                setSteps(updated);
+                              }}
+                              placeholder="qualification-gate"
+                              className="h-6 text-xs bg-amber-950/20 border-amber-700/30 text-amber-200 placeholder:text-amber-800"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     {/* Flow connector */}
                     {i < steps.length - 1 && (
