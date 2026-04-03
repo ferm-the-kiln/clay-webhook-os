@@ -513,8 +513,7 @@ async def duplicate_table(table_id: str, request: Request):
 @router.post("/assemble-columns")
 async def assemble_columns(request: Request):
     """AI-powered: describe what you want to achieve, get a column chain."""
-    import asyncio
-    from concurrent.futures import ThreadPoolExecutor
+    import re
 
     body = await request.json()
     description = body.get("description", "")
@@ -579,34 +578,27 @@ Respond with ONLY a JSON object:
 }}
 ```"""
 
-    import subprocess
-    def run_claude():
-        result = subprocess.run(
-            ["claude", "--print", "-m", "sonnet", "-p", prompt],
-            capture_output=True, text=True, timeout=90,
-        )
-        return result.stdout
-
-    loop = asyncio.get_event_loop()
-    executor = ThreadPoolExecutor(max_workers=1)
+    pool = request.app.state.pool
     try:
-        raw = await loop.run_in_executor(executor, run_claude)
+        result = await pool.submit(prompt, "sonnet", 90)
+        raw = result.get("raw_output", "") or json.dumps(result.get("result", {}))
     except Exception as e:
         return JSONResponse({"error": True, "error_message": str(e)}, status_code=500)
 
     # Parse JSON from response
-    import re
     json_match = re.search(r"\{[\s\S]*\}", raw)
-    if not json_match:
-        return JSONResponse({"error": True, "error_message": "Failed to parse AI response", "raw": raw}, status_code=500)
+    if json_match:
+        try:
+            parsed = json.loads(json_match.group())
+        except json.JSONDecodeError:
+            parsed = result.get("result", {})
+    else:
+        parsed = result.get("result", {})
 
-    try:
-        parsed = json.loads(json_match.group())
-    except json.JSONDecodeError:
-        return JSONResponse({"error": True, "error_message": "Invalid JSON from AI", "raw": raw}, status_code=500)
+    if not parsed or not isinstance(parsed, dict):
+        return JSONResponse({"error": True, "error_message": "Failed to parse AI response"}, status_code=500)
 
     return {
         "table_name": parsed.get("table_name", "AI Table"),
         "columns": parsed.get("columns", []),
-        "raw": raw,
     }
