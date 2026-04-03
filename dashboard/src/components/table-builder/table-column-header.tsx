@@ -12,6 +12,7 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
+  Settings2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -48,6 +49,7 @@ interface TableColumnHeaderProps {
   onDelete: () => void;
   onSort: () => void;
   onRename?: (newName: string) => void;
+  onEditConfig?: () => void;
   sortDir: "asc" | "desc" | null;
 }
 
@@ -57,6 +59,7 @@ export function TableColumnHeader({
   onDelete,
   onSort,
   onRename,
+  onEditConfig,
   sortDir,
 }: TableColumnHeaderProps) {
   const Icon = TYPE_ICONS[column.column_type] || Type;
@@ -120,6 +123,7 @@ export function TableColumnHeader({
         ) : (
           <span
             className="truncate flex-1 text-zinc-300 font-medium cursor-text"
+            data-col-rename={column.id}
             onDoubleClick={(e) => {
               e.stopPropagation();
               startEditing();
@@ -145,6 +149,15 @@ export function TableColumnHeader({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="bg-zinc-900 border-zinc-700 text-sm">
+            {onEditConfig && column.column_type !== "input" && (
+              <DropdownMenuItem
+                onClick={onEditConfig}
+                className="text-zinc-300"
+              >
+                <Settings2 className="w-3 h-3 mr-2 text-blue-400" />
+                Edit configuration
+              </DropdownMenuItem>
+            )}
             {onRename && (
               <DropdownMenuItem
                 onClick={startEditing}

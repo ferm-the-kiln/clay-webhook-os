@@ -51,7 +51,7 @@ export interface UseTableBuilderReturn {
   totalRows: number;
 
   // Column CRUD
-  addColumn: (body: Record<string, unknown>) => Promise<void>;
+  addColumn: (body: Record<string, unknown>) => Promise<string | undefined>;
   editColumn: (columnId: string, body: Record<string, unknown>) => Promise<void>;
   deleteColumn: (columnId: string) => Promise<void>;
   reorderCols: (columnIds: string[]) => Promise<void>;
@@ -160,11 +160,15 @@ export function useTableBuilder(tableId: string): UseTableBuilderReturn {
 
   // Column CRUD
   const addColumn = useCallback(
-    async (body: Record<string, unknown>) => {
+    async (body: Record<string, unknown>): Promise<string | undefined> => {
+      const beforeIds = new Set(table?.columns.map((c) => c.id) || []);
       const updated = await addTableColumn(tableId, body);
       setTable(updated);
+      // Find the newly added column ID
+      const newCol = updated.columns.find((c) => !beforeIds.has(c.id));
+      return newCol?.id;
     },
-    [tableId],
+    [tableId, table?.columns],
   );
 
   const editColumn = useCallback(

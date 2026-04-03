@@ -24,6 +24,7 @@ import type { ColumnProgress } from "@/hooks/use-table-builder";
 import { getCellValue, getCellStatus } from "@/hooks/use-table-builder";
 import { EnrichmentCell } from "./enrichment-cell";
 import { TableColumnHeader } from "./table-column-header";
+import { ColumnContextMenu } from "./column-context-menu";
 
 // Column type → color mapping
 const COLUMN_TYPE_COLORS: Record<string, string> = {
@@ -55,6 +56,11 @@ interface TableGridProps {
   onAddColumn: () => void;
   onDeleteColumn: (columnId: string) => Promise<void>;
   onRenameColumn?: (columnId: string, newName: string) => Promise<void>;
+  onEditColumnConfig?: (column: TableColumn) => void;
+  onDuplicateColumn?: (columnId: string) => Promise<void>;
+  onHideColumn?: (columnId: string) => Promise<void>;
+  onRunColumn?: (columnId: string) => void;
+  onRerunColumnFailed?: (columnId: string) => void;
   // Inline editing
   onUpdateCell?: (rowId: string, columnId: string, value: unknown) => Promise<void>;
   // Row expansion
@@ -86,6 +92,11 @@ export function TableGrid({
   onToggleExpandRow,
   onPasteRows,
   onRenameColumn,
+  onEditColumnConfig,
+  onDuplicateColumn,
+  onHideColumn,
+  onRunColumn,
+  onRerunColumnFailed,
 }: TableGridProps) {
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -218,26 +229,48 @@ export function TableGrid({
                     }}
                   >
                     {tableCol ? (
-                      <TableColumnHeader
+                      <ColumnContextMenu
                         column={tableCol}
-                        progress={columnProgress[tableCol.id]}
-                        onDelete={() => onDeleteColumn(tableCol.id)}
-                        onRename={onRenameColumn ? (name) => onRenameColumn(tableCol.id, name) : undefined}
-                        onSort={() => {
-                          onSortingChange(
-                            sorting[0]?.id === tableCol.id
-                              ? [{ id: tableCol.id, desc: !sorting[0].desc }]
-                              : [{ id: tableCol.id, desc: false }],
-                          );
+                        onEditConfig={() => onEditColumnConfig?.(tableCol)}
+                        onRename={() => {
+                          // Trigger inline rename via the header component
+                          const nameEl = document.querySelector(
+                            `[data-col-rename="${tableCol.id}"]`,
+                          ) as HTMLElement | null;
+                          nameEl?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
                         }}
-                        sortDir={
-                          sorting[0]?.id === tableCol.id
-                            ? sorting[0].desc
-                              ? "desc"
-                              : "asc"
-                            : null
-                        }
-                      />
+                        onDuplicate={() => onDuplicateColumn?.(tableCol.id)}
+                        onInsertLeft={() => onAddColumn()}
+                        onInsertRight={() => onAddColumn()}
+                        onHide={() => onHideColumn?.(tableCol.id)}
+                        onRunColumn={() => onRunColumn?.(tableCol.id)}
+                        onRerunFailed={() => onRerunColumnFailed?.(tableCol.id)}
+                        onDelete={() => onDeleteColumn(tableCol.id)}
+                      >
+                        <div>
+                          <TableColumnHeader
+                            column={tableCol}
+                            progress={columnProgress[tableCol.id]}
+                            onDelete={() => onDeleteColumn(tableCol.id)}
+                            onEditConfig={onEditColumnConfig ? () => onEditColumnConfig(tableCol) : undefined}
+                            onRename={onRenameColumn ? (name) => onRenameColumn(tableCol.id, name) : undefined}
+                            onSort={() => {
+                              onSortingChange(
+                                sorting[0]?.id === tableCol.id
+                                  ? [{ id: tableCol.id, desc: !sorting[0].desc }]
+                                  : [{ id: tableCol.id, desc: false }],
+                              );
+                            }}
+                            sortDir={
+                              sorting[0]?.id === tableCol.id
+                                ? sorting[0].desc
+                                  ? "desc"
+                                  : "asc"
+                                : null
+                            }
+                          />
+                        </div>
+                      </ColumnContextMenu>
                     ) : (
                       flexRender(
                         header.column.columnDef.header,
@@ -260,7 +293,14 @@ export function TableGrid({
               <th className="px-2 py-2 border-b border-zinc-800 bg-zinc-900 w-10">
                 <button
                   onClick={() => onAddColumn()}
-                  className="flex items-center justify-center w-6 h-6 rounded hover:bg-zinc-700 text-zinc-500 hover:text-kiln-teal transition-colors"
+                  className={`flex items-center justify-center w-6 h-6 rounded hover:bg-zinc-700 text-zinc-500 hover:text-kiln-teal transition-colors ${
+                    rows.length > 0 &&
+                    table.columns.every(
+                      (c) => c.column_type === "input" || c.column_type === "static",
+                    )
+                      ? "animate-pulse ring-1 ring-kiln-teal/30 text-kiln-teal"
+                      : ""
+                  }`}
                   title="Add column"
                 >
                   <Plus className="w-4 h-4" />

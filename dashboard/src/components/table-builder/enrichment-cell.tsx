@@ -139,7 +139,9 @@ export function EnrichmentCell({ value, status, error }: EnrichmentCellProps) {
           title={error}
         >
           <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-          <span className="text-red-400 text-xs truncate">Error</span>
+          <span className="text-red-400 text-xs truncate">
+            {error ? error.slice(0, 50) : "Error"}
+          </span>
         </motion.div>
       )}
 

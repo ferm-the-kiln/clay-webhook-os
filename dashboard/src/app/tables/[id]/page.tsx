@@ -6,9 +6,12 @@ import { TableToolbar } from "@/components/table-builder/table-toolbar";
 import { TableGrid } from "@/components/table-builder/table-grid";
 import { ColumnCommandPalette } from "@/components/table-builder/column-command-palette";
 import { ColumnConfigPanel } from "@/components/table-builder/column-config-panel";
+import { ColumnSuggestionsBar } from "@/components/table-builder/column-suggestions-bar";
 import { CellDetailPanel } from "@/components/table-builder/cell-detail-panel";
 import { Loader2 } from "lucide-react";
 import type { ToolDefinition, TableColumn } from "@/lib/types";
+import { fetchTools } from "@/lib/api";
+import { autoMapInputs } from "@/lib/auto-map-inputs";
 
 export default function TableBuilderPage({
   params,
@@ -26,6 +29,7 @@ export default function TableBuilderPage({
   const [editingColumn, setEditingColumn] = useState<TableColumn | null>(null);
   const [selectedTool, setSelectedTool] = useState<ToolDefinition | null>(null);
   const [initialType, setInitialType] = useState<string | null>(null);
+  const [initialParams, setInitialParams] = useState<Record<string, string> | undefined>(undefined);
 
   // Open command palette from "+" button
   const handleAddColumnClick = useCallback(() => {
@@ -37,6 +41,7 @@ export default function TableBuilderPage({
     setSelectedTool(tool);
     setInitialType("enrichment");
     setEditingColumn(null);
+    setInitialParams(undefined);
     setConfigOpen(true);
   }, []);
 
@@ -65,16 +70,112 @@ export default function TableBuilderPage({
     await tb.addColumn({ name: "New Column", column_type: "static" });
   }, [tb]);
 
-  // Save column config
-  const handleSaveColumn = useCallback(
-    async (config: Record<string, unknown>) => {
-      if (editingColumn) {
-        await tb.editColumn(editingColumn.id, config);
-      } else {
-        await tb.addColumn(config);
+  // Handle suggestion from the suggestions bar
+  const handleAddSuggestion = useCallback(
+    async (toolId: string, name: string) => {
+      try {
+        const res = await fetchTools();
+        const tool = res.tools.find((t: ToolDefinition) => t.id === toolId);
+        if (!tool) return;
+
+        // Auto-map inputs from available columns
+        const cols = tb.table?.columns.filter((c) => !c.hidden) || [];
+        const mapped = tool.inputs ? autoMapInputs(tool.inputs, cols) : {};
+
+        setSelectedTool(tool);
+        setInitialType("enrichment");
+        setEditingColumn(null);
+        setInitialParams(mapped);
+        setConfigOpen(true);
+      } catch {
+        // Fallback: just open the palette
+        setPaletteOpen(true);
       }
     },
+    [tb.table?.columns],
+  );
+
+  // Save column config — returns new column ID for child column creation
+  const handleSaveColumn = useCallback(
+    async (config: Record<string, unknown>): Promise<string | void> => {
+      if (editingColumn) {
+        await tb.editColumn(editingColumn.id, config);
+        return;
+      }
+      return await tb.addColumn(config);
+    },
     [tb, editingColumn],
+  );
+
+  // Edit column config — opens config panel pre-filled with existing column
+  const handleEditColumnConfig = useCallback(
+    async (column: TableColumn) => {
+      setEditingColumn(column);
+      setInitialParams(undefined);
+
+      if (column.column_type === "enrichment" && column.tool) {
+        // Fetch the tool definition so the config panel can show inputs/outputs
+        try {
+          const res = await fetchTools();
+          const tool = res.tools.find((t: ToolDefinition) => t.id === column.tool);
+          setSelectedTool(tool || null);
+        } catch {
+          setSelectedTool(null);
+        }
+      } else {
+        setSelectedTool(null);
+      }
+
+      setInitialType(column.column_type);
+      setConfigOpen(true);
+    },
+    [],
+  );
+
+  // Duplicate a column
+  const handleDuplicateColumn = useCallback(
+    async (columnId: string) => {
+      const col = tb.table?.columns.find((c) => c.id === columnId);
+      if (!col) return;
+      const config: Record<string, unknown> = {
+        name: `${col.name} (copy)`,
+        column_type: col.column_type,
+      };
+      if (col.tool) config.tool = col.tool;
+      if (col.params) config.params = col.params;
+      if (col.output_key) config.output_key = col.output_key;
+      if (col.ai_prompt) config.ai_prompt = col.ai_prompt;
+      if (col.ai_model) config.ai_model = col.ai_model;
+      if (col.formula) config.formula = col.formula;
+      if (col.condition) config.condition = col.condition;
+      if (col.condition_label) config.condition_label = col.condition_label;
+      await tb.addColumn(config);
+    },
+    [tb],
+  );
+
+  // Hide a column
+  const handleHideColumn = useCallback(
+    async (columnId: string) => {
+      await tb.editColumn(columnId, { hidden: true });
+    },
+    [tb],
+  );
+
+  // Run a single column
+  const handleRunColumn = useCallback(
+    (columnId: string) => {
+      tb.executeTable({ columnIds: [columnId] });
+    },
+    [tb],
+  );
+
+  // Re-run failed rows for a column
+  const handleRerunColumnFailed = useCallback(
+    (columnId: string) => {
+      tb.executeTable({ columnIds: [columnId] });
+    },
+    [tb],
   );
 
   // "Add as column" from cell detail panel
@@ -135,6 +236,11 @@ export default function TableBuilderPage({
         onStop={tb.stopExecution}
       />
 
+      <ColumnSuggestionsBar
+        table={tb.table}
+        onAddSuggestion={handleAddSuggestion}
+      />
+
       <div className="flex-1 overflow-hidden">
         <TableGrid
           table={tb.table}
@@ -153,6 +259,12 @@ export default function TableBuilderPage({
           onCellClick={tb.setSelectedCell}
           onAddColumn={handleAddColumnClick}
           onDeleteColumn={tb.deleteColumn}
+          onRenameColumn={(colId, name) => tb.editColumn(colId, { name })}
+          onEditColumnConfig={handleEditColumnConfig}
+          onDuplicateColumn={handleDuplicateColumn}
+          onHideColumn={handleHideColumn}
+          onRunColumn={handleRunColumn}
+          onRerunColumnFailed={handleRerunColumnFailed}
         />
       </div>
 
@@ -176,6 +288,7 @@ export default function TableBuilderPage({
         selectedTool={selectedTool}
         initialType={initialType}
         availableColumns={availableColumns}
+        initialParams={initialParams}
       />
 
       {/* Cell detail panel */}

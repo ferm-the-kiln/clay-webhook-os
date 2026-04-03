@@ -30,11 +30,13 @@ import {
 } from "lucide-react";
 import type { TableColumn, ToolDefinition } from "@/lib/types";
 import { ColumnReferenceInput } from "./column-reference-input";
+import { OutputFieldSelector } from "./output-field-selector";
+import { autoMapInputs } from "@/lib/auto-map-inputs";
 
 interface ColumnConfigPanelProps {
   open: boolean;
   onClose: () => void;
-  onSave: (config: Record<string, unknown>) => void;
+  onSave: (config: Record<string, unknown>) => Promise<string | void>;
   /** Existing column being edited (null for new) */
   editingColumn: TableColumn | null;
   /** The pre-selected tool for enrichment columns */
@@ -43,6 +45,8 @@ interface ColumnConfigPanelProps {
   initialType: string | null;
   /** Available columns for "/" references (columns to the left) */
   availableColumns: TableColumn[];
+  /** Pre-filled params from suggestion bar auto-mapping */
+  initialParams?: Record<string, string>;
 }
 
 export function ColumnConfigPanel({
@@ -53,16 +57,20 @@ export function ColumnConfigPanel({
   selectedTool,
   initialType,
   availableColumns,
+  initialParams,
 }: ColumnConfigPanelProps) {
   const [name, setName] = useState("");
   const [columnType, setColumnType] = useState<string>("enrichment");
   const [params, setParams] = useState<Record<string, string>>({});
   const [outputKey, setOutputKey] = useState("");
+  const [selectedOutputs, setSelectedOutputs] = useState<string[]>([]);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiModel, setAiModel] = useState("sonnet");
   const [formula, setFormula] = useState("");
   const [condition, setCondition] = useState("");
   const [conditionLabel, setConditionLabel] = useState("");
+  const [autoMapped, setAutoMapped] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Initialize from editing column or defaults
   useEffect(() => {
@@ -71,16 +79,17 @@ export function ColumnConfigPanel({
       setColumnType(editingColumn.column_type);
       setParams(editingColumn.params);
       setOutputKey(editingColumn.output_key || "");
+      setSelectedOutputs(editingColumn.output_key ? [editingColumn.output_key] : []);
       setAiPrompt(editingColumn.ai_prompt || "");
       setAiModel(editingColumn.ai_model || "sonnet");
       setFormula(editingColumn.formula || "");
       setCondition(editingColumn.condition || "");
       setConditionLabel(editingColumn.condition_label || "");
+      setAutoMapped(false);
     } else {
       // New column defaults
       setName(selectedTool?.name || "");
       setColumnType(initialType || "enrichment");
-      setParams({});
       setOutputKey("");
       setAiPrompt("");
       setAiModel("sonnet");
@@ -88,39 +97,101 @@ export function ColumnConfigPanel({
       setCondition("");
       setConditionLabel("");
 
-      // Pre-populate params from tool inputs
+      // Pre-select first output by default
+      if (selectedTool?.outputs && selectedTool.outputs.length > 0) {
+        setSelectedOutputs([selectedTool.outputs[0].key]);
+      } else {
+        setSelectedOutputs([]);
+      }
+
+      // Pre-populate params from tool inputs with auto-mapping
       if (selectedTool?.inputs) {
-        const defaultParams: Record<string, string> = {};
-        for (const input of selectedTool.inputs) {
-          defaultParams[input.name] = "";
+        // Start with initialParams if provided (from suggestions bar)
+        if (initialParams && Object.keys(initialParams).length > 0) {
+          const merged: Record<string, string> = {};
+          for (const input of selectedTool.inputs) {
+            merged[input.name] = initialParams[input.name] || "";
+          }
+          setParams(merged);
+          setAutoMapped(true);
+        } else {
+          // Auto-map by fuzzy matching column names
+          const mapped = autoMapInputs(selectedTool.inputs, availableColumns);
+          const defaultParams: Record<string, string> = {};
+          for (const input of selectedTool.inputs) {
+            defaultParams[input.name] = mapped[input.name] || "";
+          }
+          setParams(defaultParams);
+          setAutoMapped(Object.keys(mapped).length > 0);
         }
-        setParams(defaultParams);
+      } else {
+        setParams({});
+        setAutoMapped(false);
       }
     }
-  }, [editingColumn, selectedTool, initialType]);
+  }, [editingColumn, selectedTool, initialType, availableColumns, initialParams]);
 
-  const handleSave = () => {
-    const config: Record<string, unknown> = {
-      name: name || "Untitled Column",
-      column_type: columnType,
-    };
+  const handleToggleOutput = (key: string) => {
+    setSelectedOutputs((prev) => {
+      if (prev.includes(key)) {
+        // Don't allow deselecting the last one
+        if (prev.length <= 1) return prev;
+        return prev.filter((k) => k !== key);
+      }
+      return [...prev, key];
+    });
+  };
 
-    if (columnType === "enrichment" && selectedTool) {
-      config.tool = selectedTool.id;
-      config.params = params;
-      if (outputKey) config.output_key = outputKey;
-    } else if (columnType === "ai") {
-      config.ai_prompt = aiPrompt;
-      config.ai_model = aiModel;
-    } else if (columnType === "formula") {
-      config.formula = formula;
-    } else if (columnType === "gate") {
-      config.condition = condition;
-      if (conditionLabel) config.condition_label = conditionLabel;
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const config: Record<string, unknown> = {
+        name: name || "Untitled Column",
+        column_type: columnType,
+      };
+
+      if (columnType === "enrichment" && selectedTool) {
+        config.tool = selectedTool.id;
+        config.params = params;
+        // Use first selected output as the primary display field
+        if (selectedOutputs.length > 0) {
+          config.output_key = selectedOutputs[0];
+        }
+      } else if (columnType === "ai") {
+        config.ai_prompt = aiPrompt;
+        config.ai_model = aiModel;
+      } else if (columnType === "formula") {
+        config.formula = formula;
+      } else if (columnType === "gate") {
+        config.condition = condition;
+        if (conditionLabel) config.condition_label = conditionLabel;
+      }
+
+      // Save the parent column and get its ID back
+      const parentColId = await onSave(config);
+
+      // Create child columns for additional selected outputs
+      if (
+        parentColId &&
+        columnType === "enrichment" &&
+        selectedOutputs.length > 1
+      ) {
+        for (let i = 1; i < selectedOutputs.length; i++) {
+          const outputKey = selectedOutputs[i];
+          await onSave({
+            name: outputKey,
+            column_type: "formula",
+            parent_column_id: parentColId,
+            extract_path: outputKey,
+            formula: `{{${parentColId}}}`,
+          });
+        }
+      }
+
+      onClose();
+    } finally {
+      setSaving(false);
     }
-
-    onSave(config);
-    onClose();
   };
 
   const typeIcon =
@@ -166,48 +237,70 @@ export function ColumnConfigPanel({
             />
           </div>
 
+          {/* Auto-mapped banner */}
+          {columnType === "enrichment" && autoMapped && !editingColumn && (
+            <div className="flex items-center justify-between px-3 py-2 rounded-md bg-kiln-teal/5 border border-kiln-teal/20">
+              <span className="text-xs text-kiln-teal">
+                Inputs auto-mapped from your columns
+              </span>
+              <button
+                onClick={() => {
+                  if (selectedTool?.inputs) {
+                    const empty: Record<string, string> = {};
+                    for (const input of selectedTool.inputs) {
+                      empty[input.name] = "";
+                    }
+                    setParams(empty);
+                  }
+                  setAutoMapped(false);
+                }}
+                className="text-[10px] text-zinc-500 hover:text-zinc-300 underline"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
           {/* Enrichment params */}
           {columnType === "enrichment" && selectedTool?.inputs && (
             <div className="space-y-3">
               <Label className="text-zinc-400 text-xs">Parameters</Label>
-              {selectedTool.inputs.map((input) => (
-                <div key={input.name}>
-                  <label className="text-xs text-zinc-500 mb-1 block">
-                    {input.name}
-                    {input.type && (
-                      <span className="text-zinc-600 ml-1">({input.type})</span>
+              {selectedTool.inputs.map((input) => {
+                const isEmpty = !params[input.name];
+                return (
+                  <div key={input.name}>
+                    <label className="text-xs text-zinc-500 mb-1 block">
+                      {input.name}
+                      {input.type && (
+                        <span className="text-zinc-600 ml-1">({input.type})</span>
+                      )}
+                    </label>
+                    <ColumnReferenceInput
+                      value={params[input.name] || ""}
+                      onChange={(val) =>
+                        setParams((p) => ({ ...p, [input.name]: val }))
+                      }
+                      availableColumns={availableColumns}
+                      placeholder={`Type / to reference a column`}
+                    />
+                    {isEmpty && (
+                      <p className="text-[10px] text-amber-500/70 mt-1">
+                        Map a column to this input
+                      </p>
                     )}
-                  </label>
-                  <ColumnReferenceInput
-                    value={params[input.name] || ""}
-                    onChange={(val) =>
-                      setParams((p) => ({ ...p, [input.name]: val }))
-                    }
-                    availableColumns={availableColumns}
-                    placeholder={`Type / to reference a column`}
-                  />
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          {/* Enrichment output key */}
+          {/* Enrichment output fields */}
           {columnType === "enrichment" && selectedTool?.outputs && selectedTool.outputs.length > 1 && (
-            <div>
-              <Label className="text-zinc-400 text-xs">Display Field</Label>
-              <Select value={outputKey} onValueChange={setOutputKey}>
-                <SelectTrigger className="mt-1.5 bg-zinc-900 border-zinc-700 text-white">
-                  <SelectValue placeholder="Select output field" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700">
-                  {selectedTool.outputs.map((out) => (
-                    <SelectItem key={out.key} value={out.key} className="text-zinc-300">
-                      {out.key}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <OutputFieldSelector
+              outputs={selectedTool.outputs}
+              selectedOutputs={selectedOutputs}
+              onToggle={handleToggleOutput}
+            />
           )}
 
           {/* AI prompt */}
@@ -316,14 +409,22 @@ export function ColumnConfigPanel({
               variant="outline"
               className="flex-1 border-zinc-700 text-zinc-300"
               onClick={onClose}
+              disabled={saving}
             >
               Cancel
             </Button>
             <Button
               className="flex-1 bg-kiln-teal text-black hover:bg-kiln-teal/90"
               onClick={handleSave}
+              disabled={saving}
             >
-              {editingColumn ? "Update Column" : "Add Column"}
+              {saving
+                ? "Adding..."
+                : editingColumn
+                  ? "Update Column"
+                  : selectedOutputs.length > 1
+                    ? `Add ${selectedOutputs.length} Columns`
+                    : "Add Column"}
             </Button>
           </div>
         </div>

@@ -183,8 +183,9 @@ export function useFunctionTable(funcId: string): UseFunctionTableReturn {
   // Override addColumn to also sync to function
   const addColumnOverride = useCallback(
     async (body: Record<string, unknown>) => {
-      await tb.addColumn(body);
+      const newColId = await tb.addColumn(body);
       // Sync will happen via the debounced effect
+      return newColId;
     },
     [tb],
   );
