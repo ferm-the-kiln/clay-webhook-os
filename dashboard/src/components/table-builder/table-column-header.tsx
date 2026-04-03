@@ -98,12 +98,41 @@ export function TableColumnHeader({
     }
   };
 
+  const isConfigurable = column.column_type !== "input" && column.column_type !== "static";
+
+  // Build a short summary of what this column does
+  const configSummary = isConfigurable
+    ? column.column_type === "enrichment" && column.tool
+      ? column.tool.replace(/_/g, " ")
+      : column.column_type === "ai"
+        ? `AI · ${column.ai_model || "sonnet"}`
+        : column.column_type === "formula"
+          ? "Formula"
+          : column.column_type === "gate"
+            ? "Gate"
+            : null
+    : null;
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5 group">
-        <Icon className={`w-3 h-3 shrink-0 ${iconColor}`} />
+        {/* Type icon — click to edit config */}
+        {isConfigurable && onEditConfig ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditConfig();
+            }}
+            className={`shrink-0 p-0.5 rounded hover:bg-zinc-700 transition-colors ${iconColor}`}
+            title="Edit configuration"
+          >
+            <Icon className="w-3 h-3" />
+          </button>
+        ) : (
+          <Icon className={`w-3 h-3 shrink-0 ${iconColor}`} />
+        )}
 
-        {/* Column name — double-click to edit */}
+        {/* Column name — double-click to rename, single-click on configurable to edit */}
         {editing ? (
           <input
             ref={inputRef}
@@ -122,8 +151,16 @@ export function TableColumnHeader({
           />
         ) : (
           <span
-            className="truncate flex-1 text-zinc-300 font-medium cursor-text"
+            className={`truncate flex-1 text-zinc-300 font-medium ${
+              isConfigurable && onEditConfig ? "cursor-pointer hover:text-white" : "cursor-text"
+            }`}
             data-col-rename={column.id}
+            onClick={(e) => {
+              if (isConfigurable && onEditConfig) {
+                e.stopPropagation();
+                onEditConfig();
+              }
+            }}
             onDoubleClick={(e) => {
               e.stopPropagation();
               startEditing();
@@ -149,7 +186,7 @@ export function TableColumnHeader({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="bg-zinc-900 border-zinc-700 text-sm">
-            {onEditConfig && column.column_type !== "input" && (
+            {onEditConfig && isConfigurable && (
               <DropdownMenuItem
                 onClick={onEditConfig}
                 className="text-zinc-300"
@@ -186,6 +223,19 @@ export function TableColumnHeader({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Config summary — clickable to edit */}
+      {configSummary && onEditConfig && !hasProgress && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEditConfig();
+          }}
+          className="text-[10px] text-zinc-600 hover:text-zinc-400 text-left truncate transition-colors"
+        >
+          {configSummary}
+        </button>
+      )}
 
       {/* Tri-color progress bar */}
       {hasProgress && (
