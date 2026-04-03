@@ -58,48 +58,60 @@ const SYNONYMS: Record<string, string[]> = {
   title: ["jobtitle", "position", "role"],
 };
 
+/** A target column that CSV headers can be mapped to */
+interface MappingTarget {
+  id: string;        // Column ID (used as key in mapping)
+  name: string;      // Display name
+  type: string;      // Data type hint
+  required: boolean; // Whether this must be mapped
+  description: string;
+}
+
 /**
- * Auto-map CSV headers to function inputs.
- * Returns { functionInputName: csvHeader } and confidence per input.
+ * Auto-map CSV headers to mapping targets.
+ * Returns { targetId: csvHeader } and confidence per target.
  */
 function autoMapHeaders(
-  inputs: FunctionDefinition["inputs"],
+  targets: MappingTarget[],
   headers: string[],
 ): { mappings: Record<string, string>; confidence: Record<string, MatchConfidence> } {
   const mappings: Record<string, string> = {};
   const confidence: Record<string, MatchConfidence> = {};
 
-  for (const input of inputs) {
-    const inputNorm = normalize(input.name);
+  for (const target of targets) {
+    const targetNorm = normalize(target.id);
+    const nameNorm = normalize(target.name);
 
-    // 1. Exact match
-    const exact = headers.find((h) => normalize(h) === inputNorm);
+    // 1. Exact match on id or name
+    const exact = headers.find(
+      (h) => normalize(h) === targetNorm || normalize(h) === nameNorm,
+    );
     if (exact) {
-      mappings[input.name] = exact;
-      confidence[input.name] = "exact";
+      mappings[target.id] = exact;
+      confidence[target.id] = "exact";
       continue;
     }
 
     // 2. Synonym match
-    const syns = SYNONYMS[inputNorm] || [];
-    const synMatch = headers.find((h) => {
-      const hNorm = normalize(h);
-      return syns.includes(hNorm);
-    });
+    const syns = SYNONYMS[targetNorm] || SYNONYMS[nameNorm] || [];
+    const synMatch = headers.find((h) => syns.includes(normalize(h)));
     if (synMatch) {
-      mappings[input.name] = synMatch;
-      confidence[input.name] = "fuzzy";
+      mappings[target.id] = synMatch;
+      confidence[target.id] = "fuzzy";
       continue;
     }
 
-    // 3. Substring
+    // 3. Substring containment
     const subMatch = headers.find((h) => {
       const hNorm = normalize(h);
-      return hNorm.includes(inputNorm) || inputNorm.includes(hNorm);
+      return (
+        hNorm.includes(targetNorm) || targetNorm.includes(hNorm) ||
+        hNorm.includes(nameNorm) || nameNorm.includes(hNorm)
+      );
     });
     if (subMatch) {
-      mappings[input.name] = subMatch;
-      confidence[input.name] = "fuzzy";
+      mappings[target.id] = subMatch;
+      confidence[target.id] = "fuzzy";
     }
   }
 
@@ -115,10 +127,33 @@ export function CsvImportDialog({
 }: CsvImportDialogProps) {
   const [preview, setPreview] = useState<CsvPreview | null>(null);
   const [funcDef, setFuncDef] = useState<FunctionDefinition | null>(null);
-  // mappings: { functionInputName: csvHeader }
+  // mappings: { targetId: csvHeader }
   const [mappings, setMappings] = useState<Record<string, string>>({});
   const [confidence, setConfidence] = useState<Record<string, MatchConfidence>>({});
   const [importing, setImporting] = useState(false);
+
+  // Build mapping targets from function inputs OR existing table input columns
+  const existingInputCols = table.columns.filter(
+    (c) => c.column_type === "input",
+  );
+
+  const mappingTargets: MappingTarget[] = funcDef
+    ? funcDef.inputs.map((i) => ({
+        id: i.name,
+        name: i.name,
+        type: i.type,
+        required: i.required,
+        description: i.description,
+      }))
+    : existingInputCols.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: "string",
+        required: true,
+        description: "",
+      }));
+
+  const hasMappingTargets = mappingTargets.length > 0;
 
   // Parse CSV preview when file changes
   useEffect(() => {
@@ -162,35 +197,36 @@ export function CsvImportDialog({
       .catch(() => setFuncDef(null));
   }, [open, table.source_function_id]);
 
-  // Auto-map when both preview and function def are ready
+  // Auto-map when preview is ready and we have targets
   useEffect(() => {
-    if (!preview || !funcDef) {
+    if (!preview || mappingTargets.length === 0) {
       setMappings({});
       setConfidence({});
       return;
     }
-    const result = autoMapHeaders(funcDef.inputs, preview.headers);
+    const result = autoMapHeaders(mappingTargets, preview.headers);
     setMappings(result.mappings);
     setConfidence(result.confidence);
-  }, [preview, funcDef]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview, funcDef, existingInputCols.length]);
 
   const handleMapColumn = useCallback(
-    (funcInput: string, csvHeader: string) => {
-      setMappings((prev) => ({ ...prev, [funcInput]: csvHeader }));
-      setConfidence((prev) => ({ ...prev, [funcInput]: "exact" as MatchConfidence }));
+    (targetId: string, csvHeader: string) => {
+      setMappings((prev) => ({ ...prev, [targetId]: csvHeader }));
+      setConfidence((prev) => ({ ...prev, [targetId]: "exact" as MatchConfidence }));
     },
     [],
   );
 
-  const handleClearMapping = useCallback((funcInput: string) => {
+  const handleClearMapping = useCallback((targetId: string) => {
     setMappings((prev) => {
       const next = { ...prev };
-      delete next[funcInput];
+      delete next[targetId];
       return next;
     });
     setConfidence((prev) => {
       const next = { ...prev };
-      delete next[funcInput];
+      delete next[targetId];
       return next;
     });
   }, []);
@@ -200,14 +236,15 @@ export function CsvImportDialog({
     setImporting(true);
     try {
       // Build column mapping: { csvHeader: targetColumnId }
-      // The backend expects csvHeader → tableColumnId
       let columnMapping: Record<string, string> | undefined;
-      if (funcDef && Object.keys(mappings).length > 0) {
+      if (hasMappingTargets && Object.keys(mappings).length > 0) {
         columnMapping = {};
-        for (const [funcInput, csvHeader] of Object.entries(mappings)) {
-          // The function input name becomes the column ID (slugified)
-          const targetColId = funcInput.toLowerCase().replace(/[-\s]+/g, "_");
-          columnMapping[csvHeader] = targetColId;
+        for (const [targetId, csvHeader] of Object.entries(mappings)) {
+          // targetId is already the column ID (from table columns or slugified function input)
+          const colId = funcDef
+            ? targetId.toLowerCase().replace(/[-\s]+/g, "_")
+            : targetId; // existing table columns already have proper IDs
+          columnMapping[csvHeader] = colId;
         }
       }
       await onImport(file, columnMapping);
@@ -217,12 +254,12 @@ export function CsvImportDialog({
     }
   };
 
-  // Check required inputs are mapped
-  const requiredInputs = funcDef?.inputs.filter((i) => i.required) || [];
-  const unmappedRequired = requiredInputs.filter((i) => !mappings[i.name]);
+  // Check required targets are mapped
+  const requiredTargets = mappingTargets.filter((t) => t.required);
+  const unmappedRequired = requiredTargets.filter((t) => !mappings[t.id]);
   const allRequiredMapped = unmappedRequired.length === 0;
 
-  // CSV headers that are mapped to function inputs
+  // CSV headers that are mapped
   const mappedHeaders = new Set(Object.values(mappings));
   const unmappedHeaders = preview?.headers.filter((h) => !mappedHeaders.has(h)) || [];
 
@@ -290,56 +327,56 @@ export function CsvImportDialog({
               </div>
             )}
 
-            {/* Section B: Column Mapping (only for function tables) */}
-            {funcDef && preview && (
+            {/* Section B: Column Mapping */}
+            {hasMappingTargets && preview && (
               <div>
                 <h3 className="text-xs font-medium text-zinc-400 mb-2">
-                  Map CSV columns to function inputs
+                  Map CSV columns to table inputs
                 </h3>
 
-                {/* Required inputs */}
-                {requiredInputs.length > 0 && (
+                {/* Required targets */}
+                {requiredTargets.length > 0 && (
                   <div className="space-y-1.5 mb-3">
                     <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
                       Required
                     </div>
-                    {requiredInputs.map((input) => (
+                    {requiredTargets.map((target) => (
                       <MappingRow
-                        key={input.name}
-                        inputName={input.name}
-                        inputType={input.type}
-                        inputDescription={input.description}
+                        key={target.id}
+                        inputName={target.name}
+                        inputType={target.type}
+                        inputDescription={target.description}
                         required
                         csvHeaders={preview.headers}
-                        mappedTo={mappings[input.name]}
-                        matchConfidence={confidence[input.name]}
-                        onMap={(csvHeader) => handleMapColumn(input.name, csvHeader)}
-                        onClear={() => handleClearMapping(input.name)}
+                        mappedTo={mappings[target.id]}
+                        matchConfidence={confidence[target.id]}
+                        onMap={(csvHeader) => handleMapColumn(target.id, csvHeader)}
+                        onClear={() => handleClearMapping(target.id)}
                       />
                     ))}
                   </div>
                 )}
 
-                {/* Optional inputs */}
-                {funcDef.inputs.filter((i) => !i.required).length > 0 && (
+                {/* Optional targets */}
+                {mappingTargets.filter((t) => !t.required).length > 0 && (
                   <div className="space-y-1.5">
                     <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
                       Optional
                     </div>
-                    {funcDef.inputs
-                      .filter((i) => !i.required)
-                      .map((input) => (
+                    {mappingTargets
+                      .filter((t) => !t.required)
+                      .map((target) => (
                         <MappingRow
-                          key={input.name}
-                          inputName={input.name}
-                          inputType={input.type}
-                          inputDescription={input.description}
+                          key={target.id}
+                          inputName={target.name}
+                          inputType={target.type}
+                          inputDescription={target.description}
                           required={false}
                           csvHeaders={preview.headers}
-                          mappedTo={mappings[input.name]}
-                          matchConfidence={confidence[input.name]}
-                          onMap={(csvHeader) => handleMapColumn(input.name, csvHeader)}
-                          onClear={() => handleClearMapping(input.name)}
+                          mappedTo={mappings[target.id]}
+                          matchConfidence={confidence[target.id]}
+                          onMap={(csvHeader) => handleMapColumn(target.id, csvHeader)}
+                          onClear={() => handleClearMapping(target.id)}
                         />
                       ))}
                   </div>
@@ -366,8 +403,8 @@ export function CsvImportDialog({
               </div>
             )}
 
-            {/* Simple mode: no function linked */}
-            {!funcDef && preview && (
+            {/* Simple mode: no targets to map to */}
+            {!hasMappingTargets && preview && (
               <p className="text-xs text-zinc-500">
                 {preview.headers.length} columns detected. All columns will be imported as input fields.
               </p>
@@ -377,7 +414,7 @@ export function CsvImportDialog({
           {/* Footer */}
           <div className="flex items-center justify-between px-5 py-3 border-t border-zinc-800 bg-zinc-950/50">
             <div className="text-xs text-zinc-500">
-              {funcDef && !allRequiredMapped && (
+              {hasMappingTargets && !allRequiredMapped && (
                 <span className="text-amber-400">
                   {unmappedRequired.length} required input{unmappedRequired.length > 1 ? "s" : ""} unmapped
                 </span>
@@ -396,7 +433,7 @@ export function CsvImportDialog({
                 size="sm"
                 className="bg-kiln-teal text-black hover:bg-kiln-teal/90 h-8"
                 onClick={handleImport}
-                disabled={importing || !preview || (funcDef !== null && !allRequiredMapped)}
+                disabled={importing || !preview}
               >
                 {importing ? (
                   "Importing..."
