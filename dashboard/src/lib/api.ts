@@ -2294,9 +2294,13 @@ export function importTableRows(
 export function importTableCsv(
   tableId: string,
   file: File,
+  columnMapping?: Record<string, string>,
 ): Promise<{ imported: number; table: TableDefinition }> {
   const formData = new FormData();
   formData.append("file", file);
+  if (columnMapping && Object.keys(columnMapping).length > 0) {
+    formData.append("column_mapping", JSON.stringify(columnMapping));
+  }
   return apiFetch(`/tables/${tableId}/rows/import-csv`, {
     method: "POST",
     body: formData,

@@ -3,7 +3,7 @@ import io
 import json
 import logging
 
-from fastapi import APIRouter, File, Request, UploadFile
+from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.models.tables import (
@@ -133,7 +133,12 @@ async def import_rows_json(table_id: str, body: ImportRowsRequest, request: Requ
 
 
 @router.post("/{table_id}/rows/import-csv")
-async def import_rows_csv(table_id: str, request: Request, file: UploadFile = File(...)):
+async def import_rows_csv(
+    table_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+    column_mapping: str | None = Form(None),
+):
     store = request.app.state.table_store
     table = store.get(table_id)
     if not table:
@@ -147,7 +152,15 @@ async def import_rows_csv(table_id: str, request: Request, file: UploadFile = Fi
     if not rows:
         return JSONResponse({"error": True, "error_message": "CSV file is empty"}, status_code=400)
 
-    count = store.import_rows(table_id, rows)
+    # Parse optional column mapping: { csvHeader: tableColumnId }
+    mapping = None
+    if column_mapping:
+        try:
+            mapping = json.loads(column_mapping)
+        except json.JSONDecodeError:
+            pass
+
+    count = store.import_rows(table_id, rows, column_mapping=mapping)
     table = store.get(table_id)
     return {"imported": count, "table": table.model_dump() if table else None}
 

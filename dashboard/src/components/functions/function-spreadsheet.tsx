@@ -19,6 +19,7 @@ import type { UseFunctionTableReturn } from "@/hooks/use-function-table";
 import type { ToolDefinition, TableColumn, TableExecutionEvent } from "@/lib/types";
 import { fetchTools } from "@/lib/api";
 import { autoMapInputs } from "@/lib/auto-map-inputs";
+import { CsvImportDialog } from "@/components/table-builder/csv-import-dialog";
 
 interface FunctionSpreadsheetProps {
   ft: UseFunctionTableReturn;
@@ -34,6 +35,10 @@ export function FunctionSpreadsheet({ ft }: FunctionSpreadsheetProps) {
   const [selectedTool, setSelectedTool] = useState<ToolDefinition | null>(null);
   const [initialType, setInitialType] = useState<string | null>(null);
   const [initialParams, setInitialParams] = useState<Record<string, string> | undefined>(undefined);
+
+  // Import dialog state
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   // Search state
   const [searchOpen, setSearchOpen] = useState(false);
@@ -276,7 +281,10 @@ export function FunctionSpreadsheet({ ft }: FunctionSpreadsheetProps) {
         totalRows={ft.totalRows}
         executing={ft.executing}
         onRename={ft.rename}
-        onImportCsv={ft.importCsv}
+        onImportCsv={async (file) => {
+          setImportFile(file);
+          setImportDialogOpen(true);
+        }}
         onAddRow={() => ft.addRow({})}
         onRefresh={ft.refresh}
         selectedCount={Object.keys(ft.rowSelection).length}
@@ -410,6 +418,18 @@ export function FunctionSpreadsheet({ ft }: FunctionSpreadsheetProps) {
           onDuplicate={ft.duplicateFn}
         />
       )}
+
+      {/* CSV Import dialog */}
+      <CsvImportDialog
+        open={importDialogOpen}
+        onClose={() => {
+          setImportDialogOpen(false);
+          setImportFile(null);
+        }}
+        onImport={ft.importCsv}
+        table={ft.table}
+        file={importFile}
+      />
     </>
   );
 }

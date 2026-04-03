@@ -8,6 +8,7 @@ import { ColumnCommandPalette } from "@/components/table-builder/column-command-
 import { ColumnConfigPanel } from "@/components/table-builder/column-config-panel";
 import { ColumnSuggestionsBar } from "@/components/table-builder/column-suggestions-bar";
 import { CellDetailPanel } from "@/components/table-builder/cell-detail-panel";
+import { CsvImportDialog } from "@/components/table-builder/csv-import-dialog";
 import { Loader2 } from "lucide-react";
 import type { ToolDefinition, TableColumn } from "@/lib/types";
 import { fetchTools } from "@/lib/api";
@@ -20,6 +21,10 @@ export default function TableBuilderPage({
 }) {
   const { id } = use(params);
   const tb = useTableBuilder(id);
+
+  // Import dialog state
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   // Column palette state
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -224,7 +229,10 @@ export default function TableBuilderPage({
         totalRows={tb.totalRows}
         executing={tb.executing}
         onRename={tb.rename}
-        onImportCsv={tb.importCsv}
+        onImportCsv={async (file) => {
+          setImportFile(file);
+          setImportDialogOpen(true);
+        }}
         onAddRow={() => tb.addRow({})}
         onRefresh={tb.refresh}
         selectedCount={Object.keys(tb.rowSelection).length}
@@ -299,6 +307,18 @@ export default function TableBuilderPage({
         row={selectedRow}
         columnId={tb.selectedCell?.columnId || null}
         onAddAsColumn={handleAddAsColumn}
+      />
+
+      {/* CSV Import dialog */}
+      <CsvImportDialog
+        open={importDialogOpen}
+        onClose={() => {
+          setImportDialogOpen(false);
+          setImportFile(null);
+        }}
+        onImport={tb.importCsv}
+        table={tb.table}
+        file={importFile}
       />
     </div>
   );

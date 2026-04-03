@@ -249,12 +249,16 @@ class TableStore:
 
     # --- Row operations ---
 
-    def import_rows(self, table_id: str, rows: list[dict]) -> int:
+    def import_rows(self, table_id: str, rows: list[dict], column_mapping: dict[str, str] | None = None) -> int:
         table = self.get(table_id)
         if not table:
             return 0
 
         rows_path = self.base_dir / table_id / "rows.jsonl"
+
+        # Build reverse lookup: csv_header → target_column_id
+        # column_mapping format: { csvHeader: tableColumnId }
+        col_map = column_mapping or {}
 
         # Auto-detect input columns from first row
         existing_col_ids = {c.id for c in table.columns}
@@ -267,16 +271,17 @@ class TableStore:
             for key in sample:
                 if key == "_row_id":
                     continue
-                slug = _slugify(key)
-                if slug not in existing_col_ids:
+                # Use mapping target if provided, otherwise slugify
+                target_id = col_map.get(key, _slugify(key))
+                if target_id not in existing_col_ids:
                     new_columns.append(TableColumn(
-                        id=slug,
+                        id=target_id,
                         name=key,
                         column_type="input",
                         position=pos,
                         frozen=pos == 0,
                     ))
-                    existing_col_ids.add(slug)
+                    existing_col_ids.add(target_id)
                     pos += 1
 
         with open(rows_path, "a") as f:
@@ -288,7 +293,8 @@ class TableStore:
                 for key, val in row.items():
                     if key == "_row_id":
                         continue
-                    col_id = _slugify(key)
+                    # Use mapping target if provided, otherwise slugify
+                    col_id = col_map.get(key, _slugify(key))
                     stored[f"{col_id}__value"] = val
                     stored[f"{col_id}__status"] = "done"
                 f.write(json.dumps(stored) + "\n")
@@ -300,7 +306,7 @@ class TableStore:
         table.updated_at = now
         self._save_meta(table)
 
-        logger.info("[table_store] Imported %d rows into table %s", len(rows), table_id)
+        logger.info("[table_store] Imported %d rows into table %s (mapping: %s)", len(rows), table_id, bool(col_map))
         return len(rows)
 
     def get_rows(self, table_id: str, offset: int = 0, limit: int = 100) -> tuple[list[dict], int]:

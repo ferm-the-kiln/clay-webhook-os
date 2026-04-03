@@ -57,7 +57,7 @@ export interface UseTableBuilderReturn {
   reorderCols: (columnIds: string[]) => Promise<void>;
 
   // Row CRUD
-  importCsv: (file: File) => Promise<void>;
+  importCsv: (file: File, columnMapping?: Record<string, string>) => Promise<void>;
   importRows: (rows: Record<string, unknown>[]) => Promise<void>;
   addRow: (data: Record<string, unknown>) => Promise<void>;
   removeRows: (rowIds: string[]) => Promise<void>;
@@ -198,8 +198,8 @@ export function useTableBuilder(tableId: string): UseTableBuilderReturn {
 
   // Row CRUD
   const importCsv = useCallback(
-    async (file: File) => {
-      await importTableCsv(tableId, file);
+    async (file: File, columnMapping?: Record<string, string>) => {
+      await importTableCsv(tableId, file, columnMapping);
       await refresh();
     },
     [tableId, refresh],
