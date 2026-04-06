@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Table2, Upload, Trash2, MoreVertical, Layers, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,15 @@ import { AiBuilderDialog } from "@/components/table-builder/ai-builder-dialog";
 import { TemplateGallery } from "@/components/templates/template-gallery";
 import Papa from "papaparse";
 
-export default function TablesPage() {
+export default function TablesPageWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-400">Loading...</div>}>
+      <TablesPage />
+    </Suspense>
+  );
+}
+
+function TablesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tables, setTables] = useState<TableSummary[]>([]);
