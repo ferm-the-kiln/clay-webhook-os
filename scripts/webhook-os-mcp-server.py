@@ -202,6 +202,123 @@ def tool_list_clients(_args: dict) -> str:
         return f"Failed to list clients: {e}"
 
 
+# ── Table Tools ──────────────────────────────────────────
+
+def tool_list_tables(_args: dict) -> str:
+    """List all tables."""
+    try:
+        data = api_get("/tables")
+        tables = data if isinstance(data, list) else data.get("tables", [])
+        if not tables:
+            return "No tables found."
+        lines = [f"Tables ({len(tables)}):\n"]
+        for t in tables:
+            lines.append(f"  {t.get('id', '?')}: {t.get('name', '?')} ({t.get('row_count', 0)} rows, {t.get('column_count', 0)} columns)")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Failed to list tables: {e}"
+
+
+def tool_create_table(args: dict) -> str:
+    """Create a new table."""
+    try:
+        result = api_post("/tables", {"name": args.get("name", "Untitled"), "description": args.get("description", "")})
+        return f"Created table: {result.get('id', '?')} — {result.get('name', '?')}"
+    except Exception as e:
+        return f"Failed to create table: {e}"
+
+
+def tool_add_table_column(args: dict) -> str:
+    """Add a column to a table."""
+    try:
+        table_id = args["table_id"]
+        body = {k: v for k, v in args.items() if k != "table_id" and v is not None}
+        result = api_post(f"/tables/{table_id}/columns", body)
+        cols = result.get("columns", [])
+        added = cols[-1] if cols else {}
+        return f"Added column '{added.get('name', '?')}' (id={added.get('id', '?')}, type={added.get('column_type', '?')})"
+    except Exception as e:
+        return f"Failed to add column: {e}"
+
+
+def tool_import_table_rows(args: dict) -> str:
+    """Import rows into a table."""
+    try:
+        table_id = args["table_id"]
+        rows = args.get("rows", [])
+        result = api_post(f"/tables/{table_id}/rows/import", {"rows": rows})
+        return f"Imported {result.get('imported', 0)} rows into table {table_id}"
+    except Exception as e:
+        return f"Failed to import rows: {e}"
+
+
+def tool_run_table(args: dict) -> str:
+    """Trigger table execution. Returns immediately (execution streams via SSE)."""
+    try:
+        table_id = args["table_id"]
+        body = {}
+        if args.get("limit"):
+            body["limit"] = args["limit"]
+        if args.get("model"):
+            body["model"] = args["model"]
+        r = requests.post(f"{API_URL}/tables/{table_id}/execute", headers=HEADERS, json=body, timeout=5, stream=True)
+        # Read first few events
+        lines = []
+        for i, line in enumerate(r.iter_lines(decode_unicode=True)):
+            if line.startswith("data: "):
+                lines.append(line[6:])
+            if i > 10:
+                break
+        r.close()
+        return f"Execution started for table {table_id}. First events:\n" + "\n".join(lines[:5])
+    except Exception as e:
+        return f"Failed to run table: {e}"
+
+
+def tool_validate_table(args: dict) -> str:
+    """Validate table configuration."""
+    try:
+        table_id = args["table_id"]
+        result = api_post(f"/tables/{table_id}/validate", {})
+        if result.get("valid"):
+            warnings = result.get("warnings", [])
+            if warnings:
+                return f"Table is valid with {len(warnings)} warning(s):\n" + "\n".join(f"  ⚠ {w}" for w in warnings)
+            return "Table configuration is valid — no issues found."
+        errors = result.get("errors", [])
+        return f"Table has {len(errors)} error(s):\n" + "\n".join(f"  ✗ {e}" for e in errors)
+    except Exception as e:
+        return f"Failed to validate table: {e}"
+
+
+def tool_list_table_runs(args: dict) -> str:
+    """List recent execution runs for a table."""
+    try:
+        table_id = args["table_id"]
+        data = api_get(f"/tables/{table_id}/runs")
+        runs = data.get("runs", [])
+        if not runs:
+            return f"No execution history for table {table_id}."
+        lines = [f"Recent runs for {table_id} ({len(runs)}):\n"]
+        for r in runs[:10]:
+            status = r.get("status", "?")
+            dur = r.get("duration_ms")
+            dur_str = f" ({dur}ms)" if dur else ""
+            lines.append(f"  {r.get('run_id', '?')}: {status}{dur_str} — {r.get('started_at', '?')}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Failed to list runs: {e}"
+
+
+def tool_bridge_stats(_args: dict) -> str:
+    """Get bridge (synchronous webhook) statistics."""
+    try:
+        data = api_get("/bridge/stats")
+        return json.dumps(data, indent=2)
+    except Exception as e:
+        return f"Failed to get bridge stats: {e}"
+
+
 # ── MCP Protocol ──────────────────────────────────────────
 
 TOOLS = [
@@ -297,6 +414,88 @@ TOOLS = [
             "properties": {},
         },
     },
+    {
+        "name": "list_tables",
+        "description": "List all tables with their row/column counts.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "create_table",
+        "description": "Create a new empty table.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Table name"},
+                "description": {"type": "string", "description": "Optional description"},
+            },
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "add_table_column",
+        "description": "Add a column to a table. Types: input, enrichment, ai, formula, gate, static, http, waterfall, lookup, script, write.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "table_id": {"type": "string"},
+                "name": {"type": "string", "description": "Column display name"},
+                "column_type": {"type": "string", "description": "Column type"},
+                "tool": {"type": "string", "description": "Tool ID for enrichment columns"},
+                "ai_prompt": {"type": "string", "description": "Prompt for AI columns"},
+                "formula": {"type": "string", "description": "Formula for formula columns"},
+                "condition": {"type": "string", "description": "Condition for gate columns"},
+            },
+            "required": ["table_id", "name", "column_type"],
+        },
+    },
+    {
+        "name": "import_table_rows",
+        "description": "Import rows into a table. Each row is a dict of column_id → value.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "table_id": {"type": "string"},
+                "rows": {"type": "array", "items": {"type": "object"}, "description": "Row data"},
+            },
+            "required": ["table_id", "rows"],
+        },
+    },
+    {
+        "name": "run_table",
+        "description": "Trigger execution of a table's enrichment/AI columns.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "table_id": {"type": "string"},
+                "limit": {"type": "integer", "description": "Max rows to process"},
+                "model": {"type": "string", "description": "Model override: opus/sonnet/haiku"},
+            },
+            "required": ["table_id"],
+        },
+    },
+    {
+        "name": "validate_table",
+        "description": "Validate table configuration — check for circular deps, missing refs, bad URLs.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"table_id": {"type": "string"}},
+            "required": ["table_id"],
+        },
+    },
+    {
+        "name": "list_table_runs",
+        "description": "List recent execution runs for a table with status and duration.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"table_id": {"type": "string"}},
+            "required": ["table_id"],
+        },
+    },
+    {
+        "name": "bridge_stats",
+        "description": "Get statistics for the synchronous webhook bridge — pending requests, capacity, timeouts.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
 ]
 
 TOOL_HANDLERS = {
@@ -306,6 +505,14 @@ TOOL_HANDLERS = {
     "submit_result": tool_submit_result,
     "search_knowledge_base": tool_search_knowledge_base,
     "list_clients": tool_list_clients,
+    "list_tables": tool_list_tables,
+    "create_table": tool_create_table,
+    "add_table_column": tool_add_table_column,
+    "import_table_rows": tool_import_table_rows,
+    "run_table": tool_run_table,
+    "validate_table": tool_validate_table,
+    "list_table_runs": tool_list_table_runs,
+    "bridge_stats": tool_bridge_stats,
 }
 
 

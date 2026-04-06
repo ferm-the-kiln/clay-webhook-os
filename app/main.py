@@ -33,6 +33,9 @@ from app.core.skill_loader import list_skills
 from app.core.skill_version_store import SkillVersionStore
 from app.core.subscription_monitor import SubscriptionMonitor
 from app.core.usage_store import UsageStore
+from app.core.bridge_store import BridgeStore
+from app.core.run_tracker import RunTracker
+from app.core.script_store import ScriptStore
 from app.core.worker_pool import WorkerPool
 from app.middleware.auth import DualAuthMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
@@ -40,6 +43,7 @@ from app.middleware.rate_limiter import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routers import (
     auth,
+    bridge,
     channels,
     context,
     datasets,
@@ -106,6 +110,7 @@ app.include_router(sheets.router)
 app.include_router(portal.router)
 app.include_router(tables.router)
 app.include_router(channels.router)
+app.include_router(bridge.router)
 
 
 @app.on_event("startup")
@@ -250,11 +255,15 @@ async def startup():
         app.state.portal_sync = PortalSync(sheets_client, app.state.portal_store)
         from app.core.portal_doc_sync import PortalDocSync
         app.state.portal_doc_sync = PortalDocSync(sheets_client, app.state.portal_store)
+        # Table ↔ Sheets adapter
+        from app.core.sheets_adapter import SheetsAdapter
+        app.state.sheets_adapter = SheetsAdapter(sheets_client, app.state.table_store)
         logger.info("  Google Sheets: enabled")
     else:
         app.state.drive_sync = None
         app.state.portal_sync = None
         app.state.portal_doc_sync = None
+        app.state.sheets_adapter = None
         logger.info("  Google Sheets: disabled (gws CLI not found)")
 
     # Skill version store
@@ -265,6 +274,16 @@ async def startup():
 
     # Request deduplication (60s window)
     app.state.dedup = RequestDeduplicator(window_seconds=60)
+
+    # Bridge store (synchronous webhook bridge — Promise Parking)
+    app.state.bridge_store = BridgeStore(max_pending=100, timeout_s=300)
+
+    # Run tracker (table execution history)
+    app.state.run_tracker = RunTracker(data_dir=settings.data_dir)
+
+    # Script store (reusable named scripts)
+    app.state.script_store = ScriptStore(data_dir=settings.data_dir)
+    app.state.script_store.load()
 
     # Circuit breaker (per-model, trips after 3 failures, 60s recovery)
     app.state.circuit_breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=60)
@@ -380,5 +399,9 @@ async def shutdown():
     if hasattr(app.state, "portal_notifier"):
         await app.state.portal_notifier.close()
         logger.info("  Portal notifier closed")
+
+    if hasattr(app.state, "bridge_store"):
+        await app.state.bridge_store.shutdown()
+        logger.info("  Bridge store shutdown")
 
     logger.info("Shutdown complete")

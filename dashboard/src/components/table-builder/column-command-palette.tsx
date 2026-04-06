@@ -19,6 +19,10 @@ import {
   Sparkles,
   Clock,
   Layers,
+  Unplug,
+  Shuffle,
+  Link2,
+  Terminal,
 } from "lucide-react";
 import { fetchTools, fetchToolCategories } from "@/lib/api";
 import type { ToolDefinition, ToolCategory } from "@/lib/types";
@@ -32,6 +36,10 @@ interface ColumnCommandPaletteProps {
   onSelectGate: () => void;
   onSelectStatic: () => void;
   onAIBuilder?: () => void;
+  onSelectHttp?: () => void;
+  onSelectWaterfall?: () => void;
+  onSelectLookup?: () => void;
+  onSelectScript?: () => void;
 }
 
 const CATEGORY_ICONS: Record<string, typeof Search> = {
@@ -126,6 +134,10 @@ export function ColumnCommandPalette({
   onSelectGate,
   onSelectStatic,
   onAIBuilder,
+  onSelectHttp,
+  onSelectWaterfall,
+  onSelectLookup,
+  onSelectScript,
 }: ColumnCommandPaletteProps) {
   const [tools, setTools] = useState<ToolDefinition[]>([]);
   const [categories, setCategories] = useState<ToolCategory[]>([]);
@@ -350,6 +362,78 @@ export function ColumnCommandPalette({
                       </div>
                     </div>
                   </Command.Item>
+                  {onSelectHttp && (
+                    <Command.Item
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                      onSelect={() => {
+                        onSelectHttp();
+                        onClose();
+                      }}
+                      value="http request api call endpoint"
+                    >
+                      <Unplug className="w-4 h-4 text-orange-400 shrink-0" />
+                      <div>
+                        <div className="font-medium text-xs">HTTP Request</div>
+                        <div className="text-[11px] text-zinc-500">
+                          Call any API endpoint
+                        </div>
+                      </div>
+                    </Command.Item>
+                  )}
+                  {onSelectWaterfall && (
+                    <Command.Item
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                      onSelect={() => {
+                        onSelectWaterfall();
+                        onClose();
+                      }}
+                      value="waterfall fallback providers cascade"
+                    >
+                      <Shuffle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <div>
+                        <div className="font-medium text-xs">Waterfall</div>
+                        <div className="text-[11px] text-zinc-500">
+                          Try providers in order
+                        </div>
+                      </div>
+                    </Command.Item>
+                  )}
+                  {onSelectLookup && (
+                    <Command.Item
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                      onSelect={() => {
+                        onSelectLookup();
+                        onClose();
+                      }}
+                      value="lookup join cross table search match"
+                    >
+                      <Link2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <div>
+                        <div className="font-medium text-xs">Lookup</div>
+                        <div className="text-[11px] text-zinc-500">
+                          Cross-table data join
+                        </div>
+                      </div>
+                    </Command.Item>
+                  )}
+                  {onSelectScript && (
+                    <Command.Item
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                      onSelect={() => {
+                        onSelectScript();
+                        onClose();
+                      }}
+                      value="script code python bash node transform"
+                    >
+                      <Terminal className="w-4 h-4 text-rose-400 shrink-0" />
+                      <div>
+                        <div className="font-medium text-xs">Script</div>
+                        <div className="text-[11px] text-zinc-500">
+                          Run Python/Bash/Node code
+                        </div>
+                      </div>
+                    </Command.Item>
+                  )}
                 </div>
               </Command.Group>
 

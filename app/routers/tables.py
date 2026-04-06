@@ -11,10 +11,13 @@ from app.models.tables import (
     CreateTableRequest,
     DeleteRowsRequest,
     ExecuteTableRequest,
+    ExpandColumnRequest,
     ImportRowsRequest,
     ReorderColumnsRequest,
+    TableSource,
     UpdateColumnRequest,
     UpdateTableRequest,
+    UpsertRowsRequest,
 )
 
 router = APIRouter(prefix="/tables", tags=["tables"])
@@ -254,9 +257,10 @@ async def execute_table(table_id: str, body: ExecuteTableRequest, request: Reque
         return JSONResponse({"error": True, "error_message": "Table not found"}, status_code=404)
 
     # Count executable columns
+    exec_types = {"enrichment", "ai", "formula", "gate", "http", "waterfall", "lookup"}
     exec_columns = [
         c for c in table.columns
-        if c.column_type in ("enrichment", "ai", "formula", "gate")
+        if c.column_type in exec_types
         and (body.column_ids is None or c.id in body.column_ids)
     ]
 
@@ -287,6 +291,232 @@ async def execute_table(table_id: str, body: ExecuteTableRequest, request: Reque
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# --- Validation ---
+
+
+@router.post("/{table_id}/validate")
+async def validate_table(table_id: str, request: Request):
+    """Validate table configuration — check deps, templates, URLs, conditions."""
+    from app.core.table_validator import validate_table as _validate
+
+    store = request.app.state.table_store
+    table = store.get(table_id)
+    if not table:
+        return JSONResponse({"error": True, "error_message": "Table not found"}, status_code=404)
+
+    result = _validate(table)
+    return result
+
+
+# --- Google Sheets Sync ---
+
+
+@router.post("/{table_id}/link-sheet")
+async def link_sheet(table_id: str, request: Request):
+    """Link a Google Sheet to this table for sync."""
+    store = request.app.state.table_store
+    table = store.get(table_id)
+    if not table:
+        return JSONResponse({"error": True, "error_message": "Table not found"}, status_code=404)
+
+    body = await request.json()
+    sheet_id = body.get("spreadsheet_id", "")
+    direction = body.get("sync_direction", "push")
+
+    if not sheet_id:
+        return JSONResponse({"error": True, "error_message": "Missing spreadsheet_id"}, status_code=400)
+
+    table.linked_sheet_id = sheet_id
+    table.sync_direction = direction
+    import time as _time
+    table.updated_at = _time.time()
+    store._save_meta(table)
+
+    return {"ok": True, "linked_sheet_id": sheet_id, "sync_direction": direction}
+
+
+@router.post("/{table_id}/sync-sheet")
+async def sync_sheet(table_id: str, request: Request):
+    """Trigger sync between table and linked Google Sheet."""
+    store = request.app.state.table_store
+    table = store.get(table_id)
+    if not table:
+        return JSONResponse({"error": True, "error_message": "Table not found"}, status_code=404)
+
+    if not table.linked_sheet_id:
+        return JSONResponse({"error": True, "error_message": "No sheet linked to this table"}, status_code=400)
+
+    adapter = request.app.state.sheets_adapter
+    if not adapter or not adapter.available:
+        return JSONResponse({"error": True, "error_message": "Google Sheets not available"}, status_code=503)
+
+    body = await request.json() if request.headers.get("content-length") else {}
+    direction = body.get("direction", table.sync_direction or "push")
+
+    result = await adapter.sync(table_id, table.linked_sheet_id, direction)
+    return result
+
+
+@router.post("/{table_id}/import-sheet")
+async def import_from_sheet(table_id: str, request: Request):
+    """One-time import from a Google Sheet (no linking required)."""
+    body = await request.json()
+    spreadsheet_id = body.get("spreadsheet_id", "")
+    range_ = body.get("range", "Sheet1")
+
+    if not spreadsheet_id:
+        return JSONResponse({"error": True, "error_message": "Missing spreadsheet_id"}, status_code=400)
+
+    adapter = request.app.state.sheets_adapter
+    if not adapter or not adapter.available:
+        return JSONResponse({"error": True, "error_message": "Google Sheets not available"}, status_code=503)
+
+    result = await adapter.import_from_sheet(spreadsheet_id, table_id, range_)
+    return result
+
+
+# --- Run History ---
+
+
+@router.get("/{table_id}/runs")
+async def list_runs(table_id: str, request: Request):
+    """List recent execution runs for a table."""
+    tracker = request.app.state.run_tracker
+    runs = tracker.list_runs(table_id, limit=20)
+    return {"runs": [r.model_dump() for r in runs]}
+
+
+@router.get("/{table_id}/runs/{run_id}")
+async def get_run(table_id: str, run_id: str, request: Request):
+    """Get details of a specific execution run."""
+    tracker = request.app.state.run_tracker
+    run = tracker.get_run(table_id, run_id)
+    if not run:
+        return JSONResponse({"error": True, "error_message": "Run not found"}, status_code=404)
+    return run.model_dump()
+
+
+# --- Sources ---
+
+
+@router.post("/{table_id}/sources")
+async def add_source(table_id: str, body: TableSource, request: Request):
+    """Add a data source to a table."""
+    store = request.app.state.table_store
+    table = store.get(table_id)
+    if not table:
+        return JSONResponse({"error": True, "error_message": "Table not found"}, status_code=404)
+
+    # Check for duplicate ID
+    if any(s.id == body.id for s in table.sources):
+        return JSONResponse({"error": True, "error_message": f"Source '{body.id}' already exists"}, status_code=409)
+
+    table.sources.append(body)
+    import time as _time
+    table.updated_at = _time.time()
+    store._save_meta(table)
+    return {"ok": True, "source_id": body.id}
+
+
+@router.delete("/{table_id}/sources/{source_id}")
+async def remove_source(table_id: str, source_id: str, request: Request):
+    """Remove a data source from a table."""
+    store = request.app.state.table_store
+    table = store.get(table_id)
+    if not table:
+        return JSONResponse({"error": True, "error_message": "Table not found"}, status_code=404)
+
+    table.sources = [s for s in table.sources if s.id != source_id]
+    import time as _time
+    table.updated_at = _time.time()
+    store._save_meta(table)
+    return {"ok": True}
+
+
+@router.post("/{table_id}/sources/{source_id}/run")
+async def run_source(table_id: str, source_id: str, request: Request):
+    """Manually trigger a source to fetch and import data."""
+    from app.core.source_executor import execute_http_source, execute_script_source
+
+    store = request.app.state.table_store
+    table = store.get(table_id)
+    if not table:
+        return JSONResponse({"error": True, "error_message": "Table not found"}, status_code=404)
+
+    source = next((s for s in table.sources if s.id == source_id), None)
+    if not source:
+        return JSONResponse({"error": True, "error_message": "Source not found"}, status_code=404)
+
+    config = source.model_dump()
+
+    if source.source_type == "http":
+        result = await execute_http_source(config, store, table_id)
+    elif source.source_type == "script":
+        result = await execute_script_source(config, store, table_id)
+    else:
+        return JSONResponse({"error": True, "error_message": f"Unsupported source type: {source.source_type}"}, status_code=400)
+
+    # Update last_run_at
+    import time as _time
+    source.last_run_at = _time.time()
+    table.updated_at = _time.time()
+    store._save_meta(table)
+
+    return result
+
+
+@router.post("/{table_id}/sources/webhook/{source_id}")
+async def webhook_source(table_id: str, source_id: str, request: Request):
+    """Receive webhook payload and import into table via source config."""
+    from app.core.source_executor import execute_webhook_source
+
+    store = request.app.state.table_store
+    table = store.get(table_id)
+    if not table:
+        return JSONResponse({"error": True, "error_message": "Table not found"}, status_code=404)
+
+    source = next((s for s in table.sources if s.id == source_id), None)
+    if not source or source.source_type != "webhook":
+        return JSONResponse({"error": True, "error_message": "Webhook source not found"}, status_code=404)
+
+    payload = await request.json()
+    config = source.model_dump()
+    result = execute_webhook_source(payload, config, store, table_id)
+
+    import time as _time
+    source.last_run_at = _time.time()
+    store._save_meta(table)
+
+    return result
+
+
+# --- Upsert + Expand ---
+
+
+@router.post("/{table_id}/rows/upsert")
+async def upsert_rows(table_id: str, body: UpsertRowsRequest, request: Request):
+    """Upsert rows: match on key column, update existing or insert new."""
+    store = request.app.state.table_store
+    table = store.get(table_id)
+    if not table:
+        return JSONResponse({"error": True, "error_message": "Table not found"}, status_code=404)
+
+    result = store.upsert_rows(table_id, body.rows, body.match_key)
+    return result
+
+
+@router.post("/{table_id}/columns/{column_id}/expand")
+async def expand_column(table_id: str, column_id: str, request: Request):
+    """Expand array values in a column into separate rows."""
+    store = request.app.state.table_store
+    table = store.get(table_id)
+    if not table:
+        return JSONResponse({"error": True, "error_message": "Table not found"}, status_code=404)
+
+    new_rows = store.expand_column(table_id, column_id)
+    return {"expanded": True, "new_rows": new_rows}
 
 
 # --- Shadow table for functions ---

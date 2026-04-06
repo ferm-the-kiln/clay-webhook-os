@@ -64,6 +64,10 @@ class DualAuthMiddleware(BaseHTTPMiddleware):
         if path.startswith("/channels/client"):
             return await call_next(request)
 
+        # Allow bridge callbacks (security via unguessable bridge ID)
+        if path.startswith("/bridge/callback/"):
+            return await call_next(request)
+
         # Allow auth endpoints
         if path.startswith(self.AUTH_PREFIXES):
             return await call_next(request)

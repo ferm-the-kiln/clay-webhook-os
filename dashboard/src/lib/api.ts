@@ -2453,3 +2453,15 @@ export function duplicateTable(
 ): Promise<TableDefinition> {
   return apiFetch(`/tables/${tableId}/duplicate`, { method: "POST" });
 }
+
+export function validateTable(
+  tableId: string,
+): Promise<{ valid: boolean; errors: string[]; warnings: string[] }> {
+  return apiFetch(`/tables/${tableId}/validate`, { method: "POST" });
+}
+
+// --- Bridge ---
+
+export function fetchBridgeStats(): Promise<import("./types").BridgeStats> {
+  return apiFetch("/bridge/stats");
+}

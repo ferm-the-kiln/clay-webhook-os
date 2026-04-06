@@ -34,6 +34,11 @@ const COLUMN_TYPE_COLORS: Record<string, string> = {
   gate: "border-l-amber-500",
   input: "border-l-zinc-600",
   static: "border-l-zinc-600",
+  http: "border-l-orange-500",
+  waterfall: "border-l-emerald-500",
+  lookup: "border-l-cyan-500",
+  script: "border-l-rose-500",
+  write: "border-l-indigo-500",
 };
 
 interface TableGridProps {

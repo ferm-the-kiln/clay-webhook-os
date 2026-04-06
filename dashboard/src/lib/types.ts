@@ -1038,7 +1038,79 @@ export type TableColumnType =
   | "ai"
   | "formula"
   | "gate"
-  | "static";
+  | "static"
+  | "http"
+  | "waterfall"
+  | "lookup"
+  | "script"
+  | "write";
+
+// --- Column config sub-types ---
+
+export interface ErrorHandlingConfig {
+  on_error: "skip" | "fallback" | "stop";
+  fallback_value: string | null;
+  max_retries: number;
+  retry_delay_ms: number;
+  retry_backoff: "exponential" | "linear" | "fixed";
+}
+
+export interface RateLimitConfig {
+  requests_per_minute: number;
+  delay_between_ms: number;
+}
+
+export interface HttpColumnConfig {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  url: string;
+  headers: Record<string, string>;
+  body: Record<string, unknown> | string | null;
+  extract: string;
+  if_empty: string | null;
+}
+
+export interface WaterfallProvider {
+  tool: string;
+  name: string;
+  params: Record<string, string>;
+  timeout: number;
+}
+
+export interface WaterfallColumnConfig {
+  providers: WaterfallProvider[];
+}
+
+export interface LookupColumnConfig {
+  source_table_id: string;
+  match_column: string;
+  match_value: string;
+  match_operator: "equals" | "contains";
+  return_column: string | null;
+  return_type: "value" | "boolean" | "count" | "rows";
+  match_mode: "first" | "all";
+}
+
+export interface ScriptColumnConfig {
+  language: "python" | "bash" | "node";
+  code: string;
+  script_name: string | null;
+  extract: string | null;
+  timeout: number;
+}
+
+export interface WriteColumnConfig {
+  dest_table_id: string;
+  column_mapping: Record<string, string>;
+  mode: "append" | "upsert";
+  upsert_match_key: string | null;
+  expand_column: string | null;
+}
+
+export interface ValidateTableResponse {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
 
 export interface TableColumn {
   id: string;
@@ -1066,6 +1138,15 @@ export interface TableColumn {
   extract_path: string | null;
   // Dependencies
   depends_on: string[];
+  // New column type configs
+  http_config: HttpColumnConfig | null;
+  waterfall_config: WaterfallColumnConfig | null;
+  lookup_config: LookupColumnConfig | null;
+  script_config: ScriptColumnConfig | null;
+  write_config: WriteColumnConfig | null;
+  // Resilience
+  error_handling: ErrorHandlingConfig | null;
+  rate_limit: RateLimitConfig | null;
 }
 
 export interface TableDefinition {
@@ -1104,6 +1185,8 @@ export interface TableCellUpdate {
   duration_ms?: number;
   skip_reason?: "upstream_error";
   upstream_column_id?: string;
+  fallback?: boolean;
+  provider?: string;
 }
 
 export interface TableColumnProgress {
@@ -1122,7 +1205,10 @@ export type TableExecutionEvent =
   | TableColumnProgress
   | { type: "column_complete"; column_id: string; done: number; errors: number; avg_duration_ms: number }
   | { type: "gate_result"; column_id: string; passed: number; filtered: number; total: number }
-  | { type: "execute_complete"; total_duration_ms: number; cells_done: number; cells_errored: number };
+  | { type: "execute_complete"; total_duration_ms: number; cells_done: number; cells_errored: number; halted?: boolean }
+  | { type: "retry"; column_id: string; row_id?: string; attempt: number; max_retries: number; delay_ms: number; error?: string }
+  | { type: "waterfall_fallback"; column_id: string; row_id: string; provider: string; reason: string }
+  | { type: "execution_halted"; column_id: string; reason: string };
 
 // Pipeline flow strip types
 export interface ExecutionWave {
@@ -1135,4 +1221,17 @@ export interface WaveEdge {
   to: string; // column_id
   type: "data" | "gate";
   condition?: string;
+}
+
+// --- Bridge (synchronous webhook bridge) ---
+
+export interface BridgeStats {
+  pending: number;
+  max_pending: number;
+  timeout_s: number;
+  recently_resolved: number;
+  total_created: number;
+  total_resolved: number;
+  total_timed_out: number;
+  total_duplicates: number;
 }

@@ -160,6 +160,13 @@ class TableStore:
             parent_column_id=req.parent_column_id,
             extract_path=req.extract_path,
             depends_on=depends_on,
+            http_config=req.http_config,
+            waterfall_config=req.waterfall_config,
+            lookup_config=req.lookup_config,
+            script_config=req.script_config,
+            write_config=req.write_config,
+            error_handling=req.error_handling,
+            rate_limit=req.rate_limit,
         )
 
         # Shift positions of columns at or after the insertion point
@@ -400,6 +407,110 @@ class TableStore:
         content = "".join(json.dumps(row) + "\n" for row in all_rows)
         atomic_write_text(rows_path, content)
         return updated_count
+
+    # --- Upsert + Expand ---
+
+    def upsert_rows(self, table_id: str, rows: list[dict], match_key: str) -> dict:
+        """Upsert rows: update existing rows matching on match_key, insert new ones.
+
+        Returns {"updated": int, "inserted": int}.
+        """
+        table = self.get(table_id)
+        if not table:
+            return {"updated": 0, "inserted": 0, "error": "Table not found"}
+
+        existing_rows, _ = self.get_rows(table_id, offset=0, limit=100_000)
+
+        # Build index on match key
+        index: dict[str, int] = {}
+        for i, r in enumerate(existing_rows):
+            val = str(r.get(f"{match_key}__value", r.get(match_key, "")))
+            if val:
+                index[val] = i
+
+        updated = 0
+        inserted = 0
+        new_rows = []
+
+        for incoming in rows:
+            match_val = str(incoming.get(f"{match_key}__value", incoming.get(match_key, "")))
+
+            if match_val and match_val in index:
+                # Update existing row
+                idx = index[match_val]
+                existing_rows[idx].update(incoming)
+                updated += 1
+            else:
+                # Insert new row
+                import uuid
+                row = dict(incoming)
+                if "_row_id" not in row:
+                    row["_row_id"] = uuid.uuid4().hex[:12]
+                new_rows.append(row)
+                inserted += 1
+
+        # Rewrite all rows
+        all_rows = existing_rows + new_rows
+        rows_path = self.base_dir / table_id / "rows.jsonl"
+        from app.core.atomic_writer import atomic_write_text
+        content = "".join(json.dumps(row) + "\n" for row in all_rows)
+        atomic_write_text(rows_path, content)
+
+        # Update row count
+        table.row_count = len(all_rows)
+        table.updated_at = time.time()
+        self._save_meta(table)
+
+        logger.info("[table_store] Upsert on %s: %d updated, %d inserted", table_id, updated, inserted)
+        return {"updated": updated, "inserted": inserted}
+
+    def expand_column(self, table_id: str, source_column_id: str) -> int:
+        """Expand array values in a column into separate rows.
+
+        For each row where source_column is a list, creates N new rows
+        (one per element) and removes the original. Other column values are copied.
+
+        Returns the number of new rows created.
+        """
+        table = self.get(table_id)
+        if not table:
+            return 0
+
+        existing_rows, _ = self.get_rows(table_id, offset=0, limit=100_000)
+        result_rows = []
+        new_count = 0
+
+        for row in existing_rows:
+            val = row.get(f"{source_column_id}__value")
+            if isinstance(val, list) and len(val) > 1:
+                # Expand: create one row per array element
+                import uuid
+                for item in val:
+                    new_row = dict(row)
+                    new_row["_row_id"] = uuid.uuid4().hex[:12]
+                    if isinstance(item, dict):
+                        # Flatten dict fields into the source column
+                        new_row[f"{source_column_id}__value"] = item
+                    else:
+                        new_row[f"{source_column_id}__value"] = item
+                    result_rows.append(new_row)
+                    new_count += 1
+                new_count -= 1  # Don't count the original row replacement
+            else:
+                result_rows.append(row)
+
+        # Rewrite rows
+        rows_path = self.base_dir / table_id / "rows.jsonl"
+        from app.core.atomic_writer import atomic_write_text
+        content = "".join(json.dumps(row) + "\n" for row in result_rows)
+        atomic_write_text(rows_path, content)
+
+        table.row_count = len(result_rows)
+        table.updated_at = time.time()
+        self._save_meta(table)
+
+        logger.info("[table_store] Expanded column %s in %s: %d new rows", source_column_id, table_id, new_count)
+        return new_count
 
     # --- Internal ---
 

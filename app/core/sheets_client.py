@@ -278,6 +278,17 @@ class SheetsClient:
             "--json", json.dumps(body),
         )
 
+    async def read_values(
+        self, spreadsheet_id: str, range_: str = "Sheet1"
+    ) -> list[list]:
+        """Read values from a spreadsheet range. Returns list of rows (each row is a list of cell values)."""
+        result = await self._run_gws(
+            "sheets", "spreadsheets.values", "get",
+            "--spreadsheetId", spreadsheet_id,
+            "--range", range_,
+        )
+        return result.get("values", [])
+
     async def add_sheet_tab(self, spreadsheet_id: str, title: str) -> int:
         """Add a new sheet tab to a spreadsheet. Returns sheet ID."""
         body = {
