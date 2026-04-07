@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ArrowRight, X, Check } from "lucide-react";
+import { ArrowRight, X, Check, CheckCircle2, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,21 +15,25 @@ import type { WorkflowTemplate } from "@/lib/types";
 interface StepMapColumnsProps {
   csvHeaders: string[];
   selectedRecipes: WorkflowTemplate[];
-  /** Callback with { csvHeader: roleColumnId } mapping */
   onMappingChange: (mapping: Record<string, string>, allRequiredMapped: boolean) => void;
+  totalRows: number;
+  limit?: number;
+  onLimitChange: (limit: number | undefined) => void;
 }
 
 export function StepMapColumns({
   csvHeaders,
   selectedRecipes,
   onMappingChange,
+  totalRows,
+  limit,
+  onLimitChange,
 }: StepMapColumnsProps) {
   // Deduplicate roles across all selected recipes
   const roleMap = new Map<string, { name: string; description: string; required: boolean }>();
   for (const recipe of selectedRecipes) {
     for (const input of recipe.expected_inputs) {
       const existing = roleMap.get(input.name);
-      // If any recipe requires it, it's required
       const required = input.required !== false;
       if (!existing || required) {
         roleMap.set(input.name, {
@@ -51,7 +56,6 @@ export function StepMapColumns({
   const requiredTargets = targets.filter((t) => t.required);
   const optionalTargets = targets.filter((t) => !t.required);
 
-  // { targetId: csvHeader }
   const [mappings, setMappings] = useState<Record<string, string>>({});
   const [confidence, setConfidence] = useState<Record<string, MatchConfidence>>({});
 
@@ -66,7 +70,6 @@ export function StepMapColumns({
   // Notify parent of mapping changes
   useEffect(() => {
     const unmappedRequired = requiredTargets.filter((t) => !mappings[t.id]);
-    // Build { csvHeader: roleColumnId } for the import API
     const columnMapping: Record<string, string> = {};
     for (const [targetId, csvHeader] of Object.entries(mappings)) {
       columnMapping[csvHeader] = targetId;
@@ -96,6 +99,11 @@ export function StepMapColumns({
   const mappedHeaders = new Set(Object.values(mappings));
   const unmappedHeaders = csvHeaders.filter((h) => !mappedHeaders.has(h));
 
+  // Check if all required targets have exact matches
+  const allExactMatch =
+    requiredTargets.length > 0 &&
+    requiredTargets.every((t) => confidence[t.id] === "exact");
+
   return (
     <div className="space-y-6">
       <div className="text-center space-y-1">
@@ -106,6 +114,16 @@ export function StepMapColumns({
       </div>
 
       <div className="space-y-4">
+        {/* Skip-ahead banner */}
+        {allExactMatch && (
+          <div className="rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3 flex items-center gap-3">
+            <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
+            <span className="text-sm text-green-300">
+              All columns auto-mapped perfectly. Ready to run!
+            </span>
+          </div>
+        )}
+
         {/* Required */}
         {requiredTargets.length > 0 && (
           <div className="space-y-1.5">
@@ -164,6 +182,45 @@ export function StepMapColumns({
             </div>
           </div>
         )}
+
+        {/* Row count warning + limit picker */}
+        {totalRows > 500 && (
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2 text-sm text-amber-300">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Large dataset — {totalRows.toLocaleString()} rows may take a while
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-clay-400">Run first</span>
+              {[50, 100, 250].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => onLimitChange(n)}
+                  className={cn(
+                    "px-2 py-0.5 rounded text-xs border transition-colors",
+                    limit === n
+                      ? "border-kiln-teal text-kiln-teal bg-kiln-teal/10"
+                      : "border-clay-600 text-clay-400 hover:text-clay-200",
+                  )}
+                >
+                  {n} rows
+                </button>
+              ))}
+              <button
+                onClick={() => onLimitChange(undefined)}
+                className={cn(
+                  "px-2 py-0.5 rounded text-xs border transition-colors",
+                  limit === undefined
+                    ? "border-kiln-teal text-kiln-teal bg-kiln-teal/10"
+                    : "border-clay-600 text-clay-400 hover:text-clay-200",
+                )}
+              >
+                All {totalRows.toLocaleString()}
+              </button>
+              <span className="text-xs text-clay-500">as a test</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -196,7 +253,6 @@ function MappingRow({
             : "border-clay-700 bg-clay-800/30"
       }`}
     >
-      {/* Confidence dot */}
       <div className="w-3 flex justify-center shrink-0">
         {matchConfidence === "exact" && (
           <div className="h-2 w-2 rounded-full bg-green-400" title="Exact match" />
@@ -209,7 +265,6 @@ function MappingRow({
         )}
       </div>
 
-      {/* Role info */}
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
         <span className="text-xs font-mono font-medium text-clay-200 truncate">
           {target.name}
@@ -223,7 +278,6 @@ function MappingRow({
 
       <ArrowRight className="h-3 w-3 text-clay-500 shrink-0" />
 
-      {/* CSV column selector */}
       <div className="flex items-center gap-1 shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

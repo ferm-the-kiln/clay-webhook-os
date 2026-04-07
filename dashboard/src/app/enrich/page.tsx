@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -22,10 +23,12 @@ const STEPS: { key: Step; label: string }[] = [
 
 export default function EnrichPage() {
   const [step, setStep] = useState<Step>("upload");
+  const [direction, setDirection] = useState(0);
   const [csvPreview, setCsvPreview] = useState<CsvPreview | null>(null);
   const [selectedRecipeIds, setSelectedRecipeIds] = useState<Set<string>>(new Set());
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [allRequiredMapped, setAllRequiredMapped] = useState(false);
+  const [rowLimit, setRowLimit] = useState<number | undefined>(undefined);
 
   const selectedRecipes: WorkflowTemplate[] = useMemo(
     () => WORKFLOW_TEMPLATES.filter((t) => selectedRecipeIds.has(t.id)),
@@ -54,28 +57,53 @@ export default function EnrichPage() {
     setSelectedRecipeIds(new Set());
     setColumnMapping({});
     setAllRequiredMapped(false);
+    setRowLimit(undefined);
     setStep("upload");
   }, []);
 
-  // Can advance to next step?
   const canAdvance: Record<Step, boolean> = {
     upload: !!csvPreview,
     recipes: selectedRecipeIds.size > 0,
     map: allRequiredMapped,
-    run: false, // no next step
+    run: false,
   };
 
   const stepIdx = STEPS.findIndex((s) => s.key === step);
 
-  const goNext = () => {
+  const goNext = useCallback(() => {
     const next = STEPS[stepIdx + 1];
-    if (next) setStep(next.key);
-  };
+    if (next) {
+      setDirection(1);
+      setStep(next.key);
+    }
+  }, [stepIdx]);
 
-  const goBack = () => {
+  const goBack = useCallback(() => {
     const prev = STEPS[stepIdx - 1];
-    if (prev) setStep(prev.key);
-  };
+    if (prev) {
+      setDirection(-1);
+      setStep(prev.key);
+    }
+  }, [stepIdx]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.key === "Enter" && canAdvance[step]) {
+        e.preventDefault();
+        goNext();
+      }
+      if (e.key === "Escape" && stepIdx > 0 && step !== "run") {
+        e.preventDefault();
+        goBack();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canAdvance, step, stepIdx, goNext, goBack]);
 
   return (
     <div className="flex flex-col h-full">
@@ -89,7 +117,6 @@ export default function EnrichPage() {
             </h1>
           </div>
 
-          {/* Step indicator pills */}
           <div className="flex items-center gap-2">
             {STEPS.map((s, i) => (
               <div key={s.key} className="flex items-center gap-2">
@@ -120,85 +147,105 @@ export default function EnrichPage() {
         </div>
       </div>
 
-      {/* Step content */}
+      {/* Step content with animated transitions */}
       <div className="flex-1 overflow-y-auto py-8 px-6">
-        <div className="max-w-2xl mx-auto">
-          {step === "upload" && (
-            <StepUpload
-              preview={csvPreview}
-              onParsed={setCsvPreview}
-              onClear={() => setCsvPreview(null)}
-            />
-          )}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: direction * 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: direction * -30 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="max-w-2xl mx-auto"
+          >
+            {step === "upload" && (
+              <StepUpload
+                preview={csvPreview}
+                onParsed={setCsvPreview}
+                onClear={() => setCsvPreview(null)}
+              />
+            )}
 
-          {step === "recipes" && (
-            <StepRecipes
-              recipes={WORKFLOW_TEMPLATES}
-              selected={selectedRecipeIds}
-              onToggle={handleToggleRecipe}
-            />
-          )}
+            {step === "recipes" && (
+              <StepRecipes
+                recipes={WORKFLOW_TEMPLATES}
+                selected={selectedRecipeIds}
+                onToggle={handleToggleRecipe}
+                csvHeaders={csvPreview?.headers ?? []}
+              />
+            )}
 
-          {step === "map" && csvPreview && (
-            <StepMapColumns
-              csvHeaders={csvPreview.headers}
-              selectedRecipes={selectedRecipes}
-              onMappingChange={handleMappingChange}
-            />
-          )}
+            {step === "map" && csvPreview && (
+              <StepMapColumns
+                csvHeaders={csvPreview.headers}
+                selectedRecipes={selectedRecipes}
+                onMappingChange={handleMappingChange}
+                totalRows={csvPreview.totalRows}
+                limit={rowLimit}
+                onLimitChange={setRowLimit}
+              />
+            )}
 
-          {step === "run" && csvPreview && (
-            <StepProgress
-              csvPreview={csvPreview}
-              selectedRecipes={selectedRecipes}
-              columnMapping={columnMapping}
-              onStartOver={handleStartOver}
-            />
-          )}
-        </div>
+            {step === "run" && csvPreview && (
+              <StepProgress
+                csvPreview={csvPreview}
+                selectedRecipes={selectedRecipes}
+                columnMapping={columnMapping}
+                onStartOver={handleStartOver}
+                rowLimit={rowLimit}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      {/* Bottom navigation bar (hidden during run step) */}
+      {/* Bottom navigation bar */}
       {step !== "run" && (
         <div className="border-t border-clay-700 bg-clay-800/50 px-6 py-3">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
-            <div>
+            <div className="flex items-center">
               {stepIdx > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-clay-400 hover:text-clay-200"
-                  onClick={goBack}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Back
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-clay-400 hover:text-clay-200"
+                    onClick={goBack}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Back
+                  </Button>
+                  <kbd className="retro-keycap text-[10px] ml-1">esc</kbd>
+                </>
               )}
             </div>
 
-            <Button
-              size="sm"
-              className={cn(
-                "h-9 px-6",
-                step === "map"
-                  ? "bg-kiln-teal text-black hover:bg-kiln-teal/90"
-                  : "bg-clay-600 text-clay-100 hover:bg-clay-500",
-              )}
-              disabled={!canAdvance[step]}
-              onClick={goNext}
-            >
-              {step === "map" ? (
-                <>
-                  <Zap className="h-4 w-4 mr-1" />
-                  Run Enrichment
-                </>
-              ) : (
-                <>
-                  Next
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </>
-              )}
-            </Button>
+            <div className="flex items-center">
+              <Button
+                size="sm"
+                className={cn(
+                  "h-9 px-6",
+                  step === "map"
+                    ? "bg-kiln-teal text-black hover:bg-kiln-teal/90"
+                    : "bg-clay-600 text-clay-100 hover:bg-clay-500",
+                )}
+                disabled={!canAdvance[step]}
+                onClick={goNext}
+              >
+                {step === "map" ? (
+                  <>
+                    <Zap className="h-4 w-4 mr-1" />
+                    Run Enrichment
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </>
+                )}
+              </Button>
+              <kbd className="retro-keycap text-[10px] ml-2">enter</kbd>
+            </div>
           </div>
         </div>
       )}
