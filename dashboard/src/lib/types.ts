@@ -1206,7 +1206,7 @@ export interface WorkflowTemplate {
   description: string;
   category: WorkflowCategory;
   icon: string; // lucide icon name
-  expected_inputs: { name: string; description: string }[];
+  expected_inputs: { name: string; description: string; required?: boolean }[];
   produced_outputs: { name: string; description: string }[];
   columns: WorkflowTemplateColumn[];
 }

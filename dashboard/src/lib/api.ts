@@ -2429,6 +2429,14 @@ export function streamTableExecution(
   return controller;
 }
 
+export async function exportTableCsv(tableId: string): Promise<Blob> {
+  const res = await fetch(`${API_URL}/tables/${tableId}/export-csv`, {
+    headers: { "X-API-Key": API_KEY },
+  });
+  if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+  return res.blob();
+}
+
 export function getOrCreateFunctionTable(
   functionId: string,
 ): Promise<TableDefinition> {

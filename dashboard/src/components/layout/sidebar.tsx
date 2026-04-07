@@ -62,7 +62,7 @@ const REP_NAV_SECTIONS: NavSection[] = [
     accentColor: "kiln-teal",
     items: [
       { href: "/", label: "Home", icon: Home, shortcut: "1" },
-      { href: "/tables", label: "Enrich", icon: Table2, shortcut: "T" },
+      { href: "/enrich", label: "Enrich", icon: Table2, shortcut: "T" },
       { href: "/chat", label: "Chat", icon: MessageSquare, shortcut: "2" },
       { href: "/review", label: "Review", icon: ClipboardCheck, shortcut: "4" },
       { href: "/outbound", label: "Outbound", icon: Send, shortcut: "5" },
@@ -290,7 +290,7 @@ export function Sidebar() {
   const mobileBottomItems = persona === "rep"
     ? [
         { href: "/", label: "Home", icon: Home },
-        { href: "/tables", label: "Enrich", icon: Table2 },
+        { href: "/enrich", label: "Enrich", icon: Table2 },
         { href: "/chat", label: "Chat", icon: MessageSquare },
         { href: "/review", label: "Review", icon: ClipboardCheck },
       ]
