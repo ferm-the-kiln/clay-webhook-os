@@ -5,7 +5,7 @@ import { Paperclip, Image, Film, FileIcon, Download, Trash2, ChevronDown, Chevro
 import { cn } from "@/lib/utils";
 import type { PortalMedia } from "@/lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 function isImage(mime: string) {
   return mime.startsWith("image/");

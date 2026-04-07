@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchHealth, fetchUsageHealth } from "@/lib/api";
-import type { UsageHealth } from "@/lib/types";
+import type { HealthResponse, UsageHealth } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,15 +60,17 @@ export function Header({ title, breadcrumbs, lastUpdated, onRefresh }: HeaderPro
   const [healthy, setHealthy] = useState<boolean | null>(null);
   const [showReconnect, setShowReconnect] = useState(false);
   const [usageHealth, setUsageHealth] = useState<UsageHealth | null>(null);
+  const [healthData, setHealthData] = useState<HealthResponse | null>(null);
 
   useEffect(() => {
     let active = true;
     let failCount = 0;
     const check = () => {
       fetchHealth()
-        .then(() => {
+        .then((data) => {
           if (active) {
             setHealthy(true);
+            setHealthData(data);
             setShowReconnect(false);
             failCount = 0;
           }
@@ -76,6 +78,7 @@ export function Header({ title, breadcrumbs, lastUpdated, onRefresh }: HeaderPro
         .catch(() => {
           if (active) {
             setHealthy(false);
+            setHealthData(null);
             failCount++;
             if (failCount >= 2) setShowReconnect(true);
           }
@@ -228,29 +231,59 @@ export function Header({ title, breadcrumbs, lastUpdated, onRefresh }: HeaderPro
 
           <NotificationPanel />
 
-          <div role="status" aria-live="polite">
-            <Badge
-              variant={
-                healthy === null ? "secondary" : healthy ? "default" : "destructive"
-              }
-              className={
-                healthy === true
-                  ? "bg-status-success/15 text-status-success border-status-success/25 hover:bg-status-success/20"
-                  : healthy === false
-                    ? "bg-kiln-coral/15 text-kiln-coral border-kiln-coral/25"
-                    : ""
-              }
-            >
-              {healthy === true ? (
-                <Wifi className="h-3 w-3 mr-1" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div role="status" aria-live="polite">
+                <Badge
+                  variant={
+                    healthy === null ? "secondary" : healthy ? "default" : "destructive"
+                  }
+                  className={`cursor-default ${
+                    healthy === true
+                      ? "bg-status-success/15 text-status-success border-status-success/25 hover:bg-status-success/20"
+                      : healthy === false
+                        ? "bg-kiln-coral/15 text-kiln-coral border-kiln-coral/25"
+                        : ""
+                  }`}
+                >
+                  {healthy === true ? (
+                    <Wifi className="h-3 w-3 mr-1" />
+                  ) : healthy === false ? (
+                    <WifiOff className="h-3 w-3 mr-1" />
+                  ) : (
+                    <span className="mr-1.5 h-2 w-2 rounded-full bg-clay-400 animate-pulse" />
+                  )}
+                  {healthy === null ? "Checking..." : healthy ? "Connected" : "Offline"}
+                </Badge>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              {healthData?.claude_user?.logged_in ? (
+                <div className="space-y-1">
+                  <p className="font-medium">
+                    {healthData.claude_user.email || "Claude Code"}
+                  </p>
+                  <p className="text-clay-300 text-xs">
+                    Subscription: {healthData.claude_user.subscription_type || "unknown"}
+                  </p>
+                  {healthData.backend_host && (
+                    <p className="text-clay-300 text-xs">
+                      Host: {healthData.backend_host}
+                    </p>
+                  )}
+                  {healthData.daemon && (
+                    <p className={`text-xs ${healthData.daemon.running ? "text-status-success" : "text-kiln-coral"}`}>
+                      Daemon: {healthData.daemon.running ? "running" : "stopped"}
+                    </p>
+                  )}
+                </div>
               ) : healthy === false ? (
-                <WifiOff className="h-3 w-3 mr-1" />
+                <p>Backend unreachable. Is the server running?</p>
               ) : (
-                <span className="mr-1.5 h-2 w-2 rounded-full bg-clay-400 animate-pulse" />
+                <p>Checking connection...</p>
               )}
-              {healthy === null ? "Checking..." : healthy ? "Connected" : "Offline"}
-            </Badge>
-          </div>
+            </TooltipContent>
+          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>

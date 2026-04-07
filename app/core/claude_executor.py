@@ -164,7 +164,8 @@ class ClaudeExecutor:
 
         if proc.returncode != 0:
             stderr = (await proc.stderr.read()).decode().strip()
-            yield {"error": f"Exit code {proc.returncode}: {stderr}", "done": True}
+            detail = stderr or raw[:500] or "no output"
+            yield {"error": f"Exit code {proc.returncode}: {detail}", "done": True}
             return
 
         # Final result with parsed JSON

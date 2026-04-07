@@ -81,6 +81,21 @@ export interface HealthResponse {
     latency_ms?: number;
     error?: string;
   };
+  claude_user?: {
+    logged_in: boolean;
+    email: string | null;
+    auth_method: string | null;
+    subscription_type: string | null;
+    org_name: string | null;
+  };
+  daemon?: {
+    running: boolean;
+    last_heartbeat_sec?: number;
+    pid?: number | null;
+    stale?: boolean;
+    reason?: string;
+  };
+  backend_host?: string;
 }
 
 export type DestinationType = "clay_webhook" | "generic_webhook";

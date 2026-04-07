@@ -75,7 +75,7 @@ import type {
   TableExecutionEvent,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
 
 export class NetworkError extends Error {

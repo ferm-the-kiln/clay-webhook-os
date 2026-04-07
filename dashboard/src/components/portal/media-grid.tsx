@@ -5,7 +5,7 @@ import { Trash2, X, FileIcon, Film, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PortalMedia } from "@/lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 function isImage(mime: string) {
   return mime.startsWith("image/");

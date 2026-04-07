@@ -24,7 +24,7 @@ import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 import { VideoEmbed } from "./video-embed";
 import { parseVideoUrls } from "@/lib/video-utils";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const TYPE_CONFIG: Record<string, {
   label: string;

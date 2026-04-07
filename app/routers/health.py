@@ -1,5 +1,11 @@
 import asyncio
+import json
+import logging
+import os
+import platform
+import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
@@ -7,7 +13,60 @@ from fastapi.responses import StreamingResponse
 from app.config import settings
 from app.core.skill_loader import list_skills
 
+logger = logging.getLogger("clay-webhook-os")
 router = APIRouter()
+
+# Cache claude auth status (refreshed every 5 minutes)
+_claude_auth_cache: dict | None = None
+_claude_auth_ts: float = 0
+_CLAUDE_AUTH_TTL = 300  # 5 minutes
+
+
+async def _get_claude_auth() -> dict:
+    """Get Claude CLI auth status (cached). Strips ANTHROPIC_API_KEY to get real subscription info."""
+    global _claude_auth_cache, _claude_auth_ts
+    if _claude_auth_cache and (time.time() - _claude_auth_ts) < _CLAUDE_AUTH_TTL:
+        return _claude_auth_cache
+
+    env = {k: v for k, v in os.environ.items() if k not in ("ANTHROPIC_API_KEY", "CLAUDECODE")}
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "claude", "auth", "status",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+        result = json.loads(stdout.decode().strip())
+        _claude_auth_cache = result
+        _claude_auth_ts = time.time()
+        return result
+    except Exception as e:
+        logger.warning("[health] Failed to get claude auth status: %s", e)
+        return {"loggedIn": False, "error": str(e)}
+
+
+def _get_daemon_status() -> dict:
+    """Check clay-run daemon health via heartbeat file."""
+    heartbeat_path = Path.home() / ".clay-run-heartbeat"
+    pid_path = Path.home() / ".clay-run.pid"
+
+    if not heartbeat_path.exists():
+        return {"running": False, "reason": "no heartbeat file"}
+
+    try:
+        ts = float(heartbeat_path.read_text().strip())
+        age_sec = time.time() - ts
+        pid = int(pid_path.read_text().strip()) if pid_path.exists() else None
+
+        return {
+            "running": age_sec < 30,
+            "last_heartbeat_sec": round(age_sec, 1),
+            "pid": pid,
+            "stale": age_sec > 30,
+        }
+    except (ValueError, OSError) as e:
+        return {"running": False, "reason": str(e)}
 
 
 @router.get("/")
@@ -71,6 +130,22 @@ async def health(request: Request, deep: bool = False):
     prompt_cache = getattr(request.app.state, "prompt_cache", None)
     if prompt_cache:
         result["prompt_cache"] = prompt_cache.get_stats()
+
+    # Claude subscription identity
+    auth = await _get_claude_auth()
+    result["claude_user"] = {
+        "logged_in": auth.get("loggedIn", False),
+        "email": auth.get("email"),
+        "auth_method": auth.get("authMethod"),
+        "subscription_type": auth.get("subscriptionType"),
+        "org_name": auth.get("orgName"),
+    }
+
+    # Daemon status
+    result["daemon"] = _get_daemon_status()
+
+    # Backend host info
+    result["backend_host"] = platform.node()
 
     if deep:
         from app.core.claude_executor import ClaudeExecutor

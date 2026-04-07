@@ -9,7 +9,7 @@ import type { UpdateTemplate, PortalMedia, ProjectSummary } from "@/lib/types";
 import { AuthorPicker, getSelectedAuthor, saveAuthor } from "./author-picker";
 import { MarkdownContent } from "./markdown-content";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://clay.nomynoms.com";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const UPDATE_TYPES = [
   { id: "update", label: "Update" },
