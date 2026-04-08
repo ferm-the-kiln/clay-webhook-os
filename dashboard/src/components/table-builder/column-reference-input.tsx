@@ -12,12 +12,12 @@ interface ColumnReferenceInputProps {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  input: "bg-zinc-700 text-zinc-200",
+  input: "bg-clay-500 text-clay-100",
   enrichment: "bg-blue-500/20 text-blue-300",
   ai: "bg-purple-500/20 text-purple-300",
   formula: "bg-teal-500/20 text-teal-300",
   gate: "bg-amber-500/20 text-amber-300",
-  static: "bg-zinc-700 text-zinc-300",
+  static: "bg-clay-500 text-clay-100",
 };
 
 /**
@@ -154,7 +154,7 @@ export function ColumnReferenceInput({
     <div className="relative">
       {/* Pill display overlay (shown above the actual input) */}
       {value && value.includes("{{") && (
-        <div className="pointer-events-none absolute inset-0 flex items-center px-3 text-sm text-zinc-300 overflow-hidden bg-zinc-900 rounded-md border border-transparent">
+        <div className="pointer-events-none absolute inset-0 flex items-center px-3 text-sm text-clay-100 overflow-hidden bg-clay-900 rounded-md border border-transparent">
           {renderDisplay()}
         </div>
       )}
@@ -167,7 +167,7 @@ export function ColumnReferenceInput({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         style={value.includes("{{") ? { color: "transparent", caretColor: "white" } : undefined}
-        className={`w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-sm text-white outline-none focus:border-kiln-teal transition-colors ${
+        className={`w-full px-3 py-2 bg-clay-900 border border-clay-500 rounded-md text-sm text-white outline-none focus:border-kiln-teal transition-colors ${
           multiline ? "min-h-[80px] resize-y" : ""
         }`}
       />
@@ -176,7 +176,7 @@ export function ColumnReferenceInput({
       {showDropdown && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 mt-1 w-full bg-zinc-900 border border-zinc-700 rounded-md shadow-xl z-50 max-h-48 overflow-y-auto"
+          className="absolute top-full left-0 mt-1 w-full bg-clay-900 border border-clay-500 rounded-md shadow-xl z-50 max-h-48 overflow-y-auto"
         >
           {filtered.length === 0 ? (
             <div className="px-3 py-2 text-xs text-clay-300">No matching columns</div>
@@ -186,7 +186,7 @@ export function ColumnReferenceInput({
               return (
                 <button
                   key={col.id}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-clay-100 hover:bg-clay-700 text-left"
                   onClick={() => selectColumn(col)}
                 >
                   <span

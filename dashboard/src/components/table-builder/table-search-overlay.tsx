@@ -69,7 +69,7 @@ export function TableSearchOverlay({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.15 }}
-          className="absolute top-2 right-4 z-30 flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl px-3 py-1.5"
+          className="absolute top-2 right-4 z-30 flex items-center gap-2 bg-clay-900 border border-clay-500 rounded-lg shadow-xl px-3 py-1.5"
         >
           <input
             ref={inputRef}
@@ -94,14 +94,14 @@ export function TableSearchOverlay({
             <button
               onClick={() => onNavigate("up")}
               disabled={matchCount === 0}
-              className="p-0.5 rounded hover:bg-zinc-700 text-clay-200 disabled:opacity-30"
+              className="p-0.5 rounded hover:bg-clay-500 text-clay-200 disabled:opacity-50"
             >
               <ChevronUp className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => onNavigate("down")}
               disabled={matchCount === 0}
-              className="p-0.5 rounded hover:bg-zinc-700 text-clay-200 disabled:opacity-30"
+              className="p-0.5 rounded hover:bg-clay-500 text-clay-200 disabled:opacity-50"
             >
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
@@ -113,7 +113,7 @@ export function TableSearchOverlay({
               setQuery("");
               onClose();
             }}
-            className="p-0.5 rounded hover:bg-zinc-700 text-clay-200"
+            className="p-0.5 rounded hover:bg-clay-500 text-clay-200"
           >
             <X className="w-3.5 h-3.5" />
           </button>

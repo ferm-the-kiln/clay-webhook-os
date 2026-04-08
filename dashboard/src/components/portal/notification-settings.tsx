@@ -174,7 +174,7 @@ export function NotificationSettings({
               <button
                 onClick={handleSave}
                 disabled={saving || !isDirty}
-                className="inline-flex items-center gap-1 rounded-md bg-clay-600 px-2.5 py-1 text-[11px] font-medium text-clay-100 hover:bg-clay-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 rounded-md bg-clay-600 px-2.5 py-1 text-[11px] font-medium text-clay-100 hover:bg-clay-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
                 Save
@@ -183,7 +183,7 @@ export function NotificationSettings({
                 <button
                   onClick={handleTest}
                   disabled={testing || isDirtySlack}
-                  className="inline-flex items-center gap-1 rounded-md border border-clay-600 px-2.5 py-1 text-[11px] font-medium text-clay-300 hover:bg-clay-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1 rounded-md border border-clay-600 px-2.5 py-1 text-[11px] font-medium text-clay-300 hover:bg-clay-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                   Test
@@ -258,7 +258,7 @@ export function NotificationSettings({
             <button
               onClick={handleSave}
               disabled={saving || !isDirty}
-              className="inline-flex items-center gap-1 rounded-md bg-clay-600 px-2.5 py-1 text-[11px] font-medium text-clay-100 hover:bg-clay-500 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 rounded-md bg-clay-600 px-2.5 py-1 text-[11px] font-medium text-clay-100 hover:bg-clay-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
               Save
@@ -267,7 +267,7 @@ export function NotificationSettings({
               <button
                 onClick={handleTest}
                 disabled={testing || isDirtySlack}
-                className="inline-flex items-center gap-1 rounded-md border border-clay-600 px-2.5 py-1 text-[11px] font-medium text-clay-300 hover:bg-clay-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 rounded-md border border-clay-600 px-2.5 py-1 text-[11px] font-medium text-clay-300 hover:bg-clay-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                 Test

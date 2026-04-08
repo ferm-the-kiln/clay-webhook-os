@@ -68,7 +68,7 @@ export function TableStatusBar({
       : 0;
 
   return (
-    <div className="relative shrink-0 border-t border-zinc-800 bg-zinc-900/80 backdrop-blur-sm px-4 py-1.5">
+    <div className="relative shrink-0 border-t border-clay-700 bg-clay-900/80 backdrop-blur-sm px-4 py-1.5">
       {/* Progress bar during execution */}
       {executing && (
         <motion.div
@@ -88,7 +88,7 @@ export function TableStatusBar({
           {stats.total} rows
         </button>
 
-        <span className="text-zinc-700">|</span>
+        <span className="text-clay-500">|</span>
 
         {/* Done */}
         {stats.done > 0 && (

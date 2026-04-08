@@ -322,7 +322,7 @@ export function ColumnConfigPanel({
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="right"
-        className="w-[400px] bg-zinc-950 border-zinc-800 text-white overflow-y-auto"
+        className="w-[400px] bg-clay-950 border-clay-700 text-white overflow-y-auto"
       >
         <SheetHeader className="mb-6">
           <SheetTitle className="flex items-center gap-2 text-white">
@@ -350,7 +350,7 @@ export function ColumnConfigPanel({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Email Address"
-              className="mt-1.5 bg-zinc-900 border-zinc-700 text-white"
+              className="mt-1.5 bg-clay-900 border-clay-500 text-white"
             />
           </div>
 
@@ -371,7 +371,7 @@ export function ColumnConfigPanel({
                   }
                   setAutoMapped(false);
                 }}
-                className="text-[10px] text-clay-300 hover:text-zinc-300 underline"
+                className="text-[10px] text-clay-300 hover:text-clay-100 underline"
               >
                 Clear
               </button>
@@ -429,7 +429,7 @@ export function ColumnConfigPanel({
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
                   placeholder="e.g. Based on the company description, score their fit for IoT solutions from 1-10"
-                  className="mt-1.5 bg-zinc-900 border-zinc-700 text-white min-h-[100px]"
+                  className="mt-1.5 bg-clay-900 border-clay-500 text-white min-h-[100px]"
                 />
                 <p className="text-xs text-clay-300 mt-1">
                   Type / to reference other column values
@@ -438,13 +438,13 @@ export function ColumnConfigPanel({
               <div>
                 <Label className="text-clay-200 text-xs">Model</Label>
                 <Select value={aiModel} onValueChange={setAiModel}>
-                  <SelectTrigger className="mt-1.5 bg-zinc-900 border-zinc-700 text-white">
+                  <SelectTrigger className="mt-1.5 bg-clay-900 border-clay-500 text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-700">
-                    <SelectItem value="sonnet" className="text-zinc-300">Sonnet (fast)</SelectItem>
-                    <SelectItem value="opus" className="text-zinc-300">Opus (best)</SelectItem>
-                    <SelectItem value="haiku" className="text-zinc-300">Haiku (cheapest)</SelectItem>
+                  <SelectContent className="bg-clay-900 border-clay-500">
+                    <SelectItem value="sonnet" className="text-clay-100">Sonnet (fast)</SelectItem>
+                    <SelectItem value="opus" className="text-clay-100">Opus (best)</SelectItem>
+                    <SelectItem value="haiku" className="text-clay-100">Haiku (cheapest)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -483,7 +483,7 @@ export function ColumnConfigPanel({
                   value={conditionLabel}
                   onChange={(e) => setConditionLabel(e.target.value)}
                   placeholder="e.g. Only companies with 50+ employees"
-                  className="mt-1.5 bg-zinc-900 border-zinc-700 text-white"
+                  className="mt-1.5 bg-clay-900 border-clay-500 text-white"
                 />
               </div>
             </>
@@ -496,12 +496,12 @@ export function ColumnConfigPanel({
                 <div className="w-24">
                   <Label className="text-clay-200 text-xs">Method</Label>
                   <Select value={httpMethod} onValueChange={setHttpMethod}>
-                    <SelectTrigger className="mt-1.5 bg-zinc-900 border-zinc-700 text-white">
+                    <SelectTrigger className="mt-1.5 bg-clay-900 border-clay-500 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                    <SelectContent className="bg-clay-900 border-clay-500">
                       {["GET", "POST", "PUT", "PATCH", "DELETE"].map((m) => (
-                        <SelectItem key={m} value={m} className="text-zinc-300">{m}</SelectItem>
+                        <SelectItem key={m} value={m} className="text-clay-100">{m}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -521,7 +521,7 @@ export function ColumnConfigPanel({
                 <div className="flex items-center justify-between">
                   <Label className="text-clay-200 text-xs">Headers</Label>
                   <button
-                    className="text-[10px] text-clay-300 hover:text-zinc-300"
+                    className="text-[10px] text-clay-300 hover:text-clay-100"
                     onClick={() => setHttpHeaders([...httpHeaders, ["", ""]])}
                   >
                     <Plus className="w-3 h-3 inline mr-0.5" />Add
@@ -537,7 +537,7 @@ export function ColumnConfigPanel({
                         setHttpHeaders(h);
                       }}
                       placeholder="Header name"
-                      className="flex-1 bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+                      className="flex-1 bg-clay-900 border-clay-500 text-white text-xs h-8"
                     />
                     <Input
                       value={val}
@@ -547,7 +547,7 @@ export function ColumnConfigPanel({
                         setHttpHeaders(h);
                       }}
                       placeholder="Value"
-                      className="flex-1 bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+                      className="flex-1 bg-clay-900 border-clay-500 text-white text-xs h-8"
                     />
                     <button onClick={() => setHttpHeaders(httpHeaders.filter((_, j) => j !== i))} className="text-clay-300 hover:text-clay-200">
                       <X className="w-3.5 h-3.5" />
@@ -563,7 +563,7 @@ export function ColumnConfigPanel({
                     value={httpBody}
                     onChange={(e) => setHttpBody(e.target.value)}
                     placeholder='{"query": "{{company_name}}"}'
-                    className="mt-1.5 bg-zinc-900 border-zinc-700 text-white font-mono text-xs min-h-[60px]"
+                    className="mt-1.5 bg-clay-900 border-clay-500 text-white font-mono text-xs min-h-[60px]"
                   />
                 </div>
               )}
@@ -574,7 +574,7 @@ export function ColumnConfigPanel({
                   value={httpExtract}
                   onChange={(e) => setHttpExtract(e.target.value)}
                   placeholder="$.data.company.name"
-                  className="mt-1.5 bg-zinc-900 border-zinc-700 text-white font-mono text-xs"
+                  className="mt-1.5 bg-clay-900 border-clay-500 text-white font-mono text-xs"
                 />
                 <p className="text-[10px] text-clay-300 mt-1">$ = entire response, $.field = nested field</p>
               </div>
@@ -585,7 +585,7 @@ export function ColumnConfigPanel({
                   value={httpIfEmpty}
                   onChange={(e) => setHttpIfEmpty(e.target.value)}
                   placeholder="N/A"
-                  className="mt-1.5 bg-zinc-900 border-zinc-700 text-white text-xs"
+                  className="mt-1.5 bg-clay-900 border-clay-500 text-white text-xs"
                 />
               </div>
             </div>
@@ -600,7 +600,7 @@ export function ColumnConfigPanel({
                   value={lookupSourceTable}
                   onChange={(e) => setLookupSourceTable(e.target.value)}
                   placeholder="table-id-to-search"
-                  className="mt-1.5 bg-zinc-900 border-zinc-700 text-white text-xs"
+                  className="mt-1.5 bg-clay-900 border-clay-500 text-white text-xs"
                 />
               </div>
               <div>
@@ -609,7 +609,7 @@ export function ColumnConfigPanel({
                   value={lookupMatchColumn}
                   onChange={(e) => setLookupMatchColumn(e.target.value)}
                   placeholder="company_domain"
-                  className="mt-1.5 bg-zinc-900 border-zinc-700 text-white text-xs"
+                  className="mt-1.5 bg-clay-900 border-clay-500 text-white text-xs"
                 />
               </div>
               <div>
@@ -625,26 +625,26 @@ export function ColumnConfigPanel({
                 <div className="flex-1">
                   <Label className="text-clay-200 text-xs">Operator</Label>
                   <Select value={lookupMatchOperator} onValueChange={setLookupMatchOperator}>
-                    <SelectTrigger className="mt-1.5 bg-zinc-900 border-zinc-700 text-white">
+                    <SelectTrigger className="mt-1.5 bg-clay-900 border-clay-500 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-700">
-                      <SelectItem value="equals" className="text-zinc-300">Equals</SelectItem>
-                      <SelectItem value="contains" className="text-zinc-300">Contains</SelectItem>
+                    <SelectContent className="bg-clay-900 border-clay-500">
+                      <SelectItem value="equals" className="text-clay-100">Equals</SelectItem>
+                      <SelectItem value="contains" className="text-clay-100">Contains</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex-1">
                   <Label className="text-clay-200 text-xs">Return</Label>
                   <Select value={lookupReturnType} onValueChange={setLookupReturnType}>
-                    <SelectTrigger className="mt-1.5 bg-zinc-900 border-zinc-700 text-white">
+                    <SelectTrigger className="mt-1.5 bg-clay-900 border-clay-500 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-700">
-                      <SelectItem value="value" className="text-zinc-300">Value</SelectItem>
-                      <SelectItem value="boolean" className="text-zinc-300">True/False</SelectItem>
-                      <SelectItem value="count" className="text-zinc-300">Count</SelectItem>
-                      <SelectItem value="rows" className="text-zinc-300">All Rows</SelectItem>
+                    <SelectContent className="bg-clay-900 border-clay-500">
+                      <SelectItem value="value" className="text-clay-100">Value</SelectItem>
+                      <SelectItem value="boolean" className="text-clay-100">True/False</SelectItem>
+                      <SelectItem value="count" className="text-clay-100">Count</SelectItem>
+                      <SelectItem value="rows" className="text-clay-100">All Rows</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -656,7 +656,7 @@ export function ColumnConfigPanel({
                     value={lookupReturnColumn}
                     onChange={(e) => setLookupReturnColumn(e.target.value)}
                     placeholder="email (column ID in source table)"
-                    className="mt-1.5 bg-zinc-900 border-zinc-700 text-white text-xs"
+                    className="mt-1.5 bg-clay-900 border-clay-500 text-white text-xs"
                   />
                 </div>
               )}
@@ -669,13 +669,13 @@ export function ColumnConfigPanel({
               <div>
                 <Label className="text-clay-200 text-xs">Language</Label>
                 <Select value={scriptLanguage} onValueChange={setScriptLanguage}>
-                  <SelectTrigger className="mt-1.5 bg-zinc-900 border-zinc-700 text-white">
+                  <SelectTrigger className="mt-1.5 bg-clay-900 border-clay-500 text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-700">
-                    <SelectItem value="python" className="text-zinc-300">Python</SelectItem>
-                    <SelectItem value="bash" className="text-zinc-300">Bash</SelectItem>
-                    <SelectItem value="node" className="text-zinc-300">Node.js</SelectItem>
+                  <SelectContent className="bg-clay-900 border-clay-500">
+                    <SelectItem value="python" className="text-clay-100">Python</SelectItem>
+                    <SelectItem value="bash" className="text-clay-100">Bash</SelectItem>
+                    <SelectItem value="node" className="text-clay-100">Node.js</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -687,7 +687,7 @@ export function ColumnConfigPanel({
                   placeholder={scriptLanguage === "python"
                     ? "import json, sys\ndata = json.load(sys.stdin)\nprint(json.dumps({'result': data['company']}))"
                     : "# Row data arrives on stdin as JSON"}
-                  className="mt-1.5 bg-zinc-900 border-zinc-700 text-white font-mono text-xs min-h-[120px]"
+                  className="mt-1.5 bg-clay-900 border-clay-500 text-white font-mono text-xs min-h-[120px]"
                   spellCheck={false}
                 />
                 <p className="text-[10px] text-clay-300 mt-1">Row data is piped as JSON via stdin. Output JSON to stdout.</p>
@@ -698,7 +698,7 @@ export function ColumnConfigPanel({
                   value={scriptExtract}
                   onChange={(e) => setScriptExtract(e.target.value)}
                   placeholder="$.result"
-                  className="mt-1.5 bg-zinc-900 border-zinc-700 text-white font-mono text-xs"
+                  className="mt-1.5 bg-clay-900 border-clay-500 text-white font-mono text-xs"
                 />
               </div>
             </div>
@@ -706,9 +706,9 @@ export function ColumnConfigPanel({
 
           {/* Error Handling — for action columns */}
           {["enrichment", "ai", "http", "waterfall", "script"].includes(columnType) && (
-            <div className="border-t border-zinc-800 pt-4">
+            <div className="border-t border-clay-700 pt-4">
               <button
-                className="flex items-center gap-2 text-xs text-clay-200 hover:text-zinc-300 w-full"
+                className="flex items-center gap-2 text-xs text-clay-200 hover:text-clay-100 w-full"
                 onClick={() => setShowErrorHandling(!showErrorHandling)}
               >
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showErrorHandling ? "" : "-rotate-90"}`} />
@@ -719,13 +719,13 @@ export function ColumnConfigPanel({
                   <div>
                     <Label className="text-clay-200 text-xs">On Error</Label>
                     <Select value={errorOnError} onValueChange={setErrorOnError}>
-                      <SelectTrigger className="mt-1.5 bg-zinc-900 border-zinc-700 text-white">
+                      <SelectTrigger className="mt-1.5 bg-clay-900 border-clay-500 text-white">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-zinc-900 border-zinc-700">
-                        <SelectItem value="skip" className="text-zinc-300">Skip (mark as error)</SelectItem>
-                        <SelectItem value="fallback" className="text-zinc-300">Use fallback value</SelectItem>
-                        <SelectItem value="stop" className="text-zinc-300">Stop execution</SelectItem>
+                      <SelectContent className="bg-clay-900 border-clay-500">
+                        <SelectItem value="skip" className="text-clay-100">Skip (mark as error)</SelectItem>
+                        <SelectItem value="fallback" className="text-clay-100">Use fallback value</SelectItem>
+                        <SelectItem value="stop" className="text-clay-100">Stop execution</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -736,7 +736,7 @@ export function ColumnConfigPanel({
                         value={errorFallbackValue}
                         onChange={(e) => setErrorFallbackValue(e.target.value)}
                         placeholder="N/A"
-                        className="mt-1.5 bg-zinc-900 border-zinc-700 text-white text-xs"
+                        className="mt-1.5 bg-clay-900 border-clay-500 text-white text-xs"
                       />
                     </div>
                   )}
@@ -749,19 +749,19 @@ export function ColumnConfigPanel({
                         max={5}
                         value={errorMaxRetries}
                         onChange={(e) => setErrorMaxRetries(Number(e.target.value))}
-                        className="mt-1.5 bg-zinc-900 border-zinc-700 text-white text-xs"
+                        className="mt-1.5 bg-clay-900 border-clay-500 text-white text-xs"
                       />
                     </div>
                     <div className="flex-1">
                       <Label className="text-clay-200 text-xs">Backoff</Label>
                       <Select value={errorRetryBackoff} onValueChange={setErrorRetryBackoff}>
-                        <SelectTrigger className="mt-1.5 bg-zinc-900 border-zinc-700 text-white">
+                        <SelectTrigger className="mt-1.5 bg-clay-900 border-clay-500 text-white">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-zinc-900 border-zinc-700">
-                          <SelectItem value="exponential" className="text-zinc-300">Exponential</SelectItem>
-                          <SelectItem value="linear" className="text-zinc-300">Linear</SelectItem>
-                          <SelectItem value="fixed" className="text-zinc-300">Fixed (1s)</SelectItem>
+                        <SelectContent className="bg-clay-900 border-clay-500">
+                          <SelectItem value="exponential" className="text-clay-100">Exponential</SelectItem>
+                          <SelectItem value="linear" className="text-clay-100">Linear</SelectItem>
+                          <SelectItem value="fixed" className="text-clay-100">Fixed (1s)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -773,16 +773,16 @@ export function ColumnConfigPanel({
 
           {/* Only Run If — for enrichment and AI columns */}
           {(columnType === "enrichment" || columnType === "ai") && (
-            <div className="border-t border-zinc-800 pt-4">
+            <div className="border-t border-clay-700 pt-4">
               <button
-                className="flex items-center gap-2 text-xs text-clay-200 hover:text-zinc-300 w-full"
+                className="flex items-center gap-2 text-xs text-clay-200 hover:text-clay-100 w-full"
                 onClick={() => setCondition(condition ? "" : " ")}
               >
                 <div
                   className={`w-3.5 h-3.5 rounded border ${
                     condition
                       ? "bg-amber-500/20 border-amber-500 text-amber-400"
-                      : "border-zinc-600"
+                      : "border-clay-400"
                   } flex items-center justify-center text-[8px]`}
                 >
                   {condition ? "✓" : ""}
@@ -806,7 +806,7 @@ export function ColumnConfigPanel({
           <div className="pt-4 flex gap-2">
             <Button
               variant="outline"
-              className="flex-1 border-zinc-700 text-zinc-300"
+              className="flex-1 border-clay-500 text-clay-100"
               onClick={onClose}
               disabled={saving}
             >

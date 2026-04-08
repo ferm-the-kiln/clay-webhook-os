@@ -184,24 +184,24 @@ export function CsvImportDialog({
     <DialogPrimitive.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 bg-black/60 z-50" />
-        <DialogPrimitive.Content className="fixed top-[10%] left-1/2 -translate-x-1/2 w-full max-w-2xl z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+        <DialogPrimitive.Content className="fixed top-[10%] left-1/2 -translate-x-1/2 w-full max-w-2xl z-50 bg-clay-900 border border-clay-500 rounded-lg shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
           <DialogPrimitive.Title className="sr-only">Import CSV</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
             Preview and map CSV columns before importing
           </DialogPrimitive.Description>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-clay-700">
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="w-4 h-4 text-kiln-teal" />
               <span className="text-sm font-medium text-white">Import CSV</span>
               {preview && (
-                <span className="text-xs text-clay-300 bg-zinc-800 px-2 py-0.5 rounded-full">
+                <span className="text-xs text-clay-300 bg-clay-700 px-2 py-0.5 rounded-full">
                   {preview.totalRows} rows
                 </span>
               )}
             </div>
-            <button onClick={onClose} className="text-clay-300 hover:text-zinc-300">
+            <button onClick={onClose} className="text-clay-300 hover:text-clay-100">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -211,14 +211,14 @@ export function CsvImportDialog({
             {preview && (
               <div>
                 <h3 className="text-xs font-medium text-clay-200 mb-2">Preview</h3>
-                <div className="rounded-md border border-zinc-800 overflow-x-auto">
+                <div className="rounded-md border border-clay-700 overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr>
                         {preview.headers.map((h, i) => (
                           <th
                             key={i}
-                            className="px-3 py-1.5 text-left text-clay-200 font-medium border-b border-zinc-800 bg-zinc-800/50 whitespace-nowrap"
+                            className="px-3 py-1.5 text-left text-clay-200 font-medium border-b border-clay-700 bg-clay-700/50 whitespace-nowrap"
                           >
                             {h}
                           </th>
@@ -227,11 +227,11 @@ export function CsvImportDialog({
                     </thead>
                     <tbody>
                       {preview.rows.map((row, ri) => (
-                        <tr key={ri} className="border-b border-zinc-800/50 last:border-0">
+                        <tr key={ri} className="border-b border-clay-700/50 last:border-0">
                           {row.map((cell, ci) => (
                             <td
                               key={ci}
-                              className="px-3 py-1.5 text-zinc-300 whitespace-nowrap max-w-[200px] truncate"
+                              className="px-3 py-1.5 text-clay-100 whitespace-nowrap max-w-[200px] truncate"
                             >
                               {cell || <span className="text-clay-300">—</span>}
                             </td>
@@ -301,7 +301,7 @@ export function CsvImportDialog({
 
                 {/* Unmapped CSV columns */}
                 {unmappedHeaders.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-zinc-800">
+                  <div className="mt-4 pt-3 border-t border-clay-700">
                     <div className="text-[10px] text-clay-300 uppercase tracking-wider font-medium mb-1.5">
                       Additional columns (imported as-is)
                     </div>
@@ -309,7 +309,7 @@ export function CsvImportDialog({
                       {unmappedHeaders.map((h) => (
                         <span
                           key={h}
-                          className="text-[11px] px-2 py-0.5 rounded bg-zinc-800 text-clay-200 border border-zinc-700"
+                          className="text-[11px] px-2 py-0.5 rounded bg-clay-700 text-clay-200 border border-clay-500"
                         >
                           {h}
                         </span>
@@ -329,7 +329,7 @@ export function CsvImportDialog({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-5 py-3 border-t border-zinc-800 bg-zinc-950/50">
+          <div className="flex items-center justify-between px-5 py-3 border-t border-clay-700 bg-clay-950/50">
             <div className="text-xs text-clay-300">
               {hasMappingTargets && !allRequiredMapped && (
                 <span className="text-amber-400">
@@ -341,7 +341,7 @@ export function CsvImportDialog({
               <Button
                 variant="outline"
                 size="sm"
-                className="border-zinc-700 text-zinc-300 h-8"
+                className="border-clay-500 text-clay-100 h-8"
                 onClick={onClose}
               >
                 Cancel
@@ -404,7 +404,7 @@ function MappingRow({
           ? "border-red-500/30 bg-red-500/5"
           : isMapped
             ? "border-kiln-teal/20 bg-kiln-teal/5"
-            : "border-zinc-700 bg-zinc-800/30"
+            : "border-clay-500 bg-clay-700/30"
       }`}
     >
       {/* Confidence dot */}
@@ -422,10 +422,10 @@ function MappingRow({
 
       {/* Input info */}
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
-        <span className="text-xs font-mono font-medium text-zinc-200 truncate">
+        <span className="text-xs font-mono font-medium text-clay-100 truncate">
           {inputName}
         </span>
-        <span className="text-[9px] px-1 py-0 rounded bg-zinc-700 text-clay-200 shrink-0">
+        <span className="text-[9px] px-1 py-0 rounded bg-clay-500 text-clay-200 shrink-0">
           {inputType}
         </span>
         {inputDescription && (
@@ -445,13 +445,13 @@ function MappingRow({
               className={`text-xs px-2 py-1 rounded border transition-colors min-w-[140px] text-left truncate ${
                 isMapped
                   ? "border-kiln-teal/30 text-kiln-teal bg-kiln-teal/5"
-                  : "border-zinc-600 text-clay-200 hover:text-zinc-300 hover:border-zinc-500"
+                  : "border-clay-400 text-clay-200 hover:text-clay-100 hover:border-clay-300"
               }`}
             >
               {mappedTo || "Select column..."}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-zinc-800 border-zinc-600 max-h-48 overflow-auto">
+          <DropdownMenuContent className="bg-clay-700 border-clay-400 max-h-48 overflow-auto">
             {csvHeaders.map((h) => (
               <DropdownMenuItem
                 key={h}
@@ -468,7 +468,7 @@ function MappingRow({
         {isMapped && (
           <button
             onClick={onClear}
-            className="p-0.5 text-clay-300 hover:text-zinc-300 transition-colors"
+            className="p-0.5 text-clay-300 hover:text-clay-100 transition-colors"
             title="Clear mapping"
           >
             <X className="h-3 w-3" />

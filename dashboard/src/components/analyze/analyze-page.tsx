@@ -37,7 +37,7 @@ export function AnalyzePage() {
               className={`text-xs px-2 py-1 rounded-md transition-colors ${
                 analyzer.phase === phase
                   ? "bg-kiln-amber/10 text-kiln-amber font-medium"
-                  : "text-clay-300 hover:text-clay-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                  : "text-clay-300 hover:text-clay-300 disabled:opacity-50 disabled:cursor-not-allowed"
               }`}
             >
               {phase === "upload" ? "1. Upload" : phase === "configure" ? "2. Configure" : "3. Results"}

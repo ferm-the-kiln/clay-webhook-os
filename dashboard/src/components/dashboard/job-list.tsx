@@ -473,7 +473,7 @@ export function JobList() {
                 size="xs"
                 disabled={safePage === 0}
                 onClick={() => setPage((p) => p - 1)}
-                className="border-clay-700 bg-clay-800 text-clay-200 hover:text-clay-200 disabled:opacity-30"
+                className="border-clay-700 bg-clay-800 text-clay-200 hover:text-clay-200 disabled:opacity-50"
               >
                 Previous
               </Button>
@@ -485,7 +485,7 @@ export function JobList() {
                 size="xs"
                 disabled={safePage >= totalPages - 1}
                 onClick={() => setPage((p) => p + 1)}
-                className="border-clay-700 bg-clay-800 text-clay-200 hover:text-clay-200 disabled:opacity-30"
+                className="border-clay-700 bg-clay-800 text-clay-200 hover:text-clay-200 disabled:opacity-50"
               >
                 Next
               </Button>

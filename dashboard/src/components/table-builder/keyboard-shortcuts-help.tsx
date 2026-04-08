@@ -19,7 +19,7 @@ const SHORTCUTS = [
 
 function KeyBadge({ children }: { children: string }) {
   return (
-    <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">
+    <kbd className="px-1.5 py-0.5 rounded bg-clay-700 border border-clay-500 text-[10px] font-mono text-clay-100">
       {children}
     </kbd>
   );
@@ -33,7 +33,7 @@ export function KeyboardShortcutsHelp() {
       {/* Trigger button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-clay-300 hover:text-zinc-300 hover:bg-zinc-700 transition-colors shadow-lg"
+        className="fixed bottom-4 right-4 z-40 w-7 h-7 rounded-full bg-clay-700 border border-clay-500 flex items-center justify-center text-clay-300 hover:text-clay-100 hover:bg-clay-500 transition-colors shadow-lg"
         title="Keyboard shortcuts"
       >
         <HelpCircle className="w-3.5 h-3.5" />
@@ -54,7 +54,7 @@ export function KeyboardShortcutsHelp() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-80 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl p-4"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-80 bg-clay-900 border border-clay-500 rounded-lg shadow-2xl p-4"
             >
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-white">
@@ -62,7 +62,7 @@ export function KeyboardShortcutsHelp() {
                 </h3>
                 <button
                   onClick={() => setOpen(false)}
-                  className="p-1 rounded hover:bg-zinc-800 text-clay-300"
+                  className="p-1 rounded hover:bg-clay-700 text-clay-300"
                 >
                   <X className="w-4 h-4" />
                 </button>

@@ -64,7 +64,7 @@ function JsonViewer({ data, label }: { data: unknown; label: string }) {
         </Button>
       </button>
       {expanded && (
-        <pre className="bg-zinc-900 p-3 text-xs font-mono text-clay-200 overflow-x-auto max-h-96 overflow-y-auto leading-relaxed">
+        <pre className="bg-clay-900 p-3 text-xs font-mono text-clay-200 overflow-x-auto max-h-96 overflow-y-auto leading-relaxed">
           <SyntaxHighlightedJson json={jsonStr} />
         </pre>
       )}

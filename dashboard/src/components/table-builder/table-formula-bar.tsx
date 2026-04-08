@@ -45,7 +45,7 @@ export function TableFormulaBar({
 }: TableFormulaBarProps) {
   if (!selectedCell) {
     return (
-      <div className="h-8 shrink-0 flex items-center px-4 border-b border-zinc-800 bg-zinc-900/50">
+      <div className="h-8 shrink-0 flex items-center px-4 border-b border-clay-700 bg-clay-900/50">
         <span className="text-xs text-clay-300">Select a cell to see details</span>
       </div>
     );
@@ -56,7 +56,7 @@ export function TableFormulaBar({
 
   if (!col || !row) {
     return (
-      <div className="h-8 shrink-0 flex items-center px-4 border-b border-zinc-800 bg-zinc-900/50">
+      <div className="h-8 shrink-0 flex items-center px-4 border-b border-clay-700 bg-clay-900/50">
         <span className="text-xs text-clay-300">—</span>
       </div>
     );
@@ -78,9 +78,9 @@ export function TableFormulaBar({
   const rowIdx = rows.findIndex((r) => r._row_id === selectedCell.rowId);
 
   return (
-    <div className="h-8 shrink-0 flex items-center gap-3 px-4 border-b border-zinc-800 bg-zinc-900/50">
+    <div className="h-8 shrink-0 flex items-center gap-3 px-4 border-b border-clay-700 bg-clay-900/50">
       {/* Cell reference */}
-      <span className="text-[10px] font-mono bg-zinc-800 text-clay-200 px-1.5 py-0.5 rounded shrink-0">
+      <span className="text-[10px] font-mono bg-clay-700 text-clay-200 px-1.5 py-0.5 rounded shrink-0">
         {col.name}:{rowIdx + 1}
       </span>
 
@@ -89,7 +89,7 @@ export function TableFormulaBar({
 
       {/* Formula or value */}
       {col.column_type === "input" || col.column_type === "static" ? (
-        <span className="text-xs text-zinc-300 truncate">{displayValue}</span>
+        <span className="text-xs text-clay-100 truncate">{displayValue}</span>
       ) : (
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {description && (
@@ -99,8 +99,8 @@ export function TableFormulaBar({
           )}
           {status === "done" && displayValue && (
             <>
-              <span className="text-zinc-700">→</span>
-              <span className="text-xs text-zinc-300 truncate">{displayValue}</span>
+              <span className="text-clay-500">→</span>
+              <span className="text-xs text-clay-100 truncate">{displayValue}</span>
             </>
           )}
           {status === "error" && (

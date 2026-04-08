@@ -39,40 +39,40 @@ export function RowContextMenu({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-      <ContextMenuContent className="w-52 bg-zinc-900 border-zinc-700">
+      <ContextMenuContent className="w-52 bg-clay-900 border-clay-500">
         <ContextMenuItem
-          className="text-zinc-300 text-xs"
+          className="text-clay-100 text-xs"
           onClick={onRunSelected}
         >
           <Play className="w-3.5 h-3.5 mr-2 text-emerald-400" />
           Run {label}
         </ContextMenuItem>
         <ContextMenuItem
-          className="text-zinc-300 text-xs"
+          className="text-clay-100 text-xs"
           onClick={onRerunFailed}
         >
           <RotateCcw className="w-3.5 h-3.5 mr-2 text-amber-400" />
           Re-run failed
         </ContextMenuItem>
 
-        <ContextMenuSeparator className="bg-zinc-800" />
+        <ContextMenuSeparator className="bg-clay-700" />
 
         <ContextMenuItem
-          className="text-zinc-300 text-xs"
+          className="text-clay-100 text-xs"
           onClick={onDuplicate}
         >
           <Copy className="w-3.5 h-3.5 mr-2" />
           Duplicate {label}
         </ContextMenuItem>
         <ContextMenuItem
-          className="text-zinc-300 text-xs"
+          className="text-clay-100 text-xs"
           onClick={onExport}
         >
           <Download className="w-3.5 h-3.5 mr-2" />
           Export selection
         </ContextMenuItem>
 
-        <ContextMenuSeparator className="bg-zinc-800" />
+        <ContextMenuSeparator className="bg-clay-700" />
 
         <ContextMenuItem
           className="text-red-400 text-xs"

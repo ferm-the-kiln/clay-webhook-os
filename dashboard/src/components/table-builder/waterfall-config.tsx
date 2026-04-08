@@ -72,18 +72,18 @@ export function WaterfallConfig({
         {providers.map((p, idx) => (
           <div
             key={`${p.tool}-${idx}`}
-            className="flex items-center gap-2 px-2 py-1.5 rounded bg-zinc-800 border border-zinc-700 group"
+            className="flex items-center gap-2 px-2 py-1.5 rounded bg-clay-700 border border-clay-500 group"
           >
             <GripVertical className="w-3 h-3 text-clay-300 shrink-0" />
             <span className="text-xs text-clay-300 w-4 tabular-nums">
               {idx + 1}.
             </span>
-            <span className="text-xs text-zinc-300 flex-1 truncate">
+            <span className="text-xs text-clay-100 flex-1 truncate">
               {p.name}
             </span>
             <button
               onClick={() => remove(idx)}
-              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-zinc-700 text-clay-300"
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-clay-500 text-clay-300"
             >
               <X className="w-3 h-3" />
             </button>
@@ -94,12 +94,12 @@ export function WaterfallConfig({
       {/* Add fallback */}
       {addingProvider ? (
         <Select onValueChange={addProvider}>
-          <SelectTrigger className="h-8 bg-zinc-900 border-zinc-700 text-xs text-white">
+          <SelectTrigger className="h-8 bg-clay-900 border-clay-500 text-xs text-white">
             <SelectValue placeholder="Select provider..." />
           </SelectTrigger>
-          <SelectContent className="bg-zinc-900 border-zinc-700">
+          <SelectContent className="bg-clay-900 border-clay-500">
             {remaining.map((p) => (
-              <SelectItem key={p.id} value={p.id} className="text-xs text-zinc-300">
+              <SelectItem key={p.id} value={p.id} className="text-xs text-clay-100">
                 {p.name}
               </SelectItem>
             ))}
@@ -112,7 +112,7 @@ export function WaterfallConfig({
         <Button
           variant="ghost"
           size="sm"
-          className="w-full text-xs text-clay-300 hover:text-zinc-300 h-7"
+          className="w-full text-xs text-clay-300 hover:text-clay-100 h-7"
           onClick={() => setAddingProvider(true)}
           disabled={remaining.length === 0}
         >

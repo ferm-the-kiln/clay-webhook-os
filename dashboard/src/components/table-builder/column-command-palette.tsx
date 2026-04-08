@@ -84,7 +84,7 @@ function addRecentTool(toolId: string) {
 }
 
 const ITEM_CLASS =
-  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:text-white transition-colors";
+  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-clay-100 cursor-pointer data-[selected=true]:bg-clay-700 data-[selected=true]:text-white transition-colors";
 
 const GROUP_HEADING_CLASS =
   "[&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2";
@@ -189,11 +189,11 @@ export function ColumnCommandPalette({
             Choose a column type to add to your table
           </DialogPrimitive.Description>
           <Command
-            className="rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden"
+            className="rounded-xl border border-clay-500 bg-clay-900 shadow-2xl overflow-hidden"
             label="Add Column"
           >
             {/* Search bar */}
-            <div className="border-b border-zinc-800 px-4 py-3 flex items-center gap-3">
+            <div className="border-b border-clay-700 px-4 py-3 flex items-center gap-3">
               <Search className="w-4 h-4 text-clay-300 shrink-0" />
               <Command.Input
                 placeholder="Search enrichments, AI, formulas, filters..."
@@ -270,7 +270,7 @@ export function ColumnCommandPalette({
                     return (
                       <Command.Item
                         key={preset.id}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-clay-700 text-sm text-clay-100 cursor-pointer data-[selected=true]:bg-clay-700 data-[selected=true]:border-clay-400 data-[selected=true]:text-white transition-all"
                         onSelect={() => {
                           const tool = tools.find(
                             (t) => t.id === preset.toolId,
@@ -303,7 +303,7 @@ export function ColumnCommandPalette({
               >
                 <div className="grid grid-cols-2 gap-2 px-1 pb-2">
                   <Command.Item
-                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-clay-700 text-sm text-clay-100 cursor-pointer data-[selected=true]:bg-clay-700 data-[selected=true]:border-clay-400 data-[selected=true]:text-white transition-all"
                     onSelect={() => {
                       onSelectAI();
                       onClose();
@@ -318,7 +318,7 @@ export function ColumnCommandPalette({
                     </div>
                   </Command.Item>
                   <Command.Item
-                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-clay-700 text-sm text-clay-100 cursor-pointer data-[selected=true]:bg-clay-700 data-[selected=true]:border-clay-400 data-[selected=true]:text-white transition-all"
                     onSelect={() => {
                       onSelectFormula();
                       onClose();
@@ -333,7 +333,7 @@ export function ColumnCommandPalette({
                     </div>
                   </Command.Item>
                   <Command.Item
-                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-clay-700 text-sm text-clay-100 cursor-pointer data-[selected=true]:bg-clay-700 data-[selected=true]:border-clay-400 data-[selected=true]:text-white transition-all"
                     onSelect={() => {
                       onSelectGate();
                       onClose();
@@ -348,7 +348,7 @@ export function ColumnCommandPalette({
                     </div>
                   </Command.Item>
                   <Command.Item
-                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-clay-700 text-sm text-clay-100 cursor-pointer data-[selected=true]:bg-clay-700 data-[selected=true]:border-clay-400 data-[selected=true]:text-white transition-all"
                     onSelect={() => {
                       onSelectStatic();
                       onClose();
@@ -364,7 +364,7 @@ export function ColumnCommandPalette({
                   </Command.Item>
                   {onSelectHttp && (
                     <Command.Item
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-clay-700 text-sm text-clay-100 cursor-pointer data-[selected=true]:bg-clay-700 data-[selected=true]:border-clay-400 data-[selected=true]:text-white transition-all"
                       onSelect={() => {
                         onSelectHttp();
                         onClose();
@@ -382,7 +382,7 @@ export function ColumnCommandPalette({
                   )}
                   {onSelectWaterfall && (
                     <Command.Item
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-clay-700 text-sm text-clay-100 cursor-pointer data-[selected=true]:bg-clay-700 data-[selected=true]:border-clay-400 data-[selected=true]:text-white transition-all"
                       onSelect={() => {
                         onSelectWaterfall();
                         onClose();
@@ -400,7 +400,7 @@ export function ColumnCommandPalette({
                   )}
                   {onSelectLookup && (
                     <Command.Item
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-clay-700 text-sm text-clay-100 cursor-pointer data-[selected=true]:bg-clay-700 data-[selected=true]:border-clay-400 data-[selected=true]:text-white transition-all"
                       onSelect={() => {
                         onSelectLookup();
                         onClose();
@@ -418,7 +418,7 @@ export function ColumnCommandPalette({
                   )}
                   {onSelectScript && (
                     <Command.Item
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-zinc-800 text-sm text-zinc-300 cursor-pointer data-[selected=true]:bg-zinc-800 data-[selected=true]:border-zinc-600 data-[selected=true]:text-white transition-all"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-clay-700 text-sm text-clay-100 cursor-pointer data-[selected=true]:bg-clay-700 data-[selected=true]:border-clay-400 data-[selected=true]:text-white transition-all"
                       onSelect={() => {
                         onSelectScript();
                         onClose();
@@ -482,7 +482,7 @@ function SpeedBadge({ speed }: { speed?: string }) {
       ? "bg-emerald-500/10 text-emerald-400"
       : speed === "medium"
         ? "bg-amber-500/10 text-amber-400"
-        : "bg-zinc-500/10 text-clay-200";
+        : "bg-clay-300/10 text-clay-200";
   return (
     <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${color}`}>
       {speed}

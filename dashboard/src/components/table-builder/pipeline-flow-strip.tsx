@@ -60,13 +60,13 @@ function getNodeStatus(
 }
 
 const STATUS_STYLES: Record<NodeStatus, string> = {
-  idle: "border-zinc-700 bg-zinc-900/50",
-  pending: "border-amber-400/60 bg-zinc-900/50 animate-pulse",
-  running: "border-blue-400 bg-zinc-900/80 ring-1 ring-blue-400/30",
-  done: "border-emerald-500 bg-zinc-900/80",
+  idle: "border-clay-500 bg-clay-900/50",
+  pending: "border-amber-400/60 bg-clay-900/50 animate-pulse",
+  running: "border-blue-400 bg-clay-900/80 ring-1 ring-blue-400/30",
+  done: "border-emerald-500 bg-clay-900/80",
   error: "border-red-500 bg-red-500/5",
-  mixed: "border-emerald-500 bg-zinc-900/80",
-  skipped: "border-zinc-600 border-dashed bg-zinc-900/30",
+  mixed: "border-emerald-500 bg-clay-900/80",
+  skipped: "border-clay-400 border-dashed bg-clay-900/30",
 };
 
 interface FlowNodeProps {
@@ -79,14 +79,14 @@ interface FlowNodeProps {
 function FlowNode({ column, status, progress, onClick }: FlowNodeProps) {
   const Icon = TYPE_ICONS[column.column_type] || Search;
   const iconColor = TYPE_ICON_COLORS[column.column_type] || "text-clay-200";
-  const typeColor = TYPE_COLORS[column.column_type] || "border-l-zinc-600";
+  const typeColor = TYPE_COLORS[column.column_type] || "border-l-clay-400";
 
   return (
     <button
       onClick={onClick}
       className={`
         relative flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-l-2
-        text-xs cursor-pointer transition-all hover:bg-zinc-800/80
+        text-xs cursor-pointer transition-all hover:bg-clay-700/80
         min-w-[120px] max-w-[160px]
         ${typeColor} ${STATUS_STYLES[status]}
       `}
@@ -112,7 +112,7 @@ function FlowNode({ column, status, progress, onClick }: FlowNodeProps) {
         <Icon className={`w-3 h-3 shrink-0 ${iconColor}`} />
       )}
 
-      <span className="truncate text-zinc-300">{column.name}</span>
+      <span className="truncate text-clay-100">{column.name}</span>
 
       {/* Error count badge */}
       {progress && progress.errors > 0 && (
@@ -123,7 +123,7 @@ function FlowNode({ column, status, progress, onClick }: FlowNodeProps) {
 
       {/* Micro progress bar */}
       {progress && progress.total > 0 && status === "running" && (
-        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-zinc-800 rounded-b-md overflow-hidden">
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-clay-700 rounded-b-md overflow-hidden">
           <div
             className="h-full bg-blue-400 transition-all duration-300"
             style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
@@ -158,7 +158,7 @@ interface FlowConnectorProps {
 function FlowConnector({ condition, hasError }: FlowConnectorProps) {
   return (
     <div className="flex items-center gap-0.5 shrink-0">
-      <div className={`w-4 h-px ${hasError ? "bg-red-500/50 border-dashed" : "bg-zinc-600"}`} />
+      <div className={`w-4 h-px ${hasError ? "bg-red-500/50 border-dashed" : "bg-clay-400"}`} />
       {condition ? (
         <div className="flex items-center gap-0.5" title={condition}>
           <Diamond className="w-3 h-3 text-amber-400 shrink-0" />
@@ -166,13 +166,13 @@ function FlowConnector({ condition, hasError }: FlowConnectorProps) {
         </div>
       ) : null}
       <div className="relative">
-        <div className={`w-4 h-px ${hasError ? "bg-red-500/50" : "bg-zinc-600"}`} />
+        <div className={`w-4 h-px ${hasError ? "bg-red-500/50" : "bg-clay-400"}`} />
         {/* Arrow head */}
         <div
           className={`absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0
             border-t-[3px] border-t-transparent
             border-b-[3px] border-b-transparent
-            border-l-[4px] ${hasError ? "border-l-red-500/50" : "border-l-zinc-600"}
+            border-l-[4px] ${hasError ? "border-l-red-500/50" : "border-l-clay-400"}
           `}
         />
       </div>
@@ -246,7 +246,7 @@ export function PipelineFlowStrip({
         animate={{ height: "auto", opacity: 1 }}
         exit={{ height: 0, opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="border-b border-zinc-800/50 bg-zinc-950/80"
+        className="border-b border-clay-700/50 bg-clay-950/80"
       >
         {/* Header */}
         <button
@@ -268,7 +268,7 @@ export function PipelineFlowStrip({
         {!collapsed && (
           <div
             ref={scrollRef}
-            className="flex items-center gap-0 px-4 pb-2 overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-800"
+            className="flex items-center gap-0 px-4 pb-2 overflow-x-auto scrollbar-thin scrollbar-thumb-clay-700"
           >
             {waves.map((wave, waveIdx) => (
               <div key={wave.index} className="flex items-center gap-0 shrink-0">

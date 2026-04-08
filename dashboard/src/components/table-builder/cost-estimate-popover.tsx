@@ -37,10 +37,10 @@ export function CostEstimatePopover({
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent
         side="bottom"
-        className="bg-zinc-900 border-zinc-700 text-xs p-3 max-w-64"
+        className="bg-clay-900 border-clay-500 text-xs p-3 max-w-64"
       >
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-zinc-300 font-medium">
+          <div className="flex items-center gap-1.5 text-clay-100 font-medium">
             <DollarSign className="w-3 h-3 text-amber-400" />
             Execution Estimate
           </div>

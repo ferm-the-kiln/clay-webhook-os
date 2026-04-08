@@ -46,7 +46,7 @@ export function OutputFieldSelector({
       <p className="text-[11px] text-clay-300 -mt-1">
         Each checked field becomes its own column
       </p>
-      <div className="rounded-md border border-zinc-800 divide-y divide-zinc-800/50 overflow-hidden">
+      <div className="rounded-md border border-clay-700 divide-y divide-clay-700/50 overflow-hidden">
         {outputs.map((out, i) => {
           const isSelected = selectedOutputs.includes(out.key);
           const isPrimary = selectedOutputs[0] === out.key;
@@ -58,8 +58,8 @@ export function OutputFieldSelector({
               onClick={() => onToggle(out.key)}
               className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
                 isSelected
-                  ? "bg-zinc-800/50 text-zinc-200"
-                  : "text-clay-300 hover:bg-zinc-900 hover:text-clay-200"
+                  ? "bg-clay-700/50 text-clay-100"
+                  : "text-clay-300 hover:bg-clay-900 hover:text-clay-200"
               }`}
             >
               {/* Checkbox */}
@@ -67,7 +67,7 @@ export function OutputFieldSelector({
                 className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
                   isSelected
                     ? "bg-kiln-teal/20 border-kiln-teal text-kiln-teal"
-                    : "border-zinc-600"
+                    : "border-clay-400"
                 }`}
               >
                 {isSelected && <Check className="w-3 h-3" />}

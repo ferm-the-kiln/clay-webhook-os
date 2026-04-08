@@ -46,7 +46,7 @@ function JsonTree({
             navigator.clipboard.writeText(data);
             toast.success("Copied");
           }}
-          className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-zinc-700"
+          className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-clay-500"
         >
           <Copy className="w-3 h-3 text-clay-300" />
         </button>
@@ -60,7 +60,7 @@ function JsonTree({
 
   if (Array.isArray(data)) {
     return (
-      <div className="space-y-1 pl-3 border-l border-zinc-800">
+      <div className="space-y-1 pl-3 border-l border-clay-700">
         {data.map((item, i) => (
           <div key={i}>
             <span className="text-clay-300 text-xs">[{i}]</span>
@@ -75,7 +75,7 @@ function JsonTree({
 
   if (typeof data === "object") {
     return (
-      <div className="space-y-1.5 pl-3 border-l border-zinc-800">
+      <div className="space-y-1.5 pl-3 border-l border-clay-700">
         {Object.entries(data as Record<string, unknown>).map(([key, val]) => {
           const fieldPath = path ? `${path}.${key}` : key;
           const isSimple =
@@ -85,14 +85,14 @@ function JsonTree({
               <div className="flex items-center gap-1.5">
                 <span className="text-blue-400 text-xs font-mono">{key}:</span>
                 {isSimple && (
-                  <span className="text-zinc-300 text-xs truncate flex-1">
+                  <span className="text-clay-100 text-xs truncate flex-1">
                     {typeof val === "string" ? `"${val}"` : String(val)}
                   </span>
                 )}
                 {onAddAsColumn && isSimple && (
                   <button
                     onClick={() => onAddAsColumn(fieldPath, val)}
-                    className="opacity-0 group-hover/field:opacity-100 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-zinc-800 hover:bg-zinc-700 text-kiln-teal"
+                    className="opacity-0 group-hover/field:opacity-100 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-clay-700 hover:bg-clay-500 text-kiln-teal"
                     title="Add as column"
                   >
                     <Plus className="w-2.5 h-2.5" />
@@ -153,7 +153,7 @@ export function CellDetailPanel({
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="right"
-        className="w-[420px] bg-zinc-950 border-zinc-800 text-white overflow-y-auto"
+        className="w-[420px] bg-clay-950 border-clay-700 text-white overflow-y-auto"
       >
         <SheetHeader>
           <div className="flex items-center justify-between">
@@ -163,14 +163,14 @@ export function CellDetailPanel({
                 <>
                   <button
                     onClick={() => onNavigate("up")}
-                    className="p-1 rounded hover:bg-zinc-800 text-clay-200"
+                    className="p-1 rounded hover:bg-clay-700 text-clay-200"
                     title="Previous row"
                   >
                     <ChevronUp className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => onNavigate("down")}
-                    className="p-1 rounded hover:bg-zinc-800 text-clay-200"
+                    className="p-1 rounded hover:bg-clay-700 text-clay-200"
                     title="Next row"
                   >
                     <ChevronDown className="w-4 h-4" />
@@ -186,13 +186,13 @@ export function CellDetailPanel({
 
         <div className="mt-4 space-y-4">
           {/* Status */}
-          <div className="flex items-center gap-2 px-3 py-2 rounded bg-zinc-900 border border-zinc-800">
+          <div className="flex items-center gap-2 px-3 py-2 rounded bg-clay-900 border border-clay-700">
             <div
               className={`w-2 h-2 rounded-full ${
                 status === "done" ? "bg-emerald-500" :
                 status === "error" ? "bg-red-500" :
                 status === "running" ? "bg-blue-500 animate-pulse" :
-                "bg-zinc-600"
+                "bg-clay-400"
               }`}
             />
             <span className={`text-xs font-medium ${statusColor}`}>{statusLabel}</span>
@@ -208,7 +208,7 @@ export function CellDetailPanel({
           {/* Value / JSON tree */}
           <div>
             <h4 className="text-xs font-medium text-clay-200 mb-2">Result</h4>
-            <div className="px-3 py-2 rounded bg-zinc-900 border border-zinc-800 text-xs max-h-[400px] overflow-y-auto">
+            <div className="px-3 py-2 rounded bg-clay-900 border border-clay-700 text-xs max-h-[400px] overflow-y-auto">
               {value !== undefined && value !== null ? (
                 <JsonTree data={value} onAddAsColumn={onAddAsColumn} />
               ) : (
@@ -237,18 +237,18 @@ export function CellDetailPanel({
                     <div
                       key={col.id}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${
-                        col.id === columnId ? "bg-zinc-800" : "hover:bg-zinc-900"
+                        col.id === columnId ? "bg-clay-700" : "hover:bg-clay-900"
                       }`}
                     >
                       <div
                         className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                           cellStatus === "done" ? "bg-emerald-500" :
                           cellStatus === "error" ? "bg-red-500" :
-                          "bg-zinc-600"
+                          "bg-clay-400"
                         }`}
                       />
                       <span className="text-clay-300 w-24 truncate shrink-0">{col.name}</span>
-                      <span className="text-zinc-300 truncate">{displayVal}</span>
+                      <span className="text-clay-100 truncate">{displayVal}</span>
                     </div>
                   );
                 })}

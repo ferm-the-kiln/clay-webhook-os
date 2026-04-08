@@ -542,7 +542,7 @@ export default function PublicPortalPage() {
                           <button
                             onClick={() => handlePostComment(update.id)}
                             disabled={postingComment === update.id || !(commentTexts[update.id]?.trim())}
-                            className="h-9 w-9 rounded-lg bg-clay-700 hover:bg-clay-600 flex items-center justify-center text-clay-300 transition-colors disabled:opacity-40"
+                            className="h-9 w-9 rounded-lg bg-clay-700 hover:bg-clay-600 flex items-center justify-center text-clay-300 transition-colors disabled:opacity-50"
                           >
                             {postingComment === update.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />

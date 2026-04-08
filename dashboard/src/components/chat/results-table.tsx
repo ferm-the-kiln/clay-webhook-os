@@ -45,7 +45,7 @@ export function ResultsTable({
         <button
           onClick={onExportCsv}
           disabled={doneCount === 0}
-          className="flex items-center gap-1.5 text-xs text-clay-300 hover:text-clay-100 px-2 py-1 rounded hover:bg-clay-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 text-xs text-clay-300 hover:text-clay-100 px-2 py-1 rounded hover:bg-clay-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download className="h-3 w-3" />
           Export CSV

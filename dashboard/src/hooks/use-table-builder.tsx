@@ -416,7 +416,7 @@ export function useTableBuilder(tableId: string): UseTableBuilderReturn {
           type="checkbox"
           checked={t.getIsAllRowsSelected()}
           onChange={t.getToggleAllRowsSelectedHandler()}
-          className="rounded border-zinc-600"
+          className="rounded border-clay-400"
         />
       ),
       cell: ({ row }) => (
@@ -424,7 +424,7 @@ export function useTableBuilder(tableId: string): UseTableBuilderReturn {
           type="checkbox"
           checked={row.getIsSelected()}
           onChange={row.getToggleSelectedHandler()}
-          className="rounded border-zinc-600"
+          className="rounded border-clay-400"
         />
       ),
     });

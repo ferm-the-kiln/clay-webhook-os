@@ -21,7 +21,7 @@ import Papa from "papaparse";
 
 export default function TablesPageWrapper() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-clay-200">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-clay-950 flex items-center justify-center text-clay-200">Loading...</div>}>
       <TablesPage />
     </Suspense>
   );
@@ -190,7 +190,7 @@ function TablesPage() {
     });
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-8">
+    <div className="min-h-screen bg-clay-950 text-white p-8">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -213,7 +213,7 @@ function TablesPage() {
             />
             <Button
               variant="outline"
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              className="border-clay-500 text-clay-100 hover:bg-clay-700"
               onClick={() => fileRef.current?.click()}
             >
               <Upload className="w-4 h-4 mr-2" />
@@ -221,7 +221,7 @@ function TablesPage() {
             </Button>
             <Button
               variant="outline"
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              className="border-clay-500 text-clay-100 hover:bg-clay-700"
               onClick={handleNewFromFunction}
             >
               <Layers className="w-4 h-4 mr-2" />
@@ -259,13 +259,13 @@ function TablesPage() {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-32 rounded-lg bg-zinc-900 border border-zinc-800 animate-pulse"
+                className="h-32 rounded-lg bg-clay-900 border border-clay-700 animate-pulse"
               />
             ))}
           </div>
         ) : tables.length === 0 ? (
           <div className="text-center py-20">
-            <Table2 className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
+            <Table2 className="w-12 h-12 text-clay-500 mx-auto mb-4" />
             <p className="text-clay-200 text-lg mb-2">No tables yet</p>
             <p className="text-clay-300 text-sm mb-6">
               Create a new table or import a CSV to get started
@@ -273,7 +273,7 @@ function TablesPage() {
             <div className="flex gap-2 justify-center">
               <Button
                 variant="outline"
-                className="border-zinc-700 text-zinc-300"
+                className="border-clay-500 text-clay-100"
                 onClick={() => fileRef.current?.click()}
               >
                 <Upload className="w-4 h-4 mr-2" />
@@ -293,7 +293,7 @@ function TablesPage() {
             {tables.map((t) => (
               <div
                 key={t.id}
-                className="group rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-colors cursor-pointer p-4"
+                className="group rounded-lg bg-clay-900 border border-clay-700 hover:border-clay-400 transition-colors cursor-pointer p-4"
                 onClick={() => router.push(`/tables/${t.id}`)}
               >
                 <div className="flex items-start justify-between">
@@ -313,7 +313,7 @@ function TablesPage() {
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-700">
+                    <DropdownMenuContent align="end" className="bg-clay-900 border-clay-500">
                       <DropdownMenuItem
                         className="text-red-400 focus:text-red-400"
                         onClick={(e) => {
@@ -342,13 +342,13 @@ function TablesPage() {
       <DialogPrimitive.Root open={funcPickerOpen} onOpenChange={(o) => !o && setFuncPickerOpen(false)}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 bg-black/60 z-50" />
-          <DialogPrimitive.Content className="fixed top-[15%] left-1/2 -translate-x-1/2 w-full max-w-lg z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden">
+          <DialogPrimitive.Content className="fixed top-[15%] left-1/2 -translate-x-1/2 w-full max-w-lg z-50 bg-clay-900 border border-clay-500 rounded-lg shadow-2xl overflow-hidden">
             <DialogPrimitive.Title className="sr-only">Choose a function</DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">
               Select a function to create a table from
             </DialogPrimitive.Description>
 
-            <div className="border-b border-zinc-800 px-4 py-3 flex items-center gap-3">
+            <div className="border-b border-clay-700 px-4 py-3 flex items-center gap-3">
               <Search className="w-4 h-4 text-clay-300 shrink-0" />
               <input
                 value={funcSearch}
@@ -368,7 +368,7 @@ function TablesPage() {
                 filteredFunctions.map((func) => (
                   <button
                     key={func.id}
-                    className="w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-zinc-800 transition-colors"
+                    className="w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-clay-700 transition-colors"
                     onClick={() => handleSelectFunction(func)}
                   >
                     <Layers className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />

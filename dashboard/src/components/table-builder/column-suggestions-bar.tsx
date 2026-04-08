@@ -114,7 +114,7 @@ export function ColumnSuggestionsBar({
         initial={{ opacity: 0, height: 0 }}
         animate={{ opacity: 1, height: "auto" }}
         exit={{ opacity: 0, height: 0 }}
-        className="shrink-0 border-b border-zinc-800 bg-gradient-to-r from-zinc-900 to-zinc-950 px-4 py-2"
+        className="shrink-0 border-b border-clay-700 bg-gradient-to-r from-clay-900 to-clay-950 px-4 py-2"
       >
         <div className="flex items-center gap-3">
           <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -140,7 +140,7 @@ export function ColumnSuggestionsBar({
 
           <button
             onClick={() => setDismissed(true)}
-            className="p-1 rounded hover:bg-zinc-800 text-clay-300 hover:text-clay-200 shrink-0"
+            className="p-1 rounded hover:bg-clay-700 text-clay-300 hover:text-clay-200 shrink-0"
           >
             <X className="w-3 h-3" />
           </button>

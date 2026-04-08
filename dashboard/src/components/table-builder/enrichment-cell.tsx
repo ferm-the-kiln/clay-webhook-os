@@ -66,7 +66,7 @@ function FormattedValue({ value }: { value: unknown }) {
 
     case "number": {
       const n = value as number;
-      const color = n >= 0 && n <= 100 ? numberHeatColor(n) : "text-zinc-200";
+      const color = n >= 0 && n <= 100 ? numberHeatColor(n) : "text-clay-100";
       return <span className={`tabular-nums ${color}`}>{String(n)}</span>;
     }
 
@@ -78,7 +78,7 @@ function FormattedValue({ value }: { value: unknown }) {
           </span>
         );
       }
-      return <span className="truncate text-zinc-200">{String(value).slice(0, 120)}</span>;
+      return <span className="truncate text-clay-100">{String(value).slice(0, 120)}</span>;
   }
 }
 
@@ -99,7 +99,7 @@ export function EnrichmentCell({ value, status, error, skipReason, upstreamColum
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="h-4 w-full max-w-[140px] rounded bg-zinc-800 shimmer"
+          className="h-4 w-full max-w-[140px] rounded bg-clay-700 shimmer"
         />
       )}
 

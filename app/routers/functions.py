@@ -525,6 +525,9 @@ async def local_runner_status(request: Request):
 @router.get("/functions/local-queue")
 async def list_local_queue(request: Request, status: str | None = None, limit: int = 20):
     """List jobs in the local execution queue. Used by clay-run --watch."""
+    import time as _time
+    request.app.state.local_runner_last_seen = _time.time()
+
     local_queue = request.app.state.local_job_queue
 
     if status == "pending":

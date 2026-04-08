@@ -463,7 +463,7 @@ export function FunctionPlayground({
                           <button
                             onClick={() => handleTestStep(step.step_index)}
                             disabled={isTestingThis || testingStepIdx !== null}
-                            className="ml-auto flex items-center gap-1 text-[10px] text-clay-300 hover:text-kiln-teal transition-colors disabled:opacity-40"
+                            className="ml-auto flex items-center gap-1 text-[10px] text-clay-300 hover:text-kiln-teal transition-colors disabled:opacity-50"
                           >
                             {isTestingThis ? (
                               <Loader2 className="h-3 w-3 animate-spin" />

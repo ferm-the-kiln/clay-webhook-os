@@ -17,7 +17,6 @@ import {
 import {
   Blocks,
   Bug,
-  ClipboardCheck,
   FlaskConical,
   Home,
   MessageSquare,
@@ -65,8 +64,7 @@ const REP_NAV_SECTIONS: NavSection[] = [
       { href: "/", label: "Home", icon: Home, shortcut: "1" },
       { href: "/enrich", label: "Enrich", icon: Table2, shortcut: "T" },
       { href: "/chat", label: "Chat", icon: MessageSquare, shortcut: "2" },
-      { href: "/review", label: "Review", icon: ClipboardCheck, shortcut: "4" },
-      { href: "/outbound", label: "Outbound", icon: Send, shortcut: "5" },
+      { href: "/outbound", label: "Outbound", icon: Send, shortcut: "4" },
     ],
   },
 ];
@@ -90,12 +88,11 @@ const POWER_NAV_SECTIONS: NavSection[] = [
     label: "Operate",
     accentColor: "kiln-teal",
     items: [
-      { href: "/review", label: "Review", icon: ClipboardCheck, shortcut: "4" },
-      { href: "/outbound", label: "Outbound", icon: Send, shortcut: "5" },
-      { href: "/context", label: "Context", icon: FolderTree, shortcut: "6" },
+      { href: "/outbound", label: "Outbound", icon: Send, shortcut: "4" },
+      { href: "/context", label: "Context", icon: FolderTree, shortcut: "5" },
       { href: "/context/rack", label: "Rack", icon: Layers, shortcut: "" },
-      { href: "/debugger", label: "Debugger", icon: Bug, shortcut: "7" },
-      { href: "/clients/twelve-labs", label: "Communication", icon: Users, shortcut: "8" },
+      { href: "/debugger", label: "Debugger", icon: Bug, shortcut: "6" },
+      { href: "/clients/twelve-labs", label: "Communication", icon: Users, shortcut: "7" },
     ],
   },
 ];
@@ -294,13 +291,13 @@ export function Sidebar() {
         { href: "/", label: "Home", icon: Home },
         { href: "/enrich", label: "Enrich", icon: Table2 },
         { href: "/chat", label: "Chat", icon: MessageSquare },
-        { href: "/review", label: "Review", icon: ClipboardCheck },
+        { href: "/outbound", label: "Outbound", icon: Send },
       ]
     : [
         { href: "/", label: "Functions", icon: Blocks },
         { href: "/tables", label: "Tables", icon: Table2 },
         { href: "/chat", label: "Chat", icon: MessageSquare },
-        { href: "/review", label: "Review", icon: ClipboardCheck },
+        { href: "/outbound", label: "Outbound", icon: Send },
       ];
 
   return (

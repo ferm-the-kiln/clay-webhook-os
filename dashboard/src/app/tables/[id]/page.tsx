@@ -265,7 +265,7 @@ export default function TableBuilderPage({
 
   if (tb.loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-clay-950 flex items-center justify-center">
         <Loader2 className="w-6 h-6 text-clay-300 animate-spin" />
       </div>
     );
@@ -273,14 +273,14 @@ export default function TableBuilderPage({
 
   if (tb.error || !tb.table) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-clay-950 flex items-center justify-center">
         <p className="text-red-400">{tb.error || "Table not found"}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
+    <div className="min-h-screen bg-clay-950 text-white flex flex-col">
       <TableToolbar
         table={tb.table}
         totalRows={tb.totalRows}

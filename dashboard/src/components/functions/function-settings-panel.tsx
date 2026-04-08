@@ -52,7 +52,7 @@ export function FunctionSettingsPanel({
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="right"
-        className="w-[380px] bg-zinc-950 border-zinc-800 text-white overflow-y-auto"
+        className="w-[380px] bg-clay-950 border-clay-700 text-white overflow-y-auto"
       >
         <SheetHeader>
           <SheetTitle className="text-white">Function Settings</SheetTitle>
@@ -67,7 +67,7 @@ export function FunctionSettingsPanel({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1.5 bg-zinc-900 border-zinc-700 text-white"
+              className="mt-1.5 bg-clay-900 border-clay-500 text-white"
             />
           </div>
 
@@ -76,7 +76,7 @@ export function FunctionSettingsPanel({
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="mt-1.5 bg-zinc-900 border-zinc-700 text-white min-h-[80px]"
+              className="mt-1.5 bg-clay-900 border-clay-500 text-white min-h-[80px]"
             />
           </div>
 
@@ -85,14 +85,14 @@ export function FunctionSettingsPanel({
             <Input
               value={folder}
               onChange={(e) => setFolder(e.target.value)}
-              className="mt-1.5 bg-zinc-900 border-zinc-700 text-white"
+              className="mt-1.5 bg-clay-900 border-clay-500 text-white"
             />
           </div>
 
           <div className="flex gap-2">
             <Button
               variant="outline"
-              className="flex-1 border-zinc-700 text-zinc-300"
+              className="flex-1 border-clay-500 text-clay-100"
               onClick={onClose}
             >
               Cancel
@@ -105,7 +105,7 @@ export function FunctionSettingsPanel({
             </Button>
           </div>
 
-          <Separator className="bg-zinc-800" />
+          <Separator className="bg-clay-700" />
 
           {/* Info */}
           <div className="space-y-2 text-xs text-clay-300">
@@ -127,13 +127,13 @@ export function FunctionSettingsPanel({
             </div>
           </div>
 
-          <Separator className="bg-zinc-800" />
+          <Separator className="bg-clay-700" />
 
           {/* Actions */}
           <div className="space-y-2">
             <Button
               variant="outline"
-              className="w-full border-zinc-700 text-zinc-300 justify-start"
+              className="w-full border-clay-500 text-clay-100 justify-start"
               onClick={() => {
                 onDuplicate();
                 onClose();

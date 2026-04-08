@@ -73,7 +73,7 @@ export function TableToolbar({
   };
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm shrink-0">
+    <div className="flex items-center gap-3 px-4 py-2 border-b border-clay-700 bg-clay-950/80 backdrop-blur-sm shrink-0">
       {/* Table name */}
       {editingName ? (
         <Input
@@ -88,7 +88,7 @@ export function TableToolbar({
             }
           }}
           autoFocus
-          className="w-64 h-8 bg-zinc-900 border-zinc-700 text-white text-sm"
+          className="w-64 h-8 bg-clay-900 border-clay-500 text-white text-sm"
         />
       ) : (
         <button
@@ -100,7 +100,7 @@ export function TableToolbar({
       )}
 
       {/* Row count badge */}
-      <span className="text-xs text-clay-300 bg-zinc-800 px-2 py-0.5 rounded">
+      <span className="text-xs text-clay-300 bg-clay-700 px-2 py-0.5 rounded">
         {totalRows} rows
       </span>
 
@@ -218,15 +218,15 @@ export function TableToolbar({
                 </svg>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-700">
+            <DropdownMenuContent align="end" className="bg-clay-900 border-clay-500">
               <DropdownMenuItem
-                className="text-zinc-300"
+                className="text-clay-100"
                 onClick={() => onExecute?.({ limit: 10 })}
               >
                 Run first 10 rows
               </DropdownMenuItem>
               <DropdownMenuItem
-                className="text-zinc-300"
+                className="text-clay-100"
                 onClick={() => onExecute?.()}
               >
                 Run all rows

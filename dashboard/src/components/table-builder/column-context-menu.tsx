@@ -53,11 +53,11 @@ export function ColumnContextMenu({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-      <ContextMenuContent className="w-52 bg-zinc-900 border-zinc-700">
+      <ContextMenuContent className="w-52 bg-clay-900 border-clay-500">
         {/* Config & rename */}
         {column.column_type !== "input" && (
           <ContextMenuItem
-            className="text-zinc-300 text-xs"
+            className="text-clay-100 text-xs"
             onClick={onEditConfig}
           >
             <Settings2 className="w-3.5 h-3.5 mr-2 text-blue-400" />
@@ -65,67 +65,67 @@ export function ColumnContextMenu({
           </ContextMenuItem>
         )}
         <ContextMenuItem
-          className="text-zinc-300 text-xs"
+          className="text-clay-100 text-xs"
           onClick={onRename}
         >
           <Pencil className="w-3.5 h-3.5 mr-2" />
           Rename column
         </ContextMenuItem>
 
-        <ContextMenuSeparator className="bg-zinc-800" />
+        <ContextMenuSeparator className="bg-clay-700" />
 
         {/* Run actions — only for enrichment/AI columns */}
         {isEnrichment && (
           <>
             <ContextMenuItem
-              className="text-zinc-300 text-xs"
+              className="text-clay-100 text-xs"
               onClick={onRunColumn}
             >
               <Play className="w-3.5 h-3.5 mr-2 text-emerald-400" />
               Run this column
             </ContextMenuItem>
             <ContextMenuItem
-              className="text-zinc-300 text-xs"
+              className="text-clay-100 text-xs"
               onClick={onRerunFailed}
             >
               <RotateCcw className="w-3.5 h-3.5 mr-2 text-amber-400" />
               Re-run failed rows
             </ContextMenuItem>
-            <ContextMenuSeparator className="bg-zinc-800" />
+            <ContextMenuSeparator className="bg-clay-700" />
           </>
         )}
 
         {/* Structure actions */}
         <ContextMenuItem
-          className="text-zinc-300 text-xs"
+          className="text-clay-100 text-xs"
           onClick={onDuplicate}
         >
           <Copy className="w-3.5 h-3.5 mr-2" />
           Duplicate column
         </ContextMenuItem>
         <ContextMenuItem
-          className="text-zinc-300 text-xs"
+          className="text-clay-100 text-xs"
           onClick={onInsertLeft}
         >
           <ArrowLeft className="w-3.5 h-3.5 mr-2" />
           Insert column left
         </ContextMenuItem>
         <ContextMenuItem
-          className="text-zinc-300 text-xs"
+          className="text-clay-100 text-xs"
           onClick={onInsertRight}
         >
           <ArrowRight className="w-3.5 h-3.5 mr-2" />
           Insert column right
         </ContextMenuItem>
         <ContextMenuItem
-          className="text-zinc-300 text-xs"
+          className="text-clay-100 text-xs"
           onClick={onHide}
         >
           <EyeOff className="w-3.5 h-3.5 mr-2" />
           Hide column
         </ContextMenuItem>
 
-        <ContextMenuSeparator className="bg-zinc-800" />
+        <ContextMenuSeparator className="bg-clay-700" />
 
         <ContextMenuItem
           className="text-red-400 text-xs"

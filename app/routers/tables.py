@@ -295,6 +295,23 @@ async def execute_table(table_id: str, body: ExecuteTableRequest, request: Reque
     )
 
 
+# --- Local Runner Status ---
+
+
+@router.get("/local-runner-status")
+async def local_runner_status(request: Request):
+    """Check if the local runner (clay-run --watch) is connected."""
+    import time as _time
+    last_seen = getattr(request.app.state, "local_runner_last_seen", 0)
+    now = _time.time()
+    connected = (now - last_seen) < 30  # seen within last 30s
+    return {
+        "connected": connected,
+        "last_seen": last_seen,
+        "seconds_ago": round(now - last_seen) if last_seen > 0 else None,
+    }
+
+
 # --- Local Execution Callback ---
 
 

@@ -123,7 +123,7 @@ export function TableColumnHeader({
               e.stopPropagation();
               onEditConfig();
             }}
-            className={`shrink-0 p-0.5 rounded hover:bg-zinc-700 transition-colors ${iconColor}`}
+            className={`shrink-0 p-0.5 rounded hover:bg-clay-500 transition-colors ${iconColor}`}
             title="Edit configuration"
           >
             <Icon className="w-3 h-3" />
@@ -151,7 +151,7 @@ export function TableColumnHeader({
           />
         ) : (
           <span
-            className={`truncate flex-1 text-zinc-300 font-medium ${
+            className={`truncate flex-1 text-clay-100 font-medium ${
               isConfigurable && onEditConfig ? "cursor-pointer hover:text-white" : "cursor-text"
             }`}
             data-col-rename={column.id}
@@ -181,15 +181,15 @@ export function TableColumnHeader({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-zinc-700 transition-opacity">
+            <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-clay-500 transition-opacity">
               <MoreVertical className="w-3 h-3 text-clay-300" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="bg-zinc-900 border-zinc-700 text-sm">
+          <DropdownMenuContent align="start" className="bg-clay-900 border-clay-500 text-sm">
             {onEditConfig && isConfigurable && (
               <DropdownMenuItem
                 onClick={onEditConfig}
-                className="text-zinc-300"
+                className="text-clay-100"
               >
                 <Settings2 className="w-3 h-3 mr-2 text-blue-400" />
                 Edit configuration
@@ -198,13 +198,13 @@ export function TableColumnHeader({
             {onRename && (
               <DropdownMenuItem
                 onClick={startEditing}
-                className="text-zinc-300"
+                className="text-clay-100"
               >
                 <Pencil className="w-3 h-3 mr-2" />
                 Rename column
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem onClick={onSort} className="text-zinc-300">
+            <DropdownMenuItem onClick={onSort} className="text-clay-100">
               {sortDir === "asc" ? (
                 <ArrowDown className="w-3 h-3 mr-2" />
               ) : (
@@ -212,7 +212,7 @@ export function TableColumnHeader({
               )}
               Sort {sortDir === "asc" ? "Z-A" : "A-Z"}
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-zinc-700" />
+            <DropdownMenuSeparator className="bg-clay-500" />
             <DropdownMenuItem
               onClick={onDelete}
               className="text-red-400 focus:text-red-400"
@@ -240,7 +240,7 @@ export function TableColumnHeader({
       {/* Tri-color progress bar */}
       {hasProgress && (
         <div className="flex items-center gap-1.5">
-          <div className="flex-1 h-1 rounded-full bg-zinc-800 overflow-hidden">
+          <div className="flex-1 h-1 rounded-full bg-clay-700 overflow-hidden">
             <motion.div
               className="h-full flex"
               initial={{ width: 0 }}
