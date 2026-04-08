@@ -16,7 +16,9 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  BarChart3,
 } from "lucide-react";
+import { getPersona, onPreferencesChanged } from "@/lib/user-preferences";
 import { fetchTables, createTable, addTableColumn } from "@/lib/api";
 import type { TableSummary, WorkflowTemplate } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/utils";
@@ -29,12 +31,17 @@ export function MyWorkDashboard() {
   const [tables, setTables] = useState<TableSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRecents, setShowRecents] = useState(false);
+  const [persona, setPersona] = useState(getPersona);
 
   useEffect(() => {
     fetchTables()
       .then((r) => setTables(r.tables))
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    return onPreferencesChanged(() => setPersona(getPersona()));
   }, []);
 
   const handleSelectTemplate = async (template: WorkflowTemplate) => {
@@ -82,15 +89,29 @@ export function MyWorkDashboard() {
             title="Upload & Enrich"
             subtitle="Import a CSV and add enrichments like email finding, company research, and more."
             accentColor="kiln-teal"
-            onClick={() => router.push("/tables?action=import")}
+            onClick={() => router.push(persona === "rep" ? "/enrich" : "/tables?action=import")}
           />
-          <QuickActionCard
-            icon={Sparkles}
-            title="Build with AI"
-            subtitle="Describe what you need in plain English and let AI set up the columns for you."
-            accentColor="purple"
-            onClick={() => router.push("/tables?action=ai-builder")}
-          />
+          {persona === "rep" ? (
+            <QuickActionCard
+              icon={BarChart3}
+              title="Recent Results"
+              subtitle="View your latest enrichment runs and download results."
+              accentColor="purple"
+              onClick={() => {
+                const latest = recentTables[0];
+                if (latest) router.push(`/tables/${latest.id}`);
+                else document.getElementById("recent-tables")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            />
+          ) : (
+            <QuickActionCard
+              icon={Sparkles}
+              title="Build with AI"
+              subtitle="Describe what you need in plain English and let AI set up the columns for you."
+              accentColor="purple"
+              onClick={() => router.push("/tables?action=ai-builder")}
+            />
+          )}
           <QuickActionCard
             icon={Play}
             title="Quick Run"
@@ -113,7 +134,7 @@ export function MyWorkDashboard() {
         </div>
 
         {/* Recent Tables */}
-        <div className="mb-6">
+        <div id="recent-tables" className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <Table2 className="h-3.5 w-3.5 text-clay-300" />
             <h3 className="text-xs font-semibold text-clay-200 uppercase tracking-wider">
