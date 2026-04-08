@@ -1,21 +1,26 @@
 #!/bin/bash
-# Install clay-run as a macOS LaunchAgent (background daemon).
-# Runs automatically on login, picks up dashboard "Run" jobs, executes locally.
+# Install clay-run daemon + local backend as macOS LaunchAgents.
+# Both auto-start on login. The daemon picks up dashboard "Run" jobs,
+# the backend serves the API locally on port 8000.
 #
 # Usage: bash scripts/install-clay-daemon.sh
 # Remove: bash scripts/uninstall-clay-daemon.sh
 
 set -e
 
-LABEL="com.clay-webhook-os.clay-run"
+DAEMON_LABEL="com.clay-webhook-os.clay-run"
+BACKEND_LABEL="com.clay-webhook-os.backend"
 PLIST_DIR="$HOME/Library/LaunchAgents"
-PLIST_PATH="$PLIST_DIR/$LABEL.plist"
-LOG_PATH="$HOME/Library/Logs/clay-run.log"
+DAEMON_PLIST="$PLIST_DIR/$DAEMON_LABEL.plist"
+BACKEND_PLIST="$PLIST_DIR/$BACKEND_LABEL.plist"
+DAEMON_LOG="$HOME/Library/Logs/clay-run.log"
+BACKEND_LOG="$HOME/Library/Logs/clay-backend.log"
 
 # Detect paths
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT_PATH="$REPO_ROOT/scripts/clay-run.py"
 PYTHON_PATH="/opt/homebrew/bin/python3.11"
+VENV_PYTHON="$REPO_ROOT/.venv/bin/python"
 
 if [ ! -f "$SCRIPT_PATH" ]; then
     echo "Error: clay-run.py not found at $SCRIPT_PATH"
@@ -27,30 +32,85 @@ if [ ! -x "$PYTHON_PATH" ]; then
     exit 1
 fi
 
-# Check clay-run config exists
+if [ ! -x "$VENV_PYTHON" ]; then
+    echo "Error: venv not found at $REPO_ROOT/.venv — run: python3.11 -m venv .venv && pip install -e ."
+    exit 1
+fi
+
+# Check clay-run config exists — default to localhost
 if [ ! -f "$HOME/.clay-run.json" ]; then
     echo "No ~/.clay-run.json found. Running setup first..."
     "$PYTHON_PATH" "$SCRIPT_PATH" --setup
 fi
 
-# Unload existing if present
-if launchctl list 2>/dev/null | grep -q "$LABEL"; then
-    echo "Stopping existing daemon..."
-    launchctl unload "$PLIST_PATH" 2>/dev/null || true
+# --- Backend LaunchAgent ---
+
+if launchctl list 2>/dev/null | grep -q "$BACKEND_LABEL"; then
+    echo "Stopping existing backend..."
+    launchctl unload "$BACKEND_PLIST" 2>/dev/null || true
 fi
 
-# Create log directory
-mkdir -p "$(dirname "$LOG_PATH")"
-
-# Create LaunchAgent plist
-mkdir -p "$PLIST_DIR"
-cat > "$PLIST_PATH" << EOF
+mkdir -p "$PLIST_DIR" "$(dirname "$BACKEND_LOG")"
+cat > "$BACKEND_PLIST" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>$LABEL</string>
+    <string>$BACKEND_LABEL</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$VENV_PYTHON</string>
+        <string>-m</string>
+        <string>uvicorn</string>
+        <string>app.main:app</string>
+        <string>--host</string>
+        <string>0.0.0.0</string>
+        <string>--port</string>
+        <string>8000</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>$REPO_ROOT</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>$BACKEND_LOG</string>
+    <key>StandardErrorPath</key>
+    <string>$BACKEND_LOG</string>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>$REPO_ROOT/.venv/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>$HOME</string>
+    </dict>
+</dict>
+</plist>
+EOF
+
+launchctl load "$BACKEND_PLIST"
+
+# --- Daemon LaunchAgent ---
+
+if launchctl list 2>/dev/null | grep -q "$DAEMON_LABEL"; then
+    echo "Stopping existing daemon..."
+    launchctl unload "$DAEMON_PLIST" 2>/dev/null || true
+fi
+
+cat > "$DAEMON_PLIST" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$DAEMON_LABEL</string>
     <key>ProgramArguments</key>
     <array>
         <string>$PYTHON_PATH</string>
@@ -65,9 +125,9 @@ cat > "$PLIST_PATH" << EOF
         <false/>
     </dict>
     <key>StandardOutPath</key>
-    <string>$LOG_PATH</string>
+    <string>$DAEMON_LOG</string>
     <key>StandardErrorPath</key>
-    <string>$LOG_PATH</string>
+    <string>$DAEMON_LOG</string>
     <key>ThrottleInterval</key>
     <integer>10</integer>
     <key>EnvironmentVariables</key>
@@ -81,20 +141,31 @@ cat > "$PLIST_PATH" << EOF
 </plist>
 EOF
 
-# Load the daemon
-launchctl load "$PLIST_PATH"
+launchctl load "$DAEMON_PLIST"
 
-# Verify
+# --- Verify ---
 sleep 2
-if launchctl list 2>/dev/null | grep -q "$LABEL"; then
-    echo ""
+echo ""
+
+if launchctl list 2>/dev/null | grep -q "$BACKEND_LABEL"; then
+    echo "Backend installed and running."
+    echo "  Plist: $BACKEND_PLIST"
+    echo "  Logs:  $BACKEND_LOG"
+    echo "  URL:   http://localhost:8000"
+else
+    echo "Warning: backend may not have started. Check: launchctl list | grep clay"
+fi
+
+echo ""
+
+if launchctl list 2>/dev/null | grep -q "$DAEMON_LABEL"; then
     echo "clay-run daemon installed and running."
-    echo "  Plist: $PLIST_PATH"
-    echo "  Logs:  $LOG_PATH"
+    echo "  Plist: $DAEMON_PLIST"
+    echo "  Logs:  $DAEMON_LOG"
     echo "  PID:   $(cat ~/.clay-run.pid 2>/dev/null || echo 'starting...')"
-    echo ""
-    echo "The daemon auto-starts on login and picks up dashboard Run jobs."
-    echo "To remove: bash $REPO_ROOT/scripts/uninstall-clay-daemon.sh"
 else
     echo "Warning: daemon may not have started. Check: launchctl list | grep clay"
 fi
+
+echo ""
+echo "Both auto-start on login. To remove: bash $REPO_ROOT/scripts/uninstall-clay-daemon.sh"

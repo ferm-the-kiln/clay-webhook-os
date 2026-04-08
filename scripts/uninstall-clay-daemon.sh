@@ -1,21 +1,23 @@
 #!/bin/bash
-# Uninstall the clay-run LaunchAgent daemon.
+# Uninstall clay-run daemon + local backend LaunchAgents.
 #
 # Usage: bash scripts/uninstall-clay-daemon.sh
 
 set -e
 
-LABEL="com.clay-webhook-os.clay-run"
-PLIST_PATH="$HOME/Library/LaunchAgents/$LABEL.plist"
+PLIST_DIR="$HOME/Library/LaunchAgents"
 
-if [ -f "$PLIST_PATH" ]; then
-    echo "Stopping daemon..."
-    launchctl unload "$PLIST_PATH" 2>/dev/null || true
-    rm "$PLIST_PATH"
-    echo "LaunchAgent removed."
-else
-    echo "No LaunchAgent found at $PLIST_PATH"
-fi
+for LABEL in "com.clay-webhook-os.clay-run" "com.clay-webhook-os.backend"; do
+    PLIST_PATH="$PLIST_DIR/$LABEL.plist"
+    if [ -f "$PLIST_PATH" ]; then
+        echo "Stopping $LABEL..."
+        launchctl unload "$PLIST_PATH" 2>/dev/null || true
+        rm "$PLIST_PATH"
+        echo "  Removed."
+    else
+        echo "No LaunchAgent found for $LABEL"
+    fi
+done
 
 # Clean up PID and heartbeat files
 rm -f "$HOME/.clay-run.pid" "$HOME/.clay-run-heartbeat"

@@ -24,6 +24,51 @@ router = APIRouter(prefix="/tables", tags=["tables"])
 logger = logging.getLogger("clay-webhook-os")
 
 
+# --- Local Runner Status ---
+# NOTE: These must be defined BEFORE the /{table_id} catch-all route
+
+
+@router.get("/local-runner-status")
+async def local_runner_status(request: Request):
+    """Check if the local runner (clay-run --watch) is connected."""
+    import time as _time
+    last_seen = getattr(request.app.state, "local_runner_last_seen", 0)
+    now = _time.time()
+    connected = (now - last_seen) < 30  # seen within last 30s
+    return {
+        "connected": connected,
+        "last_seen": last_seen,
+        "seconds_ago": round(now - last_seen) if last_seen > 0 else None,
+    }
+
+
+# --- Local Execution Callback ---
+
+
+@router.post("/local-result/{job_id}")
+async def submit_table_local_result(job_id: str, request: Request):
+    """Callback from local runner (clay-run) with table cell execution results."""
+    body = await request.json()
+    bridge_id = body.get("bridge_id")
+    result = body.get("result")
+    duration_ms = body.get("duration_ms", 0)
+
+    if not bridge_id:
+        return JSONResponse({"error": True, "error_message": "Missing bridge_id"}, status_code=400)
+
+    bridge_store = request.app.state.bridge_store
+    resolved = bridge_store.resolve(bridge_id, {
+        "result": result,
+        "duration_ms": duration_ms,
+    })
+
+    local_queue = request.app.state.local_job_queue
+    local_queue.update_status(job_id, "completed", {"result": result})
+
+    logger.info("[tables] Local result for job %s (bridge=%s, resolved=%s)", job_id, bridge_id, resolved)
+    return {"ok": resolved, "job_id": job_id}
+
+
 # --- Table CRUD ---
 
 
@@ -293,50 +338,6 @@ async def execute_table(table_id: str, body: ExecuteTableRequest, request: Reque
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-
-# --- Local Runner Status ---
-
-
-@router.get("/local-runner-status")
-async def local_runner_status(request: Request):
-    """Check if the local runner (clay-run --watch) is connected."""
-    import time as _time
-    last_seen = getattr(request.app.state, "local_runner_last_seen", 0)
-    now = _time.time()
-    connected = (now - last_seen) < 30  # seen within last 30s
-    return {
-        "connected": connected,
-        "last_seen": last_seen,
-        "seconds_ago": round(now - last_seen) if last_seen > 0 else None,
-    }
-
-
-# --- Local Execution Callback ---
-
-
-@router.post("/local-result/{job_id}")
-async def submit_table_local_result(job_id: str, request: Request):
-    """Callback from local runner (clay-run) with table cell execution results."""
-    body = await request.json()
-    bridge_id = body.get("bridge_id")
-    result = body.get("result")
-    duration_ms = body.get("duration_ms", 0)
-
-    if not bridge_id:
-        return JSONResponse({"error": True, "error_message": "Missing bridge_id"}, status_code=400)
-
-    bridge_store = request.app.state.bridge_store
-    resolved = bridge_store.resolve(bridge_id, {
-        "result": result,
-        "duration_ms": duration_ms,
-    })
-
-    local_queue = request.app.state.local_job_queue
-    local_queue.update_status(job_id, "completed", {"result": result})
-
-    logger.info("[tables] Local result for job %s (bridge=%s, resolved=%s)", job_id, bridge_id, resolved)
-    return {"ok": resolved, "job_id": job_id}
 
 
 # --- Validation ---

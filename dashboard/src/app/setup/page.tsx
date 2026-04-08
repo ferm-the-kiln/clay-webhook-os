@@ -41,7 +41,7 @@ export default function SetupPage() {
   const steps = [
     {
       title: "Install Claude Code",
-      description: "Download and log in with your Claude Max account.",
+      description: "This is the AI engine that powers your enrichments. Download it and sign in with your Claude account.",
       action: (
         <Button variant="outline" size="sm" className="h-7 border-clay-600 text-clay-300" asChild>
           <a href="https://claude.ai/download" target="_blank" rel="noopener noreferrer">
@@ -49,11 +49,11 @@ export default function SetupPage() {
           </a>
         </Button>
       ),
-      hint: "Already installed? Skip to step 2.",
+      hint: "Already have it? Skip to step 2.",
     },
     {
-      title: "Run the setup command",
-      description: "Open Terminal on your Mac and paste this command. It installs the local runner as a background service that starts automatically on login.",
+      title: "Paste this in Terminal",
+      description: "Open the Terminal app on your Mac (search \"Terminal\" in Spotlight) and paste the command below. This sets everything up to run automatically in the background — you only need to do this once.",
       action: (
         <div className="space-y-2 w-full">
           <div
@@ -68,16 +68,16 @@ export default function SetupPage() {
             </button>
           </div>
           <p className="text-[10px] text-clay-500">
-            Click to copy. This installs <code className="text-clay-400">clay-run</code> as a macOS LaunchAgent — it auto-starts on login and runs in the background.
+            Click to copy. After pasting, it takes about 10 seconds. Once it says &ldquo;installed and running&rdquo; you&apos;re done.
           </p>
         </div>
       ),
     },
     {
-      title: "Verify connection",
+      title: "You're all set",
       description: connected
-        ? "Local runner is connected and ready to process enrichments."
-        : "Waiting for the local runner to connect...",
+        ? "Connected and ready to go. Enrichments will run on your computer automatically."
+        : "Waiting for your computer to connect — this usually takes a few seconds after step 2.",
       action: connected ? (
         <Button size="sm" className="h-8 bg-kiln-teal text-black hover:bg-kiln-teal/90" asChild>
           <a href="/enrich">
@@ -102,9 +102,9 @@ export default function SetupPage() {
             <div className="flex items-center justify-center gap-2 mb-4">
               <Terminal className="h-6 w-6 text-kiln-teal" />
             </div>
-            <h1 className="text-xl font-semibold text-clay-100">Set up local execution</h1>
+            <h1 className="text-xl font-semibold text-clay-100">Connect your computer</h1>
             <p className="text-sm text-clay-400 max-w-sm mx-auto">
-              Enrichments run on your Mac using your Claude subscription. This one-time setup takes about 2 minutes.
+              Enrichments run directly on your Mac. This is a one-time setup that takes about 2 minutes.
             </p>
           </div>
 
@@ -160,14 +160,14 @@ export default function SetupPage() {
             <div className="flex-1">
               <span className={cn("text-sm", connected === true ? "text-emerald-300" : "text-clay-300")}>
                 {connected === true
-                  ? "Local runner connected"
+                  ? "Connected"
                   : connected === false
                     ? "Not connected"
                     : "Checking..."}
               </span>
             </div>
             {connected === true && (
-              <span className="text-[10px] text-clay-500">Auto-starts on login</span>
+              <span className="text-[10px] text-clay-500">Runs automatically</span>
             )}
           </div>
         </div>
