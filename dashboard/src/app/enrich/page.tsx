@@ -156,7 +156,7 @@ export default function EnrichPage() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: direction * -30 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="max-w-2xl mx-auto"
+            className={cn(step === "run" ? "mx-auto" : "max-w-2xl mx-auto")}
           >
             {step === "upload" && (
               <StepUpload

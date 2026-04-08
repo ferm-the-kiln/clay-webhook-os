@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Download, ExternalLink, RotateCcw, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Download, ExternalLink, RotateCcw, CheckCircle2, XCircle, Loader2, Square, Search, Brain, Calculator, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -13,15 +13,11 @@ import {
   fetchTableRows,
   fetchTable,
 } from "@/lib/api";
-import type { WorkflowTemplate, TableExecutionEvent, TableColumn } from "@/lib/types";
+import type { WorkflowTemplate, TableExecutionEvent, TableColumn, TableRow, CellState } from "@/lib/types";
+import { EnrichmentCell } from "@/components/table-builder/enrichment-cell";
 import type { CsvPreview } from "./step-upload";
 
 type Phase = "creating" | "importing" | "configuring" | "enriching" | "done" | "error";
-
-interface LiveCell {
-  column_id: string;
-  value: unknown;
-}
 
 interface StepProgressProps {
   csvPreview: CsvPreview;
@@ -30,6 +26,13 @@ interface StepProgressProps {
   onStartOver: () => void;
   rowLimit?: number;
 }
+
+const COLUMN_TYPE_STYLES: Record<string, { icon: typeof Search; color: string }> = {
+  enrichment: { icon: Search, color: "border-l-blue-500" },
+  ai: { icon: Brain, color: "border-l-purple-500" },
+  formula: { icon: Calculator, color: "border-l-teal-500" },
+  gate: { icon: Filter, color: "border-l-amber-500" },
+};
 
 export function StepProgress({
   csvPreview,
@@ -43,12 +46,17 @@ export function StepProgress({
   const [tableName, setTableName] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [progress, setProgress] = useState({ done: 0, total: 0, errors: 0 });
-  const [liveCells, setLiveCells] = useState<LiveCell[]>([]);
-  const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
-  const [previewColumns, setPreviewColumns] = useState<TableColumn[]>([]);
+  const [columns, setColumns] = useState<TableColumn[]>([]);
+  const [rows, setRows] = useState<TableRow[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const startedRef = useRef(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const handleStop = useCallback(() => {
+    abortRef.current?.abort();
+    setPhase("done");
+  }, []);
 
   const run = useCallback(async () => {
     if (startedRef.current) return;
@@ -88,7 +96,15 @@ export function StepProgress({
         }
       }
 
-      // 4. Execute
+      // 4. Fetch table definition + rows for the grid
+      const [tableDef, rowsData] = await Promise.all([
+        fetchTable(table.id),
+        fetchTableRows(table.id, 0, rowLimit ?? 1000),
+      ]);
+      setColumns(tableDef.columns.filter((c) => !c.hidden));
+      setRows(rowsData.rows as TableRow[]);
+
+      // 5. Execute with SSE — update grid cells in real-time
       setPhase("enriching");
       await new Promise<void>((resolve, reject) => {
         const controller = streamTableExecution(
@@ -96,11 +112,20 @@ export function StepProgress({
           (event: TableExecutionEvent) => {
             if (event.type === "execute_start") {
               setProgress({ done: 0, total: event.total_rows, errors: 0 });
-            } else if (event.type === "cell_update" && event.status === "done") {
-              setLiveCells((prev) => [
-                { column_id: event.column_id, value: event.value },
-                ...prev.slice(0, 4),
-              ]);
+            } else if (event.type === "cell_update") {
+              // Update the specific cell in the rows state
+              setRows((prev) =>
+                prev.map((r) =>
+                  r._row_id === event.row_id
+                    ? {
+                        ...r,
+                        [`${event.column_id}__value`]: event.value,
+                        [`${event.column_id}__status`]: event.status,
+                        [`${event.column_id}__error`]: event.error,
+                      }
+                    : r,
+                ),
+              );
             } else if (event.type === "column_progress") {
               setProgress((prev) => ({
                 ...prev,
@@ -122,7 +147,7 @@ export function StepProgress({
         abortRef.current = controller;
       });
 
-      // 5. Done — save to history + fetch preview
+      // 6. Done
       setPhase("done");
       setShowConfetti(true);
 
@@ -139,17 +164,11 @@ export function StepProgress({
         history.unshift(entry);
         localStorage.setItem("enrich-history", JSON.stringify(history.slice(0, 10)));
       } catch {}
-
-      // Fetch preview rows
-      try {
-        const [rowsData, tableDef] = await Promise.all([
-          fetchTableRows(table.id, 0, 5),
-          fetchTable(table.id),
-        ]);
-        setPreviewRows(rowsData.rows);
-        setPreviewColumns(tableDef.columns.filter((c) => !c.hidden));
-      } catch {}
     } catch (err) {
+      if ((err as Error)?.name === "AbortError") {
+        setPhase("done");
+        return;
+      }
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
       setPhase("error");
     }
@@ -162,7 +181,6 @@ export function StepProgress({
     };
   }, [run]);
 
-  // Dismiss confetti after 2s
   useEffect(() => {
     if (showConfetti) {
       const t = setTimeout(() => setShowConfetti(false), 2000);
@@ -185,229 +203,195 @@ export function StepProgress({
     }
   }, [tableId, tableName]);
 
-  const phases: { key: Phase; label: string }[] = [
-    { key: "creating", label: "Creating table" },
-    { key: "importing", label: "Importing data" },
-    { key: "configuring", label: "Setting up enrichment" },
-    { key: "enriching", label: "Enriching your data" },
-    { key: "done", label: "Done" },
-  ];
-
-  const currentIdx = phases.findIndex((p) => p.key === phase);
-  const successRate =
-    progress.total > 0
-      ? Math.round(((progress.done - progress.errors) / progress.total) * 100)
-      : 0;
+  const pct = progress.total > 0 ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0;
+  const showGrid = columns.length > 0 && rows.length > 0;
+  const isPreGrid = phase === "creating" || phase === "importing" || phase === "configuring";
 
   return (
-    <div className="space-y-8">
-      <div className="text-center space-y-1">
-        {/* Confetti burst */}
-        {showConfetti && <ConfettiBurst />}
-
-        <h2 className="text-lg font-semibold text-clay-100">
-          {phase === "done"
-            ? "Your data is ready"
-            : phase === "error"
-              ? "Something went wrong"
-              : "Enriching your data..."}
-        </h2>
-        {phase !== "done" && phase !== "error" && (
-          <p className="text-sm text-clay-400">
-            Sit tight, this usually takes a few minutes.
-          </p>
-        )}
-      </div>
-
-      {/* Phase progress */}
+    <div className="space-y-4">
+      {/* ── Status bar ── */}
       {phase !== "error" && (
-        <div className="space-y-3 max-w-md mx-auto">
-          {phases.map((p, i) => {
-            const isActive = p.key === phase;
-            const isDone = i < currentIdx || phase === "done";
-
-            return (
-              <div key={p.key} className="flex items-center gap-3">
-                <div className="w-5 flex justify-center">
-                  {isDone ? (
-                    <CheckCircle2 className="h-4 w-4 text-kiln-teal" />
-                  ) : isActive ? (
-                    <Loader2 className="h-4 w-4 text-kiln-teal animate-spin" />
-                  ) : (
-                    <div className="h-2 w-2 rounded-full bg-clay-600" />
-                  )}
-                </div>
-                <span
-                  className={cn(
-                    "text-sm",
-                    isDone
-                      ? "text-clay-400"
-                      : isActive
-                        ? "text-clay-100 font-medium"
-                        : "text-clay-500",
-                  )}
-                >
-                  {p.label}
+        <div className="flex items-center gap-3">
+          {/* Phase indicator */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {isPreGrid ? (
+              <>
+                <Loader2 className="h-4 w-4 text-kiln-teal animate-spin shrink-0" />
+                <span className="text-sm text-clay-200">
+                  {phase === "creating"
+                    ? "Creating table..."
+                    : phase === "importing"
+                      ? "Importing data..."
+                      : "Setting up enrichment..."}
                 </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Enrichment progress bar */}
-      {phase === "enriching" && progress.total > 0 && (
-        <div className="max-w-md mx-auto space-y-2">
-          <div className="h-2 rounded-full bg-clay-700 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-kiln-teal transition-all duration-300"
-              style={{ width: `${Math.min(100, (progress.done / progress.total) * 100)}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-clay-400">
-            <span>{progress.done} / {progress.total} cells</span>
-            {progress.errors > 0 && (
-              <span className="text-amber-400">{progress.errors} errors</span>
+              </>
+            ) : phase === "enriching" ? (
+              <>
+                <Loader2 className="h-4 w-4 text-kiln-teal animate-spin shrink-0" />
+                <span className="text-sm text-clay-200">Enriching...</span>
+                <div className="flex-1 h-1.5 rounded-full bg-clay-700 overflow-hidden max-w-xs">
+                  <div
+                    className="h-full rounded-full bg-kiln-teal transition-all duration-300"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className="text-xs text-clay-400 tabular-nums shrink-0">
+                  {progress.done}/{progress.total}
+                </span>
+                {progress.errors > 0 && (
+                  <span className="text-xs text-amber-400 shrink-0">{progress.errors} err</span>
+                )}
+              </>
+            ) : (
+              <>
+                {showConfetti && <ConfettiBurst />}
+                <CheckCircle2 className="h-4 w-4 text-kiln-teal shrink-0" />
+                <span className="text-sm text-clay-200">
+                  Done — {progress.done} cells enriched
+                  {progress.errors > 0 && (
+                    <span className="text-amber-400 ml-1">({progress.errors} errors)</span>
+                  )}
+                </span>
+              </>
             )}
           </div>
-        </div>
-      )}
 
-      {/* Live cell preview during enrichment */}
-      {phase === "enriching" && liveCells.length > 0 && (
-        <div className="max-w-md mx-auto space-y-1">
-          <div className="text-[10px] text-clay-500 uppercase tracking-wider">Live results</div>
-          {liveCells.map((cell, i) => (
-            <div
-              key={`${cell.column_id}-${i}`}
-              className="flex items-center gap-2 text-xs p-1.5 rounded bg-clay-800/30 border border-clay-700/50"
-              style={{ animation: "fadeSlideIn 0.3s ease-out" }}
-            >
-              <span className="text-clay-500 font-mono truncate w-28 shrink-0">{cell.column_id}</span>
-              <span className="text-clay-300 truncate flex-1">
-                {typeof cell.value === "string"
-                  ? cell.value
-                  : cell.value != null
-                    ? JSON.stringify(cell.value)
-                    : "—"}
-              </span>
-            </div>
-          ))}
-          <style>{`
-            @keyframes fadeSlideIn {
-              from { opacity: 0; transform: translateY(4px); }
-              to { opacity: 1; transform: translateY(0); }
-            }
-          `}</style>
-        </div>
-      )}
-
-      {/* Quality summary card */}
-      {phase === "done" && (
-        <div className="grid grid-cols-3 gap-3 max-w-md mx-auto">
-          <div className="rounded-lg bg-clay-800/50 border border-clay-700 p-3 text-center">
-            <div className="text-lg font-semibold text-kiln-teal">{progress.done}</div>
-            <div className="text-[10px] text-clay-400 uppercase tracking-wider">Cells Enriched</div>
-          </div>
-          <div className="rounded-lg bg-clay-800/50 border border-clay-700 p-3 text-center">
-            <div className="text-lg font-semibold text-clay-100">{successRate}%</div>
-            <div className="text-[10px] text-clay-400 uppercase tracking-wider">Success Rate</div>
-          </div>
-          <div className="rounded-lg bg-clay-800/50 border border-clay-700 p-3 text-center">
-            <div className={cn("text-lg font-semibold", progress.errors > 0 ? "text-amber-400" : "text-clay-100")}>
-              {progress.errors}
-            </div>
-            <div className="text-[10px] text-clay-400 uppercase tracking-wider">Errors</div>
-          </div>
-        </div>
-      )}
-
-      {/* Results preview table */}
-      {phase === "done" && previewRows.length > 0 && previewColumns.length > 0 && (
-        <div className="max-w-2xl mx-auto">
-          <h3 className="text-xs font-medium text-clay-400 mb-2">
-            Preview (first {previewRows.length} rows)
-          </h3>
-          <div className="rounded-md border border-clay-700 overflow-x-auto max-h-48">
-            <table className="w-full text-xs">
-              <thead>
-                <tr>
-                  {previewColumns.map((col) => (
-                    <th
-                      key={col.id}
-                      className="px-3 py-1.5 text-left text-clay-400 font-medium border-b border-clay-700 bg-clay-800/50 whitespace-nowrap sticky top-0"
-                    >
-                      {col.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {previewRows.map((row, ri) => (
-                  <tr key={ri} className="border-b border-clay-800/50 last:border-0">
-                    {previewColumns.map((col) => {
-                      const val = row[`${col.id}__value`];
-                      const display =
-                        val == null
-                          ? ""
-                          : typeof val === "object"
-                            ? JSON.stringify(val)
-                            : String(val);
-                      return (
-                        <td
-                          key={col.id}
-                          className="px-3 py-1.5 text-clay-300 whitespace-nowrap max-w-[200px] truncate"
-                        >
-                          {display || <span className="text-clay-600">&mdash;</span>}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Done actions */}
-      {phase === "done" && (
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex gap-3">
-            <Button
-              onClick={handleDownload}
-              className="bg-kiln-teal text-black hover:bg-kiln-teal/90"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download CSV
-            </Button>
-            {tableId && (
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            {phase === "enriching" && (
               <Button
                 variant="outline"
-                className="border-clay-600 text-clay-300"
-                asChild
+                size="sm"
+                className="h-7 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                onClick={handleStop}
               >
-                <a href={`/tables/${tableId}`}>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open in Table Builder
-                </a>
+                <Square className="h-3 w-3 mr-1 fill-current" />
+                Stop
               </Button>
             )}
+            {phase === "done" && (
+              <>
+                <Button
+                  size="sm"
+                  className="h-7 bg-kiln-teal text-black hover:bg-kiln-teal/90"
+                  onClick={handleDownload}
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  Download CSV
+                </Button>
+                {tableId && (
+                  <Button variant="outline" size="sm" className="h-7 border-clay-600 text-clay-300" asChild>
+                    <a href={`/tables/${tableId}`}>
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Table Builder
+                    </a>
+                  </Button>
+                )}
+                <button
+                  onClick={onStartOver}
+                  className="text-xs text-clay-500 hover:text-clay-300 flex items-center gap-1 ml-1"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                </button>
+              </>
+            )}
           </div>
-
-          <button
-            onClick={onStartOver}
-            className="text-xs text-clay-400 hover:text-clay-200 flex items-center gap-1 mt-2"
-          >
-            <RotateCcw className="h-3 w-3" />
-            Enrich another file
-          </button>
         </div>
       )}
 
-      {/* Error state */}
+      {/* ── Pre-grid loading state ── */}
+      {isPreGrid && !showGrid && (
+        <div className="flex items-center justify-center py-24">
+          <div className="text-center space-y-3">
+            <div className="h-10 w-10 mx-auto rounded-full border-2 border-kiln-teal border-t-transparent animate-spin" />
+            <p className="text-sm text-clay-400">Preparing your data...</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Live spreadsheet grid ── */}
+      {showGrid && (
+        <div
+          ref={gridRef}
+          className="rounded-lg border border-clay-700 overflow-auto"
+          style={{ maxHeight: "calc(100vh - 240px)" }}
+        >
+          <table className="w-full text-xs border-collapse">
+            <thead className="sticky top-0 z-10">
+              <tr>
+                <th className="px-2 py-2 text-left text-clay-500 font-medium bg-clay-800 border-b border-clay-700 w-10 text-[10px]">
+                  #
+                </th>
+                {columns.map((col) => {
+                  const typeStyle = COLUMN_TYPE_STYLES[col.column_type];
+                  return (
+                    <th
+                      key={col.id}
+                      className={cn(
+                        "px-3 py-2 text-left font-medium border-b border-clay-700 bg-clay-800 whitespace-nowrap min-w-[140px]",
+                        typeStyle ? `border-l-2 ${typeStyle.color}` : "border-l-2 border-l-clay-600",
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        {typeStyle && <typeStyle.icon className="h-3 w-3 text-clay-400 shrink-0" />}
+                        <span className="text-clay-200 truncate">{col.name}</span>
+                      </div>
+                      {col.column_type !== "input" && col.tool && (
+                        <div className="text-[9px] text-clay-500 mt-0.5">{col.tool}</div>
+                      )}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, ri) => (
+                <tr
+                  key={row._row_id}
+                  className="border-b border-clay-800/50 last:border-0 hover:bg-clay-800/30 transition-colors"
+                >
+                  <td className="px-2 py-1.5 text-clay-600 text-[10px] tabular-nums">
+                    {ri + 1}
+                  </td>
+                  {columns.map((col) => {
+                    const value = row[`${col.id}__value`];
+                    const status = (row[`${col.id}__status`] as CellState) || (col.column_type === "input" ? "done" : "empty");
+                    const error = row[`${col.id}__error`] as string | undefined;
+
+                    return (
+                      <td
+                        key={col.id}
+                        className={cn(
+                          "px-3 py-1.5 max-w-[250px]",
+                          col.column_type === "input"
+                            ? "text-clay-300"
+                            : "",
+                        )}
+                      >
+                        {col.column_type === "input" ? (
+                          <span className="truncate block">
+                            {value != null ? String(value) : <span className="text-clay-600">&mdash;</span>}
+                          </span>
+                        ) : (
+                          <EnrichmentCell
+                            value={value}
+                            status={status}
+                            error={error}
+                          />
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── Error state ── */}
       {phase === "error" && (
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 py-12">
           <div className="flex items-center gap-2 text-sm text-red-400">
             <XCircle className="h-4 w-4" />
             {errorMsg}
@@ -429,24 +413,32 @@ export function StepProgress({
 /* ─── Confetti burst animation ────────────────────────── */
 
 function ConfettiBurst() {
+  const [visible, setVisible] = useState(true);
   const colors = ["#4A9EAD", "#22c55e", "#eab308", "#f97316", "#a855f7"];
 
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(false), 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (!visible) return null;
+
   return (
-    <div className="relative h-0 flex justify-center pointer-events-none">
-      {Array.from({ length: 15 }).map((_, i) => {
-        const angle = (i / 15) * 360;
-        const distance = 60 + Math.random() * 40;
+    <span className="relative inline-flex pointer-events-none">
+      {Array.from({ length: 12 }).map((_, i) => {
+        const angle = (i / 12) * 360;
+        const distance = 20 + Math.random() * 15;
         const color = colors[i % colors.length];
         return (
-          <div
+          <span
             key={i}
-            className="absolute w-2 h-2 rounded-full"
+            className="absolute w-1.5 h-1.5 rounded-full"
             style={{
               backgroundColor: color,
-              animation: "confetti-burst 1s ease-out forwards",
-              animationDelay: `${i * 30}ms`,
+              animation: "confetti-burst 0.8s ease-out forwards",
+              animationDelay: `${i * 25}ms`,
               ["--tx" as string]: `${Math.cos((angle * Math.PI) / 180) * distance}px`,
-              ["--ty" as string]: `${Math.sin((angle * Math.PI) / 180) * distance - 30}px`,
+              ["--ty" as string]: `${Math.sin((angle * Math.PI) / 180) * distance}px`,
             }}
           />
         );
@@ -457,6 +449,6 @@ function ConfettiBurst() {
           100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
         }
       `}</style>
-    </div>
+    </span>
   );
 }
