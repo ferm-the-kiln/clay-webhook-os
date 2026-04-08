@@ -73,6 +73,7 @@ import type {
   TableSummary,
   TableRow,
   TableExecutionEvent,
+  ResearchMemoryResponse,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -2575,4 +2576,18 @@ export function fetchRackAnalytics(): Promise<{ analytics: RackLoadEntry[]; sour
 
 export function fetchRackItems(): Promise<{ items: ContextItem[]; source: string }> {
   return apiFetch("/context/rack/items");
+}
+
+// Research (entity memory)
+export function fetchResearchMemory(
+  entityType: string,
+  entityId: string
+): Promise<ResearchMemoryResponse> {
+  return apiFetch(`/research/memory/${entityType}/${encodeURIComponent(entityId)}`);
+}
+
+export function searchResearchMemory(
+  query: string
+): Promise<ResearchMemoryResponse> {
+  return apiFetch(`/research/memory/search?q=${encodeURIComponent(query)}`);
 }

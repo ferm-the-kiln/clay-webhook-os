@@ -58,6 +58,7 @@ from app.routers import (
     pipelines,
     plays,
     portal,
+    research,
     sheets,
     tables,
     usage,
@@ -111,6 +112,7 @@ app.include_router(portal.router)
 app.include_router(tables.router)
 app.include_router(channels.router)
 app.include_router(bridge.router)
+app.include_router(research.router)
 
 
 @app.on_event("startup")

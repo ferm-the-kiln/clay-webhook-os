@@ -16,10 +16,12 @@ import {
 } from "@/components/ui/sheet";
 import {
   Blocks,
+  BookOpen,
   Bug,
   FlaskConical,
   Home,
   MessageSquare,
+  Search,
   Send,
   FolderTree,
   Table2,
@@ -63,6 +65,8 @@ const REP_NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/", label: "Home", icon: Home, shortcut: "1" },
       { href: "/enrich", label: "Enrich", icon: Table2, shortcut: "T" },
+      { href: "/research", label: "Research", icon: Search, shortcut: "3" },
+      { href: "/prep", label: "Prep", icon: BookOpen, shortcut: "P" },
       { href: "/chat", label: "Chat", icon: MessageSquare, shortcut: "2" },
       { href: "/outbound", label: "Outbound", icon: Send, shortcut: "4" },
     ],
@@ -290,7 +294,8 @@ export function Sidebar() {
     ? [
         { href: "/", label: "Home", icon: Home },
         { href: "/enrich", label: "Enrich", icon: Table2 },
-        { href: "/chat", label: "Chat", icon: MessageSquare },
+        { href: "/research", label: "Research", icon: Search },
+        { href: "/prep", label: "Prep", icon: BookOpen },
         { href: "/outbound", label: "Outbound", icon: Send },
       ]
     : [
