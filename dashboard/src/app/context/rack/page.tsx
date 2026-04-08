@@ -88,7 +88,7 @@ const SLOT_META: Record<
 const PROVIDER_LABELS: Record<string, { label: string; badge: string }> = {
   file: { label: "File", badge: "bg-blue-500/10 text-blue-400" },
   supabase: { label: "Supabase", badge: "bg-green-500/10 text-green-400" },
-  inline: { label: "Inline", badge: "bg-gray-500/10 text-clay-300" },
+  inline: { label: "Inline", badge: "bg-clay-300/10 text-clay-300" },
   hybrid: { label: "Hybrid", badge: "bg-purple-500/10 text-purple-400" },
 };
 
@@ -501,7 +501,7 @@ export default function RackPage() {
                             <span
                               className={`text-xs px-2 py-0.5 rounded-full ${
                                 PROVIDER_LABELS[entry.source_mode]?.badge ||
-                                "bg-gray-500/10 text-clay-300"
+                                "bg-clay-300/10 text-clay-300"
                               }`}
                             >
                               {entry.source_mode}
