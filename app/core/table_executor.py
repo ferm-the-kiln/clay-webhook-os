@@ -511,6 +511,7 @@ async def execute_table_stream(
 
                 if use_deepline:
                     # ── Deepline path: parallel per-row with cache + normalization ──
+                    logger.info("[table_executor] Deepline routing: col=%s tool=%s rows=%d", col.id, effective_tool, len(col_rows))
                     from app.core.deepline_executor import _normalize_result, _cache_ttl_for_tool
                     from app.core.entity_utils import extract_entity_key as _extract_entity
 
@@ -546,7 +547,7 @@ async def execute_table_stream(
                         if execution_halted:
                             break
                         row_id = row["_row_id"]
-                        payload = {k: _resolve_template(v, row, table.columns) for k, v in (col.params or {}).items()}
+                        payload = {pk: _resolve_template(pv, row, table.columns) for pk, pv in (col.params or {}).items()}
 
                         # Check Supabase cache
                         if enrichment_cache:
