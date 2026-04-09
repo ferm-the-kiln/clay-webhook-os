@@ -52,3 +52,10 @@ class GenerateLeadListRequest(BaseModel):
 
 class GetLeadListResultsRequest(BaseModel):
     hash: str = Field(..., description="Hash returned by generate_lead_list")
+
+
+class SumbleFindPeopleRequest(BaseModel):
+    domain: str = Field(..., description="Company domain (e.g. stripe.com)")
+    job_functions: list[str] | None = Field(None, description="Job functions to filter (e.g. Engineering, Executive)")
+    job_levels: list[str] | None = Field(None, description="Job levels to filter (e.g. VP, Director, C-Level)")
+    limit: int = Field(10, description="Max people to return (default 10)")

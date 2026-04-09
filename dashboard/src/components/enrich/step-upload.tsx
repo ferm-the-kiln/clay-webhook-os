@@ -28,12 +28,19 @@ interface EnrichHistoryEntry {
   timestamp: number;
 }
 
-const SAMPLE_CSV = `first_name,last_name,domain,company_name,title
-Jane,Smith,acme.com,Acme Corp,VP of Sales
-John,Doe,globex.net,Globex Inc,Director of Marketing
-Sarah,Lee,initech.io,Initech,Head of Growth
-Mike,Chen,waystar.com,Waystar Royco,CRO
-Lisa,Park,hooli.xyz,Hooli,VP Engineering`;
+const SAMPLE_COMPANIES_CSV = `company_name,domain,linkedin_url,industry,employee_count,hq_city,hq_state
+Datadog,datadoghq.com,https://www.linkedin.com/company/datadog,SaaS,5500,New York,NY
+Stripe,stripe.com,https://www.linkedin.com/company/stripe,FinTech,8000,San Francisco,CA
+Notion,notion.so,https://www.linkedin.com/company/notionhq,SaaS,500,San Francisco,CA
+Figma,figma.com,https://www.linkedin.com/company/figma,SaaS,1200,San Francisco,CA
+CrowdStrike,crowdstrike.com,https://www.linkedin.com/company/crowdstrike,Cybersecurity,7900,Austin,TX`;
+
+const SAMPLE_CONTACTS_CSV = `first_name,last_name,title,company_name,domain,industry,employee_count
+Sarah,Chen,VP of Sales,Datadog,datadoghq.com,SaaS,5500
+Marcus,Rivera,Director of Product,Stripe,stripe.com,FinTech,8000
+Emily,Nakamura,Head of Growth,Notion,notion.so,SaaS,500
+David,Park,Chief Revenue Officer,Shopify,shopify.com,E-Commerce,10000
+Lisa,Thompson,Head of Partnerships,Plaid,plaid.com,FinTech,1200`;
 
 function formatRelativeTime(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -164,12 +171,12 @@ export function StepUpload({ preview, onParsed, onClear }: StepUploadProps) {
     }
   }, [sheetUrl, onParsed]);
 
-  const handleDownloadSample = useCallback(() => {
-    const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
+  const downloadCsv = useCallback((content: string, filename: string) => {
+    const blob = new Blob([content], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "sample-enrichment-data.csv";
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   }, []);
@@ -329,15 +336,23 @@ export function StepUpload({ preview, onParsed, onClear }: StepUploadProps) {
             )}
           </div>
 
-          {/* Sample CSV download */}
+          {/* Sample CSV downloads */}
           {!preview && (
-            <div className="text-center">
+            <div className="text-center flex items-center justify-center gap-1 text-xs text-clay-400">
+              <Download className="h-3 w-3" />
+              <span>Need a template?</span>
               <button
-                onClick={handleDownloadSample}
-                className="inline-flex items-center gap-1 text-xs text-clay-300 hover:text-clay-300 transition-colors"
+                onClick={() => downloadCsv(SAMPLE_COMPANIES_CSV, "sample-companies.csv")}
+                className="text-clay-300 hover:text-clay-100 transition-colors underline underline-offset-2"
               >
-                <Download className="h-3 w-3" />
-                Need a template? Download sample CSV
+                Companies
+              </button>
+              <span>&middot;</span>
+              <button
+                onClick={() => downloadCsv(SAMPLE_CONTACTS_CSV, "sample-contacts.csv")}
+                className="text-clay-300 hover:text-clay-100 transition-colors underline underline-offset-2"
+              >
+                Contacts
               </button>
             </div>
           )}

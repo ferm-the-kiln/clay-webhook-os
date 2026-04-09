@@ -1302,8 +1302,8 @@ export function previewFunction(
   });
 }
 
-// Tool detail
-export function fetchToolDetail(toolId: string): Promise<Record<string, unknown>> {
+// Tool detail (includes input_schema from Deepline cache when available)
+export function fetchToolDetail(toolId: string): Promise<ToolDefinition> {
   return apiFetch(`/tools/${encodeURIComponent(toolId)}`);
 }
 

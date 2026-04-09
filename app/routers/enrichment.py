@@ -12,6 +12,7 @@ from app.models.enrichment import (
     GenerateLeadListRequest,
     GetLeadListResultsRequest,
     ReverseEmailLookupRequest,
+    SumbleFindPeopleRequest,
     VerifyEmailRequest,
 )
 
@@ -120,6 +121,30 @@ async def generate_leads(body: GenerateLeadListRequest, request: Request):
         api_key=settings.findymail_api_key,
         base_url=settings.findymail_base_url,
         timeout=settings.findymail_timeout,
+    )
+    return result
+
+
+@router.post("/sumble-people")
+async def sumble_people(body: SumbleFindPeopleRequest, request: Request):
+    if not settings.sumble_api_key:
+        return JSONResponse(
+            status_code=503,
+            content={"error": True, "error_message": "Sumble API key not configured"},
+        )
+    from app.core.research_fetcher import fetch_company_profile
+
+    data = {
+        "job_functions": body.job_functions or ["Engineering", "Executive"],
+        "job_levels": body.job_levels or ["VP", "Director", "C-Level"],
+        "people_limit": body.limit,
+    }
+    result = await fetch_company_profile(
+        domain=body.domain,
+        data=data,
+        sumble_key=settings.sumble_api_key,
+        sumble_url=settings.sumble_base_url,
+        sumble_timeout=settings.sumble_timeout,
     )
     return result
 

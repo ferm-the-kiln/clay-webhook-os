@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING
 
 from app.core.skill_loader import list_skills, load_skill_config
@@ -55,11 +56,163 @@ DEEPLINE_PROVIDERS: list[dict] = [
 ]
 
 
-SPEED_MAP = {"native": "fast", "ai_single": "medium", "ai_agent": "slow", "gate": "instant", "function": "slow"}
-COST_MAP = {"native": "low", "ai_single": "medium", "ai_agent": "high", "gate": "free", "function": "low"}
+SPEED_MAP = {"native": "fast", "ai_single": "medium", "ai_agent": "slow", "gate": "instant", "function": "slow", "deepline": "fast"}
+COST_MAP = {"native": "low", "ai_single": "medium", "ai_agent": "high", "gate": "free", "function": "low", "deepline": "low"}
 
 # Lookup map for fast access
 _PROVIDER_MAP: dict[str, dict] = {p["id"]: p for p in DEEPLINE_PROVIDERS}
+
+# Known provider rate limits (delay between requests in ms)
+# These are auto-applied when a Deepline tool is selected and no
+# explicit rate_limit is configured on the column.
+PROVIDER_RATE_LIMITS: dict[str, int] = {
+    "apollo": 600,        # Apollo: ~100/min → 600ms between requests
+    "dropleads": 500,     # Dropleads: ~120/min
+    "hunter": 1000,       # Hunter: ~60/min
+    "leadmagic": 500,     # LeadMagic: ~120/min
+    "pdl": 600,           # People Data Labs: ~100/min
+    "zerobounce": 200,    # ZeroBounce: ~300/min
+    "icypeas": 1000,      # Icypeas: ~60/min
+    "prospeo": 1000,      # Prospeo: ~60/min
+}
+
+
+def get_provider_rate_limit_ms(tool_id: str) -> int:
+    """Get the known rate limit delay (ms) for a tool's provider.
+
+    Returns 0 if no known rate limit (caller should not throttle).
+    """
+    for prefix, delay_ms in PROVIDER_RATE_LIMITS.items():
+        if tool_id.startswith(prefix):
+            return delay_ms
+    return 0
+
+
+# Legacy tool IDs → real Deepline tool IDs
+LEGACY_ALIASES: dict[str, str] = {
+    "apollo_people": "apollo_people_search",
+    "apollo_org": "apollo_organization_enrich",
+    "hunter": "hunter_email_finder",
+    "zerobounce": "zerobounce_validate",
+}
+
+
+class DeeplineToolCache:
+    """Dynamic tool catalog loaded from `deepline tools list --json`.
+
+    Falls back gracefully — if CLI isn't available, is_deepline_tool() returns False
+    and the AI prompt path handles the column as before.
+
+    Includes a background refresh task that reloads every 6 hours.
+    """
+
+    _REFRESH_INTERVAL = 6 * 3600  # 6 hours
+
+    def __init__(self):
+        self._tools: list[dict] = []
+        self._tool_map: dict[str, dict] = {}
+        self._last_refresh: float = 0
+        self._loaded: bool = False
+        self._refresh_task: object | None = None  # asyncio.Task
+
+    async def refresh(self) -> None:
+        """Load tools from the Deepline CLI."""
+        from app.core.deepline_executor import DeeplineExecutor
+
+        raw_tools = await DeeplineExecutor.list_tools(timeout=15)
+        self._tools = []
+        self._tool_map = {}
+
+        for t in raw_tools:
+            tool_id = t.get("toolId") or t.get("id", "")
+            if not tool_id:
+                continue
+
+            # Map Deepline format → catalog format
+            inputs = []
+            input_schema = t.get("inputSchema", {})
+            for field in input_schema.get("fields", []):
+                inputs.append({
+                    "name": field.get("name", ""),
+                    "type": field.get("type", "string"),
+                    "required": field.get("required", False),
+                    "description": field.get("description", ""),
+                })
+
+            categories = t.get("categories", [])
+            entry = {
+                "id": tool_id,
+                "name": t.get("displayName") or t.get("name", tool_id),
+                "category": categories[0] if categories else t.get("category", "Other"),
+                "description": t.get("description", ""),
+                "source": "deepline",
+                "inputs": inputs,
+                "input_schema": input_schema if input_schema else None,
+                "outputs": [],
+                "has_native_api": True,
+                "execution_mode": "deepline",
+                "speed": SPEED_MAP["deepline"],
+                "cost": COST_MAP["deepline"],
+            }
+            self._tools.append(entry)
+            self._tool_map[tool_id] = entry
+
+        self._last_refresh = time.time()
+        self._loaded = True
+        logger.info("[tool_catalog] Deepline cache loaded: %d tools", len(self._tools))
+
+    def is_deepline_tool(self, tool_id: str) -> bool:
+        """Check if a tool ID exists in the Deepline cache."""
+        if not self._loaded:
+            return False
+        resolved = LEGACY_ALIASES.get(tool_id, tool_id)
+        return resolved in self._tool_map
+
+    def get_tool(self, tool_id: str) -> dict | None:
+        """Get a tool entry by ID (resolves legacy aliases)."""
+        resolved = LEGACY_ALIASES.get(tool_id, tool_id)
+        return self._tool_map.get(resolved)
+
+    def resolve_tool_id(self, tool_id: str) -> str:
+        """Resolve legacy aliases to real Deepline tool IDs."""
+        return LEGACY_ALIASES.get(tool_id, tool_id)
+
+    @property
+    def tools(self) -> list[dict]:
+        return self._tools
+
+    @property
+    def loaded(self) -> bool:
+        return self._loaded
+
+    @property
+    def last_refresh(self) -> float:
+        return self._last_refresh
+
+    def start_background_refresh(self) -> None:
+        """Start a background task that refreshes the cache every 6 hours."""
+        import asyncio
+
+        async def _refresh_loop():
+            while True:
+                await asyncio.sleep(self._REFRESH_INTERVAL)
+                try:
+                    await self.refresh()
+                    logger.info("[tool_catalog] Background refresh: %d tools", len(self._tools))
+                except Exception as e:
+                    logger.warning("[tool_catalog] Background refresh failed: %s", e)
+
+        self._refresh_task = asyncio.ensure_future(_refresh_loop())
+
+    def stop(self) -> None:
+        """Cancel the background refresh task."""
+        if self._refresh_task and not self._refresh_task.done():
+            self._refresh_task.cancel()
+            self._refresh_task = None
+
+
+# Module-level singleton
+deepline_cache = DeeplineToolCache()
 
 
 def get_step_target_keys(
@@ -116,8 +269,10 @@ def get_step_target_keys(
             hints = [f"- {o.key} ({o.type}): {o.description}" if o.description else f"- {o.key} ({o.type})" for o in sub_func.outputs]
             return keys, hints
 
-    # Intermediate step — use catalog outputs
-    provider = _PROVIDER_MAP.get(tool_id)
+    # Intermediate step — use catalog outputs (check Deepline cache first, then static)
+    provider = deepline_cache.get_tool(tool_id) if deepline_cache.loaded else None
+    if not provider:
+        provider = _PROVIDER_MAP.get(tool_id)
     if provider:
         catalog_outputs = provider.get("outputs", [])
         if catalog_outputs:
@@ -130,28 +285,60 @@ def get_step_target_keys(
 
 
 def get_tool_catalog(function_store: FunctionStore | None = None) -> list[dict]:
-    """Return all available tools: Deepline providers + existing skills + functions."""
+    """Return all available tools: Deepline providers + existing skills + functions.
+
+    When DeeplineToolCache is loaded (CLI available), its tools are merged in
+    and replace the static DEEPLINE_PROVIDERS entries for matching IDs.
+    Built-in tools (call_ai, web_search, gate, run_javascript) always appear.
+    """
     tools = []
 
-    # Add Deepline providers
-    for provider in DEEPLINE_PROVIDERS:
-        mode = provider.get("execution_mode", "ai_single")
-        tools.append({
-            "id": provider["id"],
-            "name": provider["name"],
-            "category": provider["category"],
-            "description": provider["description"],
-            "source": "deepline",
-            "inputs": provider.get("inputs", []),
-            "outputs": provider.get("outputs", []),
-            "has_native_api": provider.get("has_native_api", False),
-            "native_api_provider": provider.get("native_api_provider"),
-            "execution_mode": mode,
-            "ai_fallback_description": provider.get("ai_fallback_description", ""),
-            "speed": SPEED_MAP.get(mode, "medium"),
-            "cost": COST_MAP.get(mode, "medium"),
-            **({"alias_of": provider["alias_of"]} if "alias_of" in provider else {}),
-        })
+    # Built-in tools that always appear regardless of cache state
+    _BUILTIN_IDS = {"call_ai", "web_search", "gate", "run_javascript"}
+
+    if deepline_cache.loaded:
+        # Add all tools from the live Deepline cache
+        tools.extend(deepline_cache.tools)
+
+        # Add built-in tools from static list (these aren't in Deepline CLI)
+        for provider in DEEPLINE_PROVIDERS:
+            if provider["id"] in _BUILTIN_IDS:
+                mode = provider.get("execution_mode", "ai_single")
+                tools.append({
+                    "id": provider["id"],
+                    "name": provider["name"],
+                    "category": provider["category"],
+                    "description": provider["description"],
+                    "source": "deepline",
+                    "inputs": provider.get("inputs", []),
+                    "outputs": provider.get("outputs", []),
+                    "has_native_api": provider.get("has_native_api", False),
+                    "native_api_provider": provider.get("native_api_provider"),
+                    "execution_mode": mode,
+                    "ai_fallback_description": provider.get("ai_fallback_description", ""),
+                    "speed": SPEED_MAP.get(mode, "medium"),
+                    "cost": COST_MAP.get(mode, "medium"),
+                })
+    else:
+        # Fallback: use static DEEPLINE_PROVIDERS when CLI not available
+        for provider in DEEPLINE_PROVIDERS:
+            mode = provider.get("execution_mode", "ai_single")
+            tools.append({
+                "id": provider["id"],
+                "name": provider["name"],
+                "category": provider["category"],
+                "description": provider["description"],
+                "source": "deepline",
+                "inputs": provider.get("inputs", []),
+                "outputs": provider.get("outputs", []),
+                "has_native_api": provider.get("has_native_api", False),
+                "native_api_provider": provider.get("native_api_provider"),
+                "execution_mode": mode,
+                "ai_fallback_description": provider.get("ai_fallback_description", ""),
+                "speed": SPEED_MAP.get(mode, "medium"),
+                "cost": COST_MAP.get(mode, "medium"),
+                **({"alias_of": provider["alias_of"]} if "alias_of" in provider else {}),
+            })
 
     # Add existing skills as tools
     for skill_name in list_skills():

@@ -32,6 +32,8 @@ import { ExecutionTrace } from "./execution-trace";
 import { ExecutionHistoryPanel } from "./execution-history";
 import { OutputRenderer } from "@/components/output/output-renderer";
 import { testFunctionStep, prepareConsolidatedPrompt, queueLocalJob, submitLocalResult, fetchLocalJob } from "@/lib/api";
+import { useRunnerGate } from "@/hooks/use-runner-gate";
+import { RunnerRequiredModal } from "@/components/runner/runner-required-modal";
 
 interface FunctionPlaygroundProps {
   inputs: FunctionInput[];
@@ -95,6 +97,9 @@ export function FunctionPlayground({
 }: FunctionPlaygroundProps) {
   const [activeTab, setActiveTab] = useState<"output" | "trace" | "raw" | "history">("output");
   const [copied, setCopied] = useState(false);
+
+  // Runner gate
+  const { guardedRun, modalProps: runnerModalProps } = useRunnerGate();
 
   // Local execution state
   const [copyingPrompt, setCopyingPrompt] = useState(false);
@@ -339,7 +344,7 @@ export function FunctionPlayground({
                   {copyingPrompt ? "..." : "Prompt"}
                 </Button>
                 <Button
-                  onClick={handleRunLocally}
+                  onClick={() => guardedRun(() => handleRunLocally())}
                   disabled={localWaiting || !functionId}
                   variant="outline"
                   size="sm"
@@ -667,6 +672,8 @@ export function FunctionPlayground({
           </div>
         </div>
       </CardContent>
+
+      <RunnerRequiredModal {...runnerModalProps} />
     </Card>
   );
 }

@@ -172,20 +172,22 @@ export function ColumnConfigPanel({
       }
 
       // Pre-populate params from tool inputs with auto-mapping
-      if (selectedTool?.inputs) {
+      // Prefer input_schema.fields (richer metadata from Deepline) over basic inputs
+      const toolInputs = selectedTool?.input_schema?.fields || selectedTool?.inputs;
+      if (toolInputs && toolInputs.length > 0) {
         // Start with initialParams if provided (from suggestions bar)
         if (initialParams && Object.keys(initialParams).length > 0) {
           const merged: Record<string, string> = {};
-          for (const input of selectedTool.inputs) {
+          for (const input of toolInputs) {
             merged[input.name] = initialParams[input.name] || "";
           }
           setParams(merged);
           setAutoMapped(true);
         } else {
           // Auto-map by fuzzy matching column names
-          const mapped = autoMapInputs(selectedTool.inputs, availableColumns);
+          const mapped = autoMapInputs(toolInputs, availableColumns);
           const defaultParams: Record<string, string> = {};
-          for (const input of selectedTool.inputs) {
+          for (const input of toolInputs) {
             defaultParams[input.name] = mapped[input.name] || "";
           }
           setParams(defaultParams);
@@ -378,24 +380,34 @@ export function ColumnConfigPanel({
             </div>
           )}
 
-          {/* Enrichment params */}
-          {columnType === "enrichment" && selectedTool?.inputs && (
+          {/* Enrichment params — prefer input_schema fields (richer metadata) over basic inputs */}
+          {columnType === "enrichment" && selectedTool && (selectedTool.input_schema?.fields || selectedTool.inputs) && (
             <div className="space-y-3">
               <Label className="text-clay-200 text-xs">Parameters</Label>
-              {selectedTool.inputs.map((input) => {
-                const isEmpty = !params[input.name];
+              {(selectedTool.input_schema?.fields || selectedTool.inputs).map((input: { name: string; type: string; required?: boolean; description?: string }) => {
+                const fieldName = input.name;
+                const fieldType = input.type;
+                const isRequired = input.required ?? false;
+                const description = input.description;
+                const isEmpty = !params[fieldName];
                 return (
-                  <div key={input.name}>
+                  <div key={fieldName}>
                     <label className="text-xs text-clay-300 mb-1 block">
-                      {input.name}
-                      {input.type && (
-                        <span className="text-clay-300 ml-1">({input.type})</span>
+                      {fieldName}
+                      {fieldType && (
+                        <span className="text-clay-300 ml-1">({fieldType})</span>
+                      )}
+                      {isRequired && (
+                        <span className="text-rose-400 ml-1">*</span>
                       )}
                     </label>
+                    {description && (
+                      <p className="text-[10px] text-clay-400 mb-1">{description}</p>
+                    )}
                     <ColumnReferenceInput
-                      value={params[input.name] || ""}
+                      value={params[fieldName] || ""}
                       onChange={(val) =>
-                        setParams((p) => ({ ...p, [input.name]: val }))
+                        setParams((p) => ({ ...p, [fieldName]: val }))
                       }
                       availableColumns={availableColumns}
                       placeholder={`Type / to reference a column`}

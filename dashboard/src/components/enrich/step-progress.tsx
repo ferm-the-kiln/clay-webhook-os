@@ -17,6 +17,8 @@ import {
 } from "@/lib/api";
 import type { WorkflowTemplate, TableExecutionEvent, TableColumn, TableRow, CellState } from "@/lib/types";
 import { EnrichmentCell } from "@/components/table-builder/enrichment-cell";
+import { RunnerRequiredModal } from "@/components/runner/runner-required-modal";
+import { useRunnerGate } from "@/hooks/use-runner-gate";
 import type { CsvPreview } from "./step-upload";
 
 type Phase = "creating" | "importing" | "configuring" | "enriching" | "done" | "error";
@@ -77,6 +79,7 @@ export function StepProgress({
   const [exporting, setExporting] = useState<"sheets" | "drive" | null>(null);
   const [runnerConnected, setRunnerConnected] = useState<boolean | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+  const { guardedRun, modalProps: runnerModalProps } = useRunnerGate();
 
   // Poll local runner status
   useEffect(() => {
@@ -318,7 +321,7 @@ export function StepProgress({
     }
   }, [csvPreview, selectedRecipes, columnMapping, rowLimit, handleEvent, progress.done]);
 
-  useEffect(() => { run(); return () => { abortRef.current?.abort(); }; }, [run]);
+  useEffect(() => { guardedRun(() => run()); return () => { abortRef.current?.abort(); }; }, [run, guardedRun]);
   useEffect(() => { if (showConfetti) { const t = setTimeout(() => setShowConfetti(false), 2000); return () => clearTimeout(t); } }, [showConfetti]);
   useEffect(() => {
     if (phase === "done" && typeof document !== "undefined" && document.hidden && typeof Notification !== "undefined" && Notification.permission === "granted")
@@ -343,18 +346,8 @@ export function StepProgress({
 
   return (
     <div className="space-y-3">
-      {/* ── Runner disconnected warning ── */}
-      {runnerConnected === false && (phase === "enriching" || isPreGrid) && (
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
-          <span className="text-xs text-amber-300 flex-1">
-            Local runner not connected — enrichments need your Mac to process
-          </span>
-          <a href="/setup" className="text-xs text-amber-200 hover:text-amber-100 underline shrink-0">
-            Set up
-          </a>
-        </div>
-      )}
+      {/* ── Runner required modal ── */}
+      <RunnerRequiredModal {...runnerModalProps} />
 
       {/* ── Status bar ── */}
       {phase !== "error" && (

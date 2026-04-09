@@ -39,6 +39,8 @@ import {
   streamFunctionExecution,
   streamBatchExecution,
 } from "@/lib/api";
+import { useRunnerGate } from "@/hooks/use-runner-gate";
+import { RunnerRequiredModal } from "@/components/runner/runner-required-modal";
 
 interface FunctionRunPanelProps {
   func: FunctionDefinition;
@@ -66,6 +68,9 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
   const [executionLogs, setExecutionLogs] = useState<LogEntry[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const logScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Runner gate
+  const { guardedRun, modalProps: runnerModalProps } = useRunnerGate();
 
   // Batch state
   const [csvRows, setCsvRows] = useState<Record<string, string>[] | null>(null);
@@ -160,7 +165,7 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !running && !localWaiting) {
         e.preventDefault();
-        handleRunLocally();
+        guardedRun(() => handleRunLocally());
       }
     };
     window.addEventListener("keydown", handler);
@@ -424,7 +429,7 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           <Button
-            onClick={handleRunLocally}
+            onClick={() => guardedRun(() => handleRunLocally())}
             disabled={running || localWaiting}
             className="bg-kiln-teal text-clay-950 hover:bg-kiln-teal-light"
             size="sm"
@@ -823,6 +828,8 @@ export function FunctionRunPanel({ func, inputs }: FunctionRunPanelProps) {
           <ExecutionHistoryPanel functionId={func.id} />
         )}
       </CardContent>
+
+      <RunnerRequiredModal {...runnerModalProps} />
     </Card>
   );
 }

@@ -189,6 +189,21 @@ async def startup():
     app.state.function_store = FunctionStore(functions_dir=settings.functions_dir)
     app.state.function_store.load()
 
+    # Deepline tool cache (dynamic catalog from CLI)
+    from app.core.tool_catalog import deepline_cache
+    if settings.deepline_cli_enabled:
+        try:
+            await deepline_cache.refresh()
+            deepline_cache.start_background_refresh()
+            app.state.deepline_cache = deepline_cache
+            logger.info("  Deepline: %d tools loaded (refresh every 6h)", len(deepline_cache.tools))
+        except Exception as e:
+            logger.warning("  Deepline: CLI not available (%s) — using static catalog", e)
+            app.state.deepline_cache = deepline_cache
+    else:
+        app.state.deepline_cache = deepline_cache
+        logger.info("  Deepline: CLI disabled via config")
+
     # Table store (Clay-style table builder)
     from app.core.table_store import TableStore
     app.state.table_store = TableStore(data_dir=settings.data_dir)
@@ -395,6 +410,10 @@ async def shutdown():
     if hasattr(app.state, "cleanup_worker"):
         await app.state.cleanup_worker.stop()
         logger.info("  Cleanup worker stopped")
+
+    if hasattr(app.state, "deepline_cache"):
+        app.state.deepline_cache.stop()
+        logger.info("  Deepline cache refresh stopped")
 
     if hasattr(app.state, "reminder_worker_portal"):
         await app.state.reminder_worker_portal.stop()

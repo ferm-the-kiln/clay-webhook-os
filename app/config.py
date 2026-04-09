@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     deepline_api_key: str = ""
     deepline_base_url: str = "https://code.deepline.com"
     deepline_timeout: int = 60
+    deepline_cli_enabled: bool = True  # Try to load Deepline tool cache from CLI at startup
 
     # Serper.dev web search (company qualification)
     serper_api_key: str = ""

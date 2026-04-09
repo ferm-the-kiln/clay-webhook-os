@@ -3,13 +3,19 @@ import type { WorkflowTemplate } from "@/lib/types";
 /**
  * Pre-built workflow templates for sales reps.
  * Each template creates a table with the right columns pre-configured.
+ *
+ * Column execution modes:
+ * - enrichment + tool:"dropleads_email_finder" → Deepline CLI email finding (fast, real data)
+ * - enrichment + tool:"apollo_organization_enrich" → Deepline CLI company enrichment
+ * - enrichment + tool:"apollo_people_match" → Deepline CLI people matching
+ * - ai + ai_prompt → Claude single-turn processing (scoring, synthesis, formatting)
  */
 export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: "find-emails",
     name: "Find Emails",
     description:
-      "Upload a list of prospects with their name and company domain. We'll find their verified work email addresses.",
+      "Upload a list of prospects with their name and company domain. We'll find their verified work email addresses via Deepline.",
     category: "enrichment",
     icon: "Mail",
     expected_inputs: [
@@ -25,24 +31,13 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       {
         name: "Email",
         column_type: "enrichment",
-        tool: "findymail",
+        tool: "dropleads_email_finder",
         params: {
           first_name: "{{first_name}}",
           last_name: "{{last_name}}",
-          domain: "{{domain}}",
+          company_domain: "{{domain}}",
         },
         output_key: "email",
-      },
-      {
-        name: "Confidence",
-        column_type: "enrichment",
-        tool: "findymail",
-        params: {
-          first_name: "{{first_name}}",
-          last_name: "{{last_name}}",
-          domain: "{{domain}}",
-        },
-        output_key: "confidence",
       },
     ],
   },
@@ -50,7 +45,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: "research-companies",
     name: "Research Companies",
     description:
-      "Get a quick overview of any company — what they do, employee count, industry, and recent news.",
+      "Get a quick overview of any company — what they do, employee count, industry, and recent news. Uses web research for live data.",
     category: "research",
     icon: "Building2",
     expected_inputs: [
@@ -63,10 +58,19 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     ],
     columns: [
       {
+        name: "Company Research",
+        column_type: "enrichment",
+        tool: "apollo_organization_enrich",
+        params: {
+          domain: "{{domain}}",
+        },
+        output_key: "results",
+      },
+      {
         name: "Company Summary",
         column_type: "ai",
         ai_prompt:
-          "Research the company at {{domain}}. Return a JSON object with: summary (2-3 sentences about what they do), employee_count (estimated number or range), industry (primary industry), and headquarters (city, state if available).",
+          "Using the Company Research data, return a JSON object with: summary (2-3 sentences about what they do), employee_count (estimated number or range), industry (primary industry), and headquarters (city, state if available). Only use facts from the research — do not guess.",
         ai_model: "sonnet",
       },
     ],
@@ -75,7 +79,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: "score-leads",
     name: "Score & Qualify Leads",
     description:
-      "Score your prospect list based on company size, industry fit, and other signals. Get a fit score and reasoning.",
+      "Score your prospect list based on company size, industry fit, and other signals. Researches each company first, then scores.",
     category: "scoring",
     icon: "Target",
     expected_inputs: [
@@ -90,10 +94,19 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     ],
     columns: [
       {
+        name: "Company Intel",
+        column_type: "enrichment",
+        tool: "apollo_organization_enrich",
+        params: {
+          domain: "{{domain}}",
+        },
+        output_key: "results",
+      },
+      {
         name: "Qualification",
         column_type: "ai",
         ai_prompt:
-          'Analyze {{company_name}} ({{domain}}) as a potential prospect. Return a JSON object with: fit_score (0-100), tier ("A", "B", or "C"), reasoning (1-2 sentences explaining the score), and signals (array of positive/negative indicators you found).',
+          'Using the Company Intel research data, analyze {{company_name}} ({{domain}}) as a potential prospect. Return a JSON object with: fit_score (0-100), tier ("A", "B", or "C"), reasoning (1-2 sentences explaining the score based on what you found), and signals (array of positive/negative indicators from the research).',
         ai_model: "sonnet",
       },
     ],
@@ -102,25 +115,48 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: "enrich-contacts",
     name: "Enrich Contacts",
     description:
-      "Enrich your contact list with job titles, LinkedIn profiles, phone numbers, and company details.",
+      "Enrich your contact list with verified emails via Findymail and web-sourced job titles, LinkedIn profiles, and company details.",
     category: "enrichment",
     icon: "Users",
     expected_inputs: [
       { name: "first_name", description: "Contact's first name", required: true },
       { name: "last_name", description: "Contact's last name", required: true },
       { name: "company_name", description: "Company name", required: true },
+      { name: "domain", description: "Company domain (optional)", required: false },
     ],
     produced_outputs: [
+      { name: "email", description: "Verified work email" },
       { name: "title", description: "Current job title" },
       { name: "linkedin_url", description: "LinkedIn profile URL" },
-      { name: "phone", description: "Direct phone number" },
     ],
     columns: [
+      {
+        name: "Email",
+        column_type: "enrichment",
+        tool: "dropleads_email_finder",
+        params: {
+          first_name: "{{first_name}}",
+          last_name: "{{last_name}}",
+          company_domain: "{{domain}}",
+        },
+        output_key: "email",
+      },
+      {
+        name: "Contact Lookup",
+        column_type: "enrichment",
+        tool: "apollo_people_match",
+        params: {
+          first_name: "{{first_name}}",
+          last_name: "{{last_name}}",
+          organization_name: "{{company_name}}",
+        },
+        output_key: "results",
+      },
       {
         name: "Contact Info",
         column_type: "ai",
         ai_prompt:
-          "Look up {{first_name}} {{last_name}} at {{company_name}}. Return a JSON object with: title (current job title), linkedin_url (LinkedIn profile URL if findable), location (city, state), and seniority_level (C-Suite, VP, Director, Manager, Individual Contributor).",
+          "Using the Contact Lookup research data for {{first_name}} {{last_name}} at {{company_name}}, return a JSON object with: title (current job title), linkedin_url (LinkedIn profile URL if found in the research), location (city, state), and seniority_level (C-Suite, VP, Director, Manager, Individual Contributor). Only use facts from the research — do not fabricate URLs.",
         ai_model: "sonnet",
       },
     ],
@@ -129,7 +165,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: "email-waterfall",
     name: "Email Waterfall",
     description:
-      "Find verified emails using multiple providers — tries Findymail first, falls back to Hunter for maximum coverage.",
+      "Find verified emails using multiple providers — tries Findymail first, falls back to web search for maximum coverage.",
     category: "enrichment",
     icon: "Layers",
     expected_inputs: [
@@ -153,7 +189,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: "find-linkedin",
     name: "Find LinkedIn Profiles",
     description:
-      "Look up LinkedIn profile URLs for your contacts using their name and company.",
+      "Look up LinkedIn profile URLs for your contacts using web search — finds real profile links, not guesses.",
     category: "enrichment",
     icon: "Linkedin",
     expected_inputs: [
@@ -166,10 +202,21 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     ],
     columns: [
       {
+        name: "LinkedIn Lookup",
+        column_type: "enrichment",
+        tool: "apollo_people_match",
+        params: {
+          first_name: "{{first_name}}",
+          last_name: "{{last_name}}",
+          organization_name: "{{company_name}}",
+        },
+        output_key: "results",
+      },
+      {
         name: "LinkedIn URL",
         column_type: "ai",
         ai_prompt:
-          'Find the LinkedIn profile URL for {{first_name}} {{last_name}} who works at {{company_name}}. Return a JSON object with: linkedin_url (the full LinkedIn profile URL, or null if not found), confidence (high/medium/low).',
+          'From the LinkedIn Lookup results, extract the LinkedIn profile URL for {{first_name}} {{last_name}} at {{company_name}}. Return a JSON object with: linkedin_url (the full linkedin.com/in/ URL if found, or null), confidence (high/medium/low based on how well the result matches the name and company).',
         ai_model: "sonnet",
       },
     ],
@@ -178,7 +225,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: "company-contact-combo",
     name: "Company + Contact Research",
     description:
-      "Two-in-one: research the company and enrich the contact in a single run.",
+      "Two-in-one: research the company via web search and enrich the contact via Findymail in a single run.",
     category: "research",
     icon: "Sparkles",
     expected_inputs: [
@@ -190,21 +237,45 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     produced_outputs: [
       { name: "company_summary", description: "What the company does" },
       { name: "contact_title", description: "Contact's job title" },
-      { name: "employee_count", description: "Company size" },
+      { name: "email", description: "Verified work email" },
     ],
     columns: [
       {
         name: "Company Research",
-        column_type: "ai",
-        ai_prompt:
-          "Research the company at {{domain}}. Return a JSON object with: company_name (official name), summary (2-3 sentences about what they do), employee_count (estimated number or range), industry (primary industry), headquarters (city, state if available).",
-        ai_model: "sonnet",
+        column_type: "enrichment",
+        tool: "apollo_organization_enrich",
+        params: {
+          domain: "{{domain}}",
+        },
+        output_key: "results",
       },
       {
-        name: "Contact Enrichment",
+        name: "Email",
+        column_type: "enrichment",
+        tool: "dropleads_email_finder",
+        params: {
+          first_name: "{{first_name}}",
+          last_name: "{{last_name}}",
+          company_domain: "{{domain}}",
+        },
+        output_key: "email",
+      },
+      {
+        name: "Contact Lookup",
+        column_type: "enrichment",
+        tool: "apollo_people_match",
+        params: {
+          first_name: "{{first_name}}",
+          last_name: "{{last_name}}",
+          domain: "{{domain}}",
+        },
+        output_key: "results",
+      },
+      {
+        name: "Summary",
         column_type: "ai",
         ai_prompt:
-          "Look up {{first_name}} {{last_name}} at {{domain}}. Return a JSON object with: title (current job title), linkedin_url (LinkedIn profile URL if findable), seniority_level (C-Suite, VP, Director, Manager, Individual Contributor), location (city, state if available).",
+          "Using the Company Research and Contact Lookup data, return a JSON object with: company_name (official name), company_summary (2-3 sentences about what they do), employee_count (estimated), industry (primary), contact_title (job title of {{first_name}} {{last_name}}), seniority_level (C-Suite/VP/Director/Manager/IC), linkedin_url (if found in research). Only use facts from the research.",
         ai_model: "sonnet",
       },
     ],

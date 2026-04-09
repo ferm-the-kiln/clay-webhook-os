@@ -52,6 +52,7 @@ const CATEGORY_ICONS: Record<string, typeof Search> = {
   "AI Processing": Brain,
   "Data Transform": FileCode,
   Outbound: ArrowRightLeft,
+  Scraping: Globe,
   "Flow Control": Filter,
 };
 
@@ -65,6 +66,7 @@ const CATEGORY_ORDER = [
   "AI Processing",
   "Data Transform",
   "Outbound",
+  "Scraping",
   "Flow Control",
 ];
 

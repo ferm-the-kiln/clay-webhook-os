@@ -524,6 +524,14 @@ export interface ToolDefinition {
   source: "deepline" | "skill" | "function";
   inputs: { name: string; type: string }[];
   outputs: { key: string; type: string; description?: string }[];
+  input_schema?: {
+    fields: Array<{
+      name: string;
+      type: string;
+      required: boolean;
+      description?: string;
+    }>;
+  };
   model_tier?: string;
   execution_mode?: string;
   speed?: "fast" | "medium" | "slow" | "instant";

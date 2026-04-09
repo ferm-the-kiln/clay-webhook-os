@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getLocalRunnerStatus } from "@/lib/api";
 
-const SETUP_COMMAND = `cd ~/Documents/clay-webhook-os && bash scripts/install-clay-daemon.sh`;
+const SETUP_COMMAND = `cd ~/Documents/clay-webhook-os && python3.11 scripts/clay-run.py --watch`;
 
 export default function SetupPage() {
   const [copied, setCopied] = useState(false);
@@ -52,8 +52,8 @@ export default function SetupPage() {
       hint: "Already have it? Skip to step 2.",
     },
     {
-      title: "Paste this in Terminal",
-      description: "Open the Terminal app on your Mac (search \"Terminal\" in Spotlight) and paste the command below. This sets everything up to run automatically in the background — you only need to do this once.",
+      title: "Start the runner in Terminal",
+      description: "Open the Terminal app on your Mac (search \"Terminal\" in Spotlight) and paste the command below. Keep this terminal open while you work.",
       action: (
         <div className="space-y-2 w-full">
           <div
@@ -68,7 +68,7 @@ export default function SetupPage() {
             </button>
           </div>
           <p className="text-[10px] text-clay-500">
-            Click to copy. After pasting, it takes about 10 seconds. Once it says &ldquo;installed and running&rdquo; you&apos;re done.
+            Click to copy. After pasting, the runner will start polling for jobs.
           </p>
         </div>
       ),
@@ -76,8 +76,8 @@ export default function SetupPage() {
     {
       title: "You're all set",
       description: connected
-        ? "Connected and ready to go. Enrichments will run on your computer automatically."
-        : "Waiting for your computer to connect — this usually takes a few seconds after step 2.",
+        ? "Connected and ready to go. Enrichments will run on your computer."
+        : "Waiting for the runner to connect — this usually takes a few seconds after step 2.",
       action: connected ? (
         <Button size="sm" className="h-8 bg-kiln-teal text-black hover:bg-kiln-teal/90" asChild>
           <a href="/enrich">
@@ -102,9 +102,9 @@ export default function SetupPage() {
             <div className="flex items-center justify-center gap-2 mb-4">
               <Terminal className="h-6 w-6 text-kiln-teal" />
             </div>
-            <h1 className="text-xl font-semibold text-clay-100">Connect your computer</h1>
+            <h1 className="text-xl font-semibold text-clay-100">Start the local runner</h1>
             <p className="text-sm text-clay-400 max-w-sm mx-auto">
-              Enrichments run directly on your Mac. This is a one-time setup that takes about 2 minutes.
+              Enrichments run directly on your Mac. Start the runner in Terminal and keep it open while you work.
             </p>
           </div>
 
@@ -167,7 +167,7 @@ export default function SetupPage() {
               </span>
             </div>
             {connected === true && (
-              <span className="text-[10px] text-clay-500">Runs automatically</span>
+              <span className="text-[10px] text-clay-500">Runner active</span>
             )}
           </div>
         </div>

@@ -274,13 +274,8 @@ export function Header({ title, breadcrumbs, lastUpdated, onRefresh }: HeaderPro
                   {healthData.daemon && (
                     <div className="flex items-center gap-2">
                       <p className={`text-xs ${healthData.daemon.running ? "text-status-success" : "text-kiln-coral"}`}>
-                        Daemon: {healthData.daemon.running ? "running" : "stopped"}
+                        Local runner: {healthData.daemon.running ? "connected" : "disconnected"}
                       </p>
-                      {!healthData.daemon.running && (
-                        <a href="/setup" className="text-[10px] text-kiln-teal hover:text-kiln-teal/80 underline">
-                          Set up
-                        </a>
-                      )}
                     </div>
                   )}
                 </div>

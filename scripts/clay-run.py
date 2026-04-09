@@ -230,6 +230,38 @@ def run_claude(prompt: str, model: str = "sonnet") -> tuple[str, float]:
     return proc.stdout.strip(), duration_ms
 
 
+def run_deepline(tool_id: str, payload: dict) -> tuple[str, float]:
+    """Execute: deepline tools execute <tool_id> --payload '<json>' --json.
+
+    Returns (json_output_string, duration_ms).
+    """
+    start = time.time()
+    try:
+        result = subprocess.run(
+            ["deepline", "tools", "execute", tool_id, "--payload", json.dumps(payload), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except FileNotFoundError:
+        print("Error: 'deepline' CLI not found.")
+        return "", (time.time() - start) * 1000
+    except subprocess.TimeoutExpired:
+        print(f"Error: deepline timed out after 120s for tool {tool_id}")
+        return "", (time.time() - start) * 1000
+
+    duration_ms = (time.time() - start) * 1000
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        print(f"Error: deepline exited with code {result.returncode}")
+        if stderr:
+            print(f"  stderr: {stderr[:500]}")
+        return "", duration_ms
+
+    return result.stdout.strip(), duration_ms
+
+
 def parse_json_output(text: str) -> dict | None:
     """Extract JSON from Claude's response. Handles markdown fences and task wrappers."""
     import re
@@ -527,9 +559,15 @@ def cmd_watch(client: ClayClient) -> None:
                 job = client.get_job(job_summary["id"])
                 client.update_job_status(job["id"], "running")
 
-                # Execute
-                print(f"  Running in Claude Code ({job['model']})...")
-                output, duration_ms = run_claude(job["prompt"], model=job["model"])
+                # Execute — route based on executor type
+                if job.get("executor_type") == "deepline":
+                    tool_id = job["deepline_tool"]
+                    payload = job.get("deepline_payload", {})
+                    print(f"  Running Deepline tool: {tool_id}...")
+                    output, duration_ms = run_deepline(tool_id, payload)
+                else:
+                    print(f"  Running in Claude Code ({job['model']})...")
+                    output, duration_ms = run_claude(job["prompt"], model=job["model"])
 
                 if not output:
                     client.update_job_status(job["id"], "failed")
@@ -551,7 +589,8 @@ def cmd_watch(client: ClayClient) -> None:
                             json={"bridge_id": bridge_id, "result": result, "duration_ms": int(duration_ms)},
                         )
                         r.raise_for_status()
-                        print(f"  Done in {duration_ms/1000:.1f}s — bridge resolved")
+                        executor_label = "deepline" if job.get("executor_type") == "deepline" else "claude"
+                        print(f"  Done in {duration_ms/1000:.1f}s via {executor_label} — bridge resolved")
                     else:
                         print("  Failed: Missing bridge_id")
                         client.update_job_status(job["id"], "failed")
@@ -611,11 +650,17 @@ def cmd_daemon(client: ClayClient) -> None:
                 job = client.get_job(job_summary["id"])
                 client.update_job_status(job["id"], "running")
 
-                # Execute prompt via Claude Code
-                log.info("Streaming execution in Claude Code (%s)...", job["model"])
-                output, duration_ms = run_claude_streaming(
-                    job["prompt"], job["model"], job["id"], client,
-                )
+                # Execute — route based on executor type
+                if job.get("executor_type") == "deepline":
+                    tool_id = job["deepline_tool"]
+                    payload = job.get("deepline_payload", {})
+                    log.info("Running Deepline tool: %s", tool_id)
+                    output, duration_ms = run_deepline(tool_id, payload)
+                else:
+                    log.info("Streaming execution in Claude Code (%s)...", job["model"])
+                    output, duration_ms = run_claude_streaming(
+                        job["prompt"], job["model"], job["id"], client,
+                    )
 
                 if not output:
                     client.update_job_status(job["id"], "failed")
@@ -639,7 +684,8 @@ def cmd_daemon(client: ClayClient) -> None:
                             json={"bridge_id": bridge_id, "result": result, "duration_ms": int(duration_ms)},
                         )
                         r.raise_for_status()
-                        log.info("Table cell done in %.1fs — bridge %s resolved", duration_ms / 1000, bridge_id)
+                        executor_label = "deepline" if job.get("executor_type") == "deepline" else "claude"
+                        log.info("Table cell done in %.1fs via %s — bridge %s resolved", duration_ms / 1000, executor_label, bridge_id)
                     else:
                         log.warning("Table cell job %s missing bridge_id", job["id"])
                         client.update_job_status(job["id"], "failed")

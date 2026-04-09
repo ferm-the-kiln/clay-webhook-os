@@ -317,6 +317,7 @@ async def execute_table(table_id: str, body: ExecuteTableRequest, request: Reque
 
     local_queue = request.app.state.local_job_queue
     bridge_store = request.app.state.bridge_store
+    enrichment_cache = getattr(request.app.state, "enrichment_cache", None)
 
     async def event_gen():
         try:
@@ -327,6 +328,7 @@ async def execute_table(table_id: str, body: ExecuteTableRequest, request: Reque
                 table_store=store,
                 local_queue=local_queue,
                 bridge_store=bridge_store,
+                enrichment_cache=enrichment_cache,
             ):
                 yield event
         except Exception as e:

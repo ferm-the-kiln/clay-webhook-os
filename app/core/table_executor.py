@@ -13,7 +13,7 @@ import time
 import aiohttp
 
 from app.core.table_store import TableStore
-from app.core.tool_catalog import DEEPLINE_PROVIDERS
+from app.core.tool_catalog import DEEPLINE_PROVIDERS, LEGACY_ALIASES, deepline_cache, get_provider_rate_limit_ms
 from app.core.url_guard import validate_url
 from app.models.tables import CellState, ExecuteTableRequest, TableColumn, TableDefinition
 
@@ -34,19 +34,24 @@ async def _submit_local(
     executor_type: str = "cli",
     max_turns: int = 1,
     timeout: int = 120,
+    deepline_tool: str | None = None,
+    deepline_payload: dict | None = None,
 ) -> dict:
     """Submit a prompt to the local job queue and await the result via bridge.
 
     Instead of running claude --print on the VPS, this enqueues a job
     for pickup by the local runner (clay-run --watch on the user's Mac),
     then waits for the result to come back via the bridge callback.
+
+    For Deepline tools (executor_type="deepline"), include deepline_tool
+    and deepline_payload instead of a prompt.
     """
     import uuid
 
     bridge_id, future = bridge_store.park()
     job_id = f"tjob_{uuid.uuid4().hex[:12]}"
 
-    local_queue.enqueue({
+    job = {
         "id": job_id,
         "type": "table_cell",
         "bridge_id": bridge_id,
@@ -58,7 +63,13 @@ async def _submit_local(
         "executor_type": executor_type,
         "max_turns": max_turns,
         "status": "pending",
-    })
+    }
+    if deepline_tool:
+        job["deepline_tool"] = deepline_tool
+    if deepline_payload is not None:
+        job["deepline_payload"] = deepline_payload
+
+    local_queue.enqueue(job)
 
     logger.info("[table_executor] Enqueued local job %s (bridge=%s, col=%s)", job_id, bridge_id, column_id)
 
@@ -284,6 +295,7 @@ async def execute_table_stream(
     pool=None,
     local_queue=None,
     bridge_store=None,
+    enrichment_cache=None,
 ):
     """Generator that yields SSE events as columns execute.
 
@@ -474,7 +486,15 @@ async def execute_table_stream(
                 })
 
             elif col.column_type in ("enrichment", "ai"):
-                # AI/Enrichment — build prompt, execute via pool
+                # Resolve Deepline tool routing
+                effective_tool = LEGACY_ALIASES.get(col.tool, col.tool) if col.tool else col.tool
+                use_deepline = (
+                    col.column_type == "enrichment"
+                    and effective_tool
+                    and deepline_cache.is_deepline_tool(effective_tool)
+                    and local_queue and bridge_store
+                )
+
                 model = request_body.model or "sonnet"
                 eh = col.error_handling
                 execution_halted = False
@@ -489,195 +509,365 @@ async def execute_table_stream(
                         "status": "pending",
                     })
 
-                # Process in chunks
-                chunk_size = 5
-                for chunk_start in range(0, len(col_rows), chunk_size):
-                    if execution_halted:
-                        break
-                    chunk = col_rows[chunk_start : chunk_start + chunk_size]
+                if use_deepline:
+                    # ── Deepline path: parallel per-row with cache + normalization ──
+                    from app.core.deepline_executor import _normalize_result, _cache_ttl_for_tool
+                    from app.core.entity_utils import extract_entity_key as _extract_entity
 
-                    # Rate limiting
-                    if col.rate_limit and col.rate_limit.delay_between_ms > 0:
-                        await rate_limiter.acquire(col.id, col.rate_limit.delay_between_ms)
+                    _DEEPLINE_CONCURRENCY = 5
 
-                    # Mark chunk as running
-                    for row in chunk:
-                        row[f"{col.id}__status"] = "running"
-                        yield _sse({
-                            "type": "cell_update",
-                            "row_id": row["_row_id"],
-                            "column_id": col.id,
-                            "status": "running",
-                        })
+                    async def _exec_one_deepline(r, rid, pl):
+                        """Execute one Deepline row via local queue. Returns (row, row_id, val, error)."""
+                        res = await _submit_local(
+                            local_queue=local_queue, bridge_store=bridge_store,
+                            prompt="", model="", table_id=table.id, column_id=col.id,
+                            row_ids=[rid], executor_type="deepline",
+                            deepline_tool=effective_tool, deepline_payload=pl,
+                        )
+                        d = res.get("result", {})
+                        if isinstance(d, str):
+                            try:
+                                d = json.loads(d)
+                            except json.JSONDecodeError:
+                                d = {"result": d}
+                        d = _normalize_result(effective_tool, d)
+                        # Cache
+                        if enrichment_cache and isinstance(d, dict) and d:
+                            ent = _extract_entity(pl)
+                            if ent:
+                                await enrichment_cache.put(ent[0], ent[1], "deepline", effective_tool, d, ttl_seconds=_cache_ttl_for_tool(effective_tool))
+                                await enrichment_cache.log_api_call(provider="deepline", operation=effective_tool, entity_type=ent[0], entity_id=ent[1], duration_ms=res.get("duration_ms", 0), cache_hit=False)
+                        v = d.get(col.output_key, d) if isinstance(d, dict) and col.output_key else d
+                        return r, rid, v, None
 
-                    # Retry loop
-                    max_retries = eh.max_retries if eh else 0
-                    last_error = None
-                    for attempt in range(max_retries + 1):
-                        try:
-                            # Build prompt for this column + chunk
-                            prompt = _build_column_prompt(col, chunk, table.columns)
-                            needs_agent = False
-                            if col.tool:
-                                provider = _PROVIDER_MAP.get(col.tool, {})
-                                needs_agent = provider.get("execution_mode") == "ai_agent"
+                    # Pre-resolve payloads and check cache for each row
+                    pending_rows = []  # (row, row_id, payload) — rows that need CLI execution
+                    for row in col_rows:
+                        if execution_halted:
+                            break
+                        row_id = row["_row_id"]
+                        payload = {k: _resolve_template(v, row, table.columns) for k, v in (col.params or {}).items()}
 
-                            if local_queue and bridge_store:
-                                result = await _submit_local(
-                                    local_queue=local_queue,
-                                    bridge_store=bridge_store,
-                                    prompt=prompt,
-                                    model=model,
-                                    table_id=table.id,
-                                    column_id=col.id,
-                                    row_ids=[r["_row_id"] for r in chunk],
-                                    executor_type="agent" if needs_agent else "cli",
-                                    max_turns=15 if needs_agent else 1,
-                                )
-                            else:
-                                result = await pool.submit(
-                                    prompt=prompt,
-                                    model=model,
-                                    timeout=120,
-                                    executor_type="agent" if needs_agent else "cli",
-                                    max_turns=15 if needs_agent else 1,
-                                )
-
-                            # Parse result
-                            parsed = result.get("result", {})
-                            if isinstance(parsed, str):
-                                try:
-                                    parsed = json.loads(parsed)
-                                except json.JSONDecodeError:
-                                    parsed = {"result": parsed}
-
-                            # Distribute results to rows
-                            if isinstance(parsed, list):
-                                for i, row in enumerate(chunk):
-                                    row_result = parsed[i] if i < len(parsed) else None
-                                    row[f"{col.id}__value"] = row_result
-                                    row[f"{col.id}__status"] = "done"
-                                    col_done += 1
-                                    total_cells_done += 1
-                                    yield _sse({
-                                        "type": "cell_update",
-                                        "row_id": row["_row_id"],
-                                        "column_id": col.id,
-                                        "status": "done",
-                                        "value": row_result,
-                                    })
-                            elif isinstance(parsed, dict) and "rows" in parsed:
-                                for i, row in enumerate(chunk):
-                                    row_result = parsed["rows"][i] if i < len(parsed["rows"]) else None
-                                    val = row_result.get(col.output_key, row_result) if isinstance(row_result, dict) and col.output_key else row_result
+                        # Check Supabase cache
+                        if enrichment_cache:
+                            entity = _extract_entity(payload)
+                            if entity:
+                                cached = await enrichment_cache.get(entity[0], entity[1], "deepline", effective_tool)
+                                if cached is not None:
+                                    val = cached.get(col.output_key, cached) if isinstance(cached, dict) and col.output_key else cached
                                     row[f"{col.id}__value"] = val
                                     row[f"{col.id}__status"] = "done"
                                     col_done += 1
                                     total_cells_done += 1
-                                    yield _sse({
-                                        "type": "cell_update",
-                                        "row_id": row["_row_id"],
-                                        "column_id": col.id,
-                                        "status": "done",
-                                        "value": val,
-                                    })
+                                    yield _sse({"type": "cell_update", "row_id": row_id, "column_id": col.id, "status": "done", "value": val, "cache_hit": True})
+                                    await enrichment_cache.log_api_call(provider="deepline", operation=effective_tool, entity_type=entity[0], entity_id=entity[1], duration_ms=0, cache_hit=True)
+                                    continue
+
+                        pending_rows.append((row, row_id, payload))
+
+                    # Execute pending rows in parallel batches of _DEEPLINE_CONCURRENCY
+                    for batch_start in range(0, len(pending_rows), _DEEPLINE_CONCURRENCY):
+                        if execution_halted:
+                            break
+                        batch = pending_rows[batch_start : batch_start + _DEEPLINE_CONCURRENCY]
+
+                        # Mark batch as running
+                        for row, row_id, _ in batch:
+                            row[f"{col.id}__status"] = "running"
+                            yield _sse({"type": "cell_update", "row_id": row_id, "column_id": col.id, "status": "running"})
+
+                        # Rate limiting — use explicit config or auto-apply provider limit
+                        if col.rate_limit and col.rate_limit.delay_between_ms > 0:
+                            await rate_limiter.acquire(col.id, col.rate_limit.delay_between_ms)
+                        else:
+                            provider_delay = get_provider_rate_limit_ms(effective_tool)
+                            if provider_delay > 0:
+                                await rate_limiter.acquire(col.id, provider_delay)
+
+                        # Fire all rows in this batch concurrently
+                        gather_tasks = [
+                            _exec_one_deepline(row, row_id, payload)
+                            for row, row_id, payload in batch
+                        ]
+                        results = await asyncio.gather(*gather_tasks, return_exceptions=True)
+
+                        # Process results
+                        for i, res in enumerate(results):
+                            row, row_id, payload = batch[i]
+                            if isinstance(res, Exception):
+                                last_error = res
                             else:
-                                # Single result — apply to all rows in chunk
-                                val = parsed.get(col.output_key, parsed) if isinstance(parsed, dict) and col.output_key else parsed
-                                for row in chunk:
-                                    row[f"{col.id}__value"] = val
-                                    row[f"{col.id}__status"] = "done"
-                                    col_done += 1
-                                    total_cells_done += 1
-                                    yield _sse({
-                                        "type": "cell_update",
-                                        "row_id": row["_row_id"],
-                                        "column_id": col.id,
-                                        "status": "done",
-                                        "value": val,
-                                    })
+                                _, _, val, err = res
+                                last_error = err
 
-                            last_error = None
-                            break  # Success — exit retry loop
-
-                        except Exception as e:
-                            last_error = e
-                            if attempt < max_retries:
-                                backoff = eh.retry_backoff if eh else "exponential"
-                                base_ms = eh.retry_delay_ms if eh else 1000
-                                delay = _compute_backoff_ms(attempt, backoff, base_ms)
-                                logger.info("[table_executor] Retry %d/%d for column %s (waiting %dms)", attempt + 1, max_retries, col.id, delay)
-                                yield _sse({
-                                    "type": "retry",
-                                    "column_id": col.id,
-                                    "attempt": attempt + 1,
-                                    "max_retries": max_retries,
-                                    "delay_ms": delay,
-                                    "error": str(e),
-                                })
-                                await asyncio.sleep(delay / 1000)
-
-                    # If all retries exhausted, apply error handling policy
-                    if last_error is not None:
-                        logger.error("[table_executor] Error in column %s: %s", col.id, last_error)
-                        on_error = eh.on_error if eh else "skip"
-
-                        if on_error == "fallback" and eh and eh.fallback_value is not None:
-                            for row in chunk:
-                                row[f"{col.id}__value"] = eh.fallback_value
+                            if last_error is None:
+                                row[f"{col.id}__value"] = val
                                 row[f"{col.id}__status"] = "done"
                                 col_done += 1
                                 total_cells_done += 1
-                                yield _sse({
-                                    "type": "cell_update",
-                                    "row_id": row["_row_id"],
-                                    "column_id": col.id,
-                                    "status": "done",
-                                    "value": eh.fallback_value,
-                                    "fallback": True,
-                                })
-                        elif on_error == "stop":
-                            for row in chunk:
-                                row[f"{col.id}__status"] = "error"
-                                row[f"{col.id}__error"] = str(last_error)
-                                col_errors += 1
-                                total_cells_errored += 1
-                                yield _sse({
-                                    "type": "cell_update",
-                                    "row_id": row["_row_id"],
-                                    "column_id": col.id,
-                                    "status": "error",
-                                    "error": str(last_error),
-                                })
-                            yield _sse({
-                                "type": "execution_halted",
-                                "column_id": col.id,
-                                "reason": str(last_error),
-                            })
-                            execution_halted = True
-                        else:  # skip (default)
-                            for row in chunk:
-                                row[f"{col.id}__status"] = "error"
-                                row[f"{col.id}__error"] = str(last_error)
-                                col_errors += 1
-                                total_cells_errored += 1
-                                yield _sse({
-                                    "type": "cell_update",
-                                    "row_id": row["_row_id"],
-                                    "column_id": col.id,
-                                    "status": "error",
-                                    "error": str(last_error),
-                                })
+                                yield _sse({"type": "cell_update", "row_id": row_id, "column_id": col.id, "status": "done", "value": val})
+                            else:
+                                # ── Graceful fallback to AI prompt path ──
+                                ai_fallback_ok = False
+                                provider_info = _PROVIDER_MAP.get(col.tool, {})
+                                ai_fallback_desc = provider_info.get("ai_fallback_description", "")
+                                if ai_fallback_desc and (local_queue and bridge_store or pool):
+                                    try:
+                                        logger.info("[table_executor] Deepline failed for %s row %s — falling back to AI", col.id, row_id)
+                                        yield _sse({"type": "deepline_fallback", "column_id": col.id, "row_id": row_id, "reason": str(last_error)})
+                                        prompt = _build_column_prompt(col, [row], table.columns)
+                                        needs_agent = provider_info.get("execution_mode") == "ai_agent"
+                                        if local_queue and bridge_store:
+                                            fb_result = await _submit_local(
+                                                local_queue=local_queue, bridge_store=bridge_store,
+                                                prompt=prompt, model=model,
+                                                table_id=table.id, column_id=col.id,
+                                                row_ids=[row_id],
+                                                executor_type="agent" if needs_agent else "cli",
+                                                max_turns=15 if needs_agent else 1,
+                                            )
+                                        else:
+                                            fb_result = await pool.submit(
+                                                prompt=prompt, model=model, timeout=120,
+                                                executor_type="agent" if needs_agent else "cli",
+                                                max_turns=15 if needs_agent else 1,
+                                            )
+                                        fb_data = fb_result.get("result", {})
+                                        if isinstance(fb_data, str):
+                                            try:
+                                                fb_data = json.loads(fb_data)
+                                            except json.JSONDecodeError:
+                                                fb_data = {"result": fb_data}
+                                        if isinstance(fb_data, list) and fb_data:
+                                            fb_data = fb_data[0]
+                                        fb_val = fb_data.get(col.output_key, fb_data) if isinstance(fb_data, dict) and col.output_key else fb_data
+                                        row[f"{col.id}__value"] = fb_val
+                                        row[f"{col.id}__status"] = "done"
+                                        col_done += 1
+                                        total_cells_done += 1
+                                        yield _sse({"type": "cell_update", "row_id": row_id, "column_id": col.id, "status": "done", "value": fb_val, "fallback": "ai"})
+                                        ai_fallback_ok = True
+                                    except Exception as fb_err:
+                                        logger.warning("[table_executor] AI fallback also failed for %s row %s: %s", col.id, row_id, fb_err)
 
-                    # Progress update after each chunk
-                    yield _sse({
-                        "type": "column_progress",
-                        "column_id": col.id,
-                        "done": col_done,
-                        "total": rows_to_process,
-                        "errors": col_errors,
-                        "percent": round(col_done / max(rows_to_process, 1) * 100),
-                    })
+                                if not ai_fallback_ok:
+                                    on_error = eh.on_error if eh else "skip"
+                                    if on_error == "fallback" and eh and eh.fallback_value is not None:
+                                        row[f"{col.id}__value"] = eh.fallback_value
+                                        row[f"{col.id}__status"] = "done"
+                                        col_done += 1
+                                        total_cells_done += 1
+                                        yield _sse({"type": "cell_update", "row_id": row_id, "column_id": col.id, "status": "done", "value": eh.fallback_value, "fallback": True})
+                                    elif on_error == "stop":
+                                        row[f"{col.id}__status"] = "error"
+                                        row[f"{col.id}__error"] = str(last_error)
+                                        col_errors += 1
+                                        total_cells_errored += 1
+                                        yield _sse({"type": "cell_update", "row_id": row_id, "column_id": col.id, "status": "error", "error": str(last_error)})
+                                        yield _sse({"type": "execution_halted", "column_id": col.id, "reason": str(last_error)})
+                                        execution_halted = True
+                                    else:
+                                        row[f"{col.id}__status"] = "error"
+                                        row[f"{col.id}__error"] = str(last_error)
+                                        col_errors += 1
+                                        total_cells_errored += 1
+                                    yield _sse({"type": "cell_update", "row_id": row_id, "column_id": col.id, "status": "error", "error": str(last_error)})
+
+                        # Progress after each batch
+                        yield _sse({"type": "column_progress", "column_id": col.id, "done": col_done, "total": rows_to_process, "errors": col_errors, "percent": round(col_done / max(rows_to_process, 1) * 100)})
+
+                else:
+                    # ── AI prompt path: chunked execution via Claude ──
+
+                    # Process in chunks
+                    chunk_size = 5
+                    for chunk_start in range(0, len(col_rows), chunk_size):
+                        if execution_halted:
+                            break
+                        chunk = col_rows[chunk_start : chunk_start + chunk_size]
+
+                        # Rate limiting
+                        if col.rate_limit and col.rate_limit.delay_between_ms > 0:
+                            await rate_limiter.acquire(col.id, col.rate_limit.delay_between_ms)
+
+                        # Mark chunk as running
+                        for row in chunk:
+                            row[f"{col.id}__status"] = "running"
+                            yield _sse({
+                                "type": "cell_update",
+                                "row_id": row["_row_id"],
+                                "column_id": col.id,
+                                "status": "running",
+                            })
+
+                        # Retry loop
+                        max_retries = eh.max_retries if eh else 0
+                        last_error = None
+                        for attempt in range(max_retries + 1):
+                            try:
+                                # Build prompt for this column + chunk
+                                prompt = _build_column_prompt(col, chunk, table.columns)
+                                needs_agent = False
+                                if col.tool:
+                                    provider = _PROVIDER_MAP.get(col.tool, {})
+                                    needs_agent = provider.get("execution_mode") == "ai_agent"
+
+                                if local_queue and bridge_store:
+                                    result = await _submit_local(
+                                        local_queue=local_queue,
+                                        bridge_store=bridge_store,
+                                        prompt=prompt,
+                                        model=model,
+                                        table_id=table.id,
+                                        column_id=col.id,
+                                        row_ids=[r["_row_id"] for r in chunk],
+                                        executor_type="agent" if needs_agent else "cli",
+                                        max_turns=15 if needs_agent else 1,
+                                    )
+                                else:
+                                    result = await pool.submit(
+                                        prompt=prompt,
+                                        model=model,
+                                        timeout=120,
+                                        executor_type="agent" if needs_agent else "cli",
+                                        max_turns=15 if needs_agent else 1,
+                                    )
+
+                                # Parse result
+                                parsed = result.get("result", {})
+                                if isinstance(parsed, str):
+                                    try:
+                                        parsed = json.loads(parsed)
+                                    except json.JSONDecodeError:
+                                        parsed = {"result": parsed}
+
+                                # Distribute results to rows
+                                if isinstance(parsed, list):
+                                    for i, row in enumerate(chunk):
+                                        row_result = parsed[i] if i < len(parsed) else None
+                                        row[f"{col.id}__value"] = row_result
+                                        row[f"{col.id}__status"] = "done"
+                                        col_done += 1
+                                        total_cells_done += 1
+                                        yield _sse({
+                                            "type": "cell_update",
+                                            "row_id": row["_row_id"],
+                                            "column_id": col.id,
+                                            "status": "done",
+                                            "value": row_result,
+                                        })
+                                elif isinstance(parsed, dict) and "rows" in parsed:
+                                    for i, row in enumerate(chunk):
+                                        row_result = parsed["rows"][i] if i < len(parsed["rows"]) else None
+                                        val = row_result.get(col.output_key, row_result) if isinstance(row_result, dict) and col.output_key else row_result
+                                        row[f"{col.id}__value"] = val
+                                        row[f"{col.id}__status"] = "done"
+                                        col_done += 1
+                                        total_cells_done += 1
+                                        yield _sse({
+                                            "type": "cell_update",
+                                            "row_id": row["_row_id"],
+                                            "column_id": col.id,
+                                            "status": "done",
+                                            "value": val,
+                                        })
+                                else:
+                                    # Single result — apply to all rows in chunk
+                                    val = parsed.get(col.output_key, parsed) if isinstance(parsed, dict) and col.output_key else parsed
+                                    for row in chunk:
+                                        row[f"{col.id}__value"] = val
+                                        row[f"{col.id}__status"] = "done"
+                                        col_done += 1
+                                        total_cells_done += 1
+                                        yield _sse({
+                                            "type": "cell_update",
+                                            "row_id": row["_row_id"],
+                                            "column_id": col.id,
+                                            "status": "done",
+                                            "value": val,
+                                        })
+
+                                last_error = None
+                                break  # Success — exit retry loop
+
+                            except Exception as e:
+                                last_error = e
+                                if attempt < max_retries:
+                                    backoff = eh.retry_backoff if eh else "exponential"
+                                    base_ms = eh.retry_delay_ms if eh else 1000
+                                    delay = _compute_backoff_ms(attempt, backoff, base_ms)
+                                    logger.info("[table_executor] Retry %d/%d for column %s (waiting %dms)", attempt + 1, max_retries, col.id, delay)
+                                    yield _sse({
+                                        "type": "retry",
+                                        "column_id": col.id,
+                                        "attempt": attempt + 1,
+                                        "max_retries": max_retries,
+                                        "delay_ms": delay,
+                                        "error": str(e),
+                                    })
+                                    await asyncio.sleep(delay / 1000)
+
+                        # If all retries exhausted, apply error handling policy
+                        if last_error is not None:
+                            logger.error("[table_executor] Error in column %s: %s", col.id, last_error)
+                            on_error = eh.on_error if eh else "skip"
+
+                            if on_error == "fallback" and eh and eh.fallback_value is not None:
+                                for row in chunk:
+                                    row[f"{col.id}__value"] = eh.fallback_value
+                                    row[f"{col.id}__status"] = "done"
+                                    col_done += 1
+                                    total_cells_done += 1
+                                    yield _sse({
+                                        "type": "cell_update",
+                                        "row_id": row["_row_id"],
+                                        "column_id": col.id,
+                                        "status": "done",
+                                        "value": eh.fallback_value,
+                                        "fallback": True,
+                                    })
+                            elif on_error == "stop":
+                                for row in chunk:
+                                    row[f"{col.id}__status"] = "error"
+                                    row[f"{col.id}__error"] = str(last_error)
+                                    col_errors += 1
+                                    total_cells_errored += 1
+                                    yield _sse({
+                                        "type": "cell_update",
+                                        "row_id": row["_row_id"],
+                                        "column_id": col.id,
+                                        "status": "error",
+                                        "error": str(last_error),
+                                    })
+                                yield _sse({
+                                    "type": "execution_halted",
+                                    "column_id": col.id,
+                                    "reason": str(last_error),
+                                })
+                                execution_halted = True
+                            else:  # skip (default)
+                                for row in chunk:
+                                    row[f"{col.id}__status"] = "error"
+                                    row[f"{col.id}__error"] = str(last_error)
+                                    col_errors += 1
+                                    total_cells_errored += 1
+                                    yield _sse({
+                                        "type": "cell_update",
+                                        "row_id": row["_row_id"],
+                                        "column_id": col.id,
+                                        "status": "error",
+                                        "error": str(last_error),
+                                    })
+
+                        # Progress update after each chunk
+                        yield _sse({
+                            "type": "column_progress",
+                            "column_id": col.id,
+                            "done": col_done,
+                            "total": rows_to_process,
+                            "errors": col_errors,
+                            "percent": round(col_done / max(rows_to_process, 1) * 100),
+                        })
 
                 # Persist all results for this column
                 updates = {}
@@ -831,39 +1021,67 @@ async def execute_table_stream(
 
                         for prov in providers:
                             try:
-                                # Build prompt for single row using provider params
-                                prov_col = TableColumn(
-                                    id=col.id, name=col.name, column_type="enrichment",
-                                    position=col.position, tool=prov.tool, params=prov.params,
-                                    output_key=col.output_key,
+                                # Check if this waterfall provider is a Deepline tool
+                                prov_effective_tool = LEGACY_ALIASES.get(prov.tool, prov.tool) if prov.tool else prov.tool
+                                prov_use_deepline = (
+                                    prov_effective_tool
+                                    and deepline_cache.is_deepline_tool(prov_effective_tool)
+                                    and local_queue and bridge_store
                                 )
-                                prompt = _build_column_prompt(prov_col, [row], table.columns)
-                                needs_agent = False
-                                provider_info = _PROVIDER_MAP.get(prov.tool, {})
-                                if provider_info:
-                                    needs_agent = provider_info.get("execution_mode") == "ai_agent"
 
-                                if local_queue and bridge_store:
+                                if prov_use_deepline:
+                                    # Deepline path for this waterfall provider
+                                    payload = {}
+                                    if prov.params:
+                                        for k, v in prov.params.items():
+                                            payload[k] = _resolve_template(v, row, table.columns)
                                     result = await _submit_local(
                                         local_queue=local_queue,
                                         bridge_store=bridge_store,
-                                        prompt=prompt,
-                                        model=model,
+                                        prompt="",
+                                        model="",
                                         table_id=table.id,
                                         column_id=col.id,
                                         row_ids=[row["_row_id"]],
-                                        executor_type="agent" if needs_agent else "cli",
-                                        max_turns=15 if needs_agent else 1,
+                                        executor_type="deepline",
                                         timeout=prov.timeout,
+                                        deepline_tool=prov_effective_tool,
+                                        deepline_payload=payload,
                                     )
                                 else:
-                                    result = await pool.submit(
-                                        prompt=prompt,
-                                        model=model,
-                                        timeout=prov.timeout,
-                                        executor_type="agent" if needs_agent else "cli",
-                                        max_turns=15 if needs_agent else 1,
+                                    # AI prompt path for this waterfall provider
+                                    prov_col = TableColumn(
+                                        id=col.id, name=col.name, column_type="enrichment",
+                                        position=col.position, tool=prov.tool, params=prov.params,
+                                        output_key=col.output_key,
                                     )
+                                    prompt = _build_column_prompt(prov_col, [row], table.columns)
+                                    needs_agent = False
+                                    provider_info = _PROVIDER_MAP.get(prov.tool, {})
+                                    if provider_info:
+                                        needs_agent = provider_info.get("execution_mode") == "ai_agent"
+
+                                    if local_queue and bridge_store:
+                                        result = await _submit_local(
+                                            local_queue=local_queue,
+                                            bridge_store=bridge_store,
+                                            prompt=prompt,
+                                            model=model,
+                                            table_id=table.id,
+                                            column_id=col.id,
+                                            row_ids=[row["_row_id"]],
+                                            executor_type="agent" if needs_agent else "cli",
+                                            max_turns=15 if needs_agent else 1,
+                                            timeout=prov.timeout,
+                                        )
+                                    else:
+                                        result = await pool.submit(
+                                            prompt=prompt,
+                                            model=model,
+                                            timeout=prov.timeout,
+                                            executor_type="agent" if needs_agent else "cli",
+                                            max_turns=15 if needs_agent else 1,
+                                        )
                                 parsed = result.get("result", {})
                                 if isinstance(parsed, str):
                                     try:

@@ -320,7 +320,7 @@ FUNCTION_TEMPLATES = [
         ],
         "steps": [
             {"tool": "apollo_org", "params": {"domain": "{{domain}}"}},
-            {"tool": "exa", "params": {"query": "{{company_name}} company news 2024"}},
+            {"tool": "exa", "params": {"query": "{{company_name}} company recent news"}},
         ],
     },
     {
@@ -778,16 +778,53 @@ async def list_tool_categories(request: Request):
 
 @router.get("/tools/{tool_id}")
 async def get_tool_detail(request: Request, tool_id: str):
-    """Return full tool detail including execution metadata."""
+    """Return full tool detail including execution metadata.
+
+    When Deepline cache is loaded, includes input_schema with field-level
+    metadata (required, description) for richer param forms in the dashboard.
+    """
+    from app.core.tool_catalog import deepline_cache
+
     function_store = request.app.state.function_store
     tools = get_tool_catalog(function_store=function_store)
     for tool in tools:
         if tool["id"] == tool_id:
+            # Enrich with input_schema from Deepline cache if available
+            if "input_schema" not in tool and deepline_cache.loaded:
+                cached = deepline_cache.get_tool(tool_id)
+                if cached and cached.get("input_schema"):
+                    tool["input_schema"] = cached["input_schema"]
             return tool
     return JSONResponse(
         status_code=404,
         content={"error": True, "error_message": f"Tool '{tool_id}' not found"},
     )
+
+
+@router.post("/tools/refresh")
+async def refresh_tool_catalog(request: Request):
+    """Refresh the Deepline tool catalog from the CLI.
+
+    Call this after installing new Deepline providers or updating the CLI.
+    Also called automatically by the background refresh worker every 6 hours.
+    """
+    from app.core.tool_catalog import deepline_cache
+
+    try:
+        old_count = len(deepline_cache.tools)
+        await deepline_cache.refresh()
+        new_count = len(deepline_cache.tools)
+        return {
+            "refreshed": True,
+            "tools_before": old_count,
+            "tools_after": new_count,
+            "tools_added": max(0, new_count - old_count),
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": True, "error_message": f"Refresh failed: {e}"},
+        )
 
 
 # ── Batch Pipeline Execution ──────────────────────────────
