@@ -14,7 +14,7 @@ import { AiBuilderDialog } from "@/components/table-builder/ai-builder-dialog";
 import { ExecutionSummary } from "@/components/table-builder/execution-summary";
 import { Loader2 } from "lucide-react";
 import type { ToolDefinition, TableColumn } from "@/lib/types";
-import { fetchTools, exportTableToFunction, exportDataset } from "@/lib/api";
+import { fetchTools, exportTableToFunction, exportDataset, exportTableToSheet, exportTableToDrive } from "@/lib/api";
 import { autoMapInputs } from "@/lib/auto-map-inputs";
 import { toast } from "sonner";
 
@@ -410,6 +410,16 @@ export default function TableBuilderPage({
           columnProgress={tb.columnProgress}
           onDismiss={tb.dismissSummary}
           onExport={handleExportCsv}
+          onExportSheet={async () => {
+            const result = await exportTableToSheet(id, tb.table?.name);
+            tb.dismissSummary();
+            return result;
+          }}
+          onExportDrive={async () => {
+            const result = await exportTableToDrive(id);
+            tb.dismissSummary();
+            return result;
+          }}
           onRetryFailed={
             tb.executionSummary.cellsErrored > 0
               ? () => { tb.dismissSummary(); tb.executeTable(); }
