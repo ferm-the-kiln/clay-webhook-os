@@ -169,6 +169,7 @@ class DeeplineToolCache:
         "firecrawl_", "apify_", "scrapegraph_", "heyreach_",
         "instantly_", "smartlead_", "lemlist_", "adyntel_",
         "clearbit_", "fullcontact_", "snov_", "rocketreach_",
+        "parallel_", "exa_", "tavily_", "serper_",
     )
 
     def is_deepline_tool(self, tool_id: str) -> bool:

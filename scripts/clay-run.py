@@ -271,9 +271,31 @@ def run_deepline(tool_id: str, payload: dict) -> tuple[str, float]:
                 data = inner.get("data", inner)
             else:
                 data = inner
+
+            # Handle CSV-output tools (parallel_search, apollo_people_search, etc.)
+            # These return {extracted_csv: "/tmp/file.csv", preview: "..."} — read the CSV
+            if isinstance(data, dict) and "extracted_csv" in data:
+                csv_path = data["extracted_csv"]
+                try:
+                    with open(csv_path, newline="", encoding="utf-8-sig") as cf:
+                        reader = csv.DictReader(cf)
+                        rows = list(reader)
+                    if rows:
+                        data = {"results": rows, "count": len(rows)}
+                    else:
+                        data = {"results": [], "count": 0}
+                except (FileNotFoundError, OSError):
+                    # CSV file not found — fall back to preview field
+                    preview = data.get("preview", "")
+                    data = {"preview": preview, "count": data.get("extracted_csv_rows", 0)}
+
+            # Handle extract-style results (parallel_extract returns {results: [...]})
+            if isinstance(data, dict) and "results" in data and isinstance(data["results"], list):
+                # Keep as-is — already structured
+                pass
+
             # Normalize tool-specific nesting (e.g. {organization: {...}} → org dict)
             if isinstance(data, dict):
-                # Known unwrap keys by tool prefix
                 _UNWRAP = {
                     "apollo_organization": "organization",
                     "apollo_people_match": "person",
