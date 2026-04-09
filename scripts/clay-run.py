@@ -233,7 +233,8 @@ def run_claude(prompt: str, model: str = "sonnet") -> tuple[str, float]:
 def run_deepline(tool_id: str, payload: dict) -> tuple[str, float]:
     """Execute: deepline tools execute <tool_id> --payload '<json>' --json.
 
-    Returns (json_output_string, duration_ms).
+    Returns (unwrapped_json_string, duration_ms).
+    Unwraps the Deepline envelope: {job_id, status, result: {data: {...}}} → inner data.
     """
     start = time.time()
     try:
@@ -259,7 +260,40 @@ def run_deepline(tool_id: str, payload: dict) -> tuple[str, float]:
             print(f"  stderr: {stderr[:500]}")
         return "", duration_ms
 
-    return result.stdout.strip(), duration_ms
+    # Unwrap the Deepline response envelope
+    raw = result.stdout.strip()
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            # Unwrap {job_id, status, result: {data: {...}}} → data
+            inner = parsed.get("result", parsed)
+            if isinstance(inner, dict):
+                data = inner.get("data", inner)
+            else:
+                data = inner
+            # Normalize tool-specific nesting (e.g. {organization: {...}} → org dict)
+            if isinstance(data, dict):
+                # Known unwrap keys by tool prefix
+                _UNWRAP = {
+                    "apollo_organization": "organization",
+                    "apollo_people_match": "person",
+                    "apollo_people_search": "people",
+                    "apollo_people_enrich": "person",
+                    "hunter_email": "email",
+                    "leadmagic_company": "company",
+                    "leadmagic_email": "email",
+                    "pdl_person": "person",
+                    "pdl_company": "company",
+                }
+                for prefix, key in _UNWRAP.items():
+                    if tool_id.startswith(prefix) and key in data:
+                        data = data[key]
+                        break
+            return json.dumps(data), duration_ms
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    return raw, duration_ms
 
 
 def parse_json_output(text: str) -> dict | None:
