@@ -161,12 +161,29 @@ class DeeplineToolCache:
         self._loaded = True
         logger.info("[tool_catalog] Deepline cache loaded: %d tools", len(self._tools))
 
+    # Known Deepline provider prefixes — used to identify Deepline tools
+    # when the CLI cache isn't available (e.g. on the VPS).
+    _KNOWN_PREFIXES = (
+        "apollo_", "dropleads_", "hunter_", "icypeas_", "prospeo_",
+        "zerobounce_", "leadmagic_", "pdl_", "peopledatalabs_",
+        "firecrawl_", "apify_", "scrapegraph_", "heyreach_",
+        "instantly_", "smartlead_", "lemlist_", "adyntel_",
+        "clearbit_", "fullcontact_", "snov_", "rocketreach_",
+    )
+
     def is_deepline_tool(self, tool_id: str) -> bool:
-        """Check if a tool ID exists in the Deepline cache."""
-        if not self._loaded:
-            return False
+        """Check if a tool ID is a Deepline tool.
+
+        When the cache is loaded (CLI available), checks the live catalog.
+        When not loaded (e.g. on VPS without CLI), falls back to matching
+        against known provider prefixes so the VPS can still route jobs
+        to the local runner for Deepline execution.
+        """
         resolved = LEGACY_ALIASES.get(tool_id, tool_id)
-        return resolved in self._tool_map
+        if self._loaded:
+            return resolved in self._tool_map
+        # Fallback: match against known provider prefixes
+        return any(resolved.startswith(p) for p in self._KNOWN_PREFIXES)
 
     def get_tool(self, tool_id: str) -> dict | None:
         """Get a tool entry by ID (resolves legacy aliases)."""
