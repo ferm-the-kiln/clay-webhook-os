@@ -276,18 +276,32 @@ def run_deepline(tool_id: str, payload: dict) -> tuple[str, float]:
             # These return {extracted_csv: "/tmp/file.csv", preview: "..."} — read the CSV
             if isinstance(data, dict) and "extracted_csv" in data:
                 csv_path = data["extracted_csv"]
+                csv_rows = None
                 try:
                     with open(csv_path, newline="", encoding="utf-8-sig") as cf:
                         reader = csv.DictReader(cf)
-                        rows = list(reader)
-                    if rows:
-                        data = {"results": rows, "count": len(rows)}
+                        csv_rows = list(reader)
+                except (FileNotFoundError, OSError):
+                    csv_rows = None
+
+                if csv_rows:
+                    data = {"results": csv_rows, "count": len(csv_rows)}
+                else:
+                    # CSV file gone — parse the preview field (first few rows as CSV string)
+                    preview = data.get("preview", "")
+                    if preview:
+                        try:
+                            import io
+                            reader = csv.DictReader(io.StringIO(preview))
+                            preview_rows = list(reader)
+                            if preview_rows:
+                                data = {"results": preview_rows, "count": data.get("extracted_csv_rows", len(preview_rows))}
+                            else:
+                                data = {"raw_preview": preview, "count": data.get("extracted_csv_rows", 0)}
+                        except Exception:
+                            data = {"raw_preview": preview, "count": data.get("extracted_csv_rows", 0)}
                     else:
                         data = {"results": [], "count": 0}
-                except (FileNotFoundError, OSError):
-                    # CSV file not found — fall back to preview field
-                    preview = data.get("preview", "")
-                    data = {"preview": preview, "count": data.get("extracted_csv_rows", 0)}
 
             # Handle extract-style results (parallel_extract returns {results: [...]})
             if isinstance(data, dict) and "results" in data and isinstance(data["results"], list):
