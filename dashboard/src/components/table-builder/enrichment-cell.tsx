@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, ExternalLink, Mail, Check, X, Ban } from "lucide-react";
 import type { CellState } from "@/lib/types";
+import { extractPreviewText } from "@/lib/cell-display";
 
 interface EnrichmentCellProps {
   value: unknown;
@@ -70,15 +71,15 @@ function FormattedValue({ value }: { value: unknown }) {
       return <span className={`tabular-nums ${color}`}>{String(n)}</span>;
     }
 
-    default:
-      if (typeof value === "object") {
-        return (
-          <span className="text-clay-200 truncate">
-            {JSON.stringify(value).slice(0, 80)}
-          </span>
-        );
-      }
-      return <span className="truncate text-clay-100">{String(value).slice(0, 120)}</span>;
+    default: {
+      const preview = extractPreviewText(value);
+      if (!preview) return <span className="text-clay-300">—</span>;
+      return (
+        <span className="truncate text-clay-100" title={preview}>
+          {preview}
+        </span>
+      );
+    }
   }
 }
 

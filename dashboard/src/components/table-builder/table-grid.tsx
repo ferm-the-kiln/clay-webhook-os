@@ -22,6 +22,7 @@ import type {
 } from "@/lib/types";
 import type { ColumnProgress } from "@/hooks/use-table-builder";
 import { getCellValue, getCellStatus } from "@/hooks/use-table-builder";
+import { extractPreviewText } from "@/lib/cell-display";
 import { EnrichmentCell } from "./enrichment-cell";
 import { TableColumnHeader } from "./table-column-header";
 import { ColumnContextMenu } from "./column-context-menu";
@@ -462,18 +463,17 @@ export function TableGrid({
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     {visibleColumns.map((col) => {
                       const val = getCellValue(expandedRow, col.id);
-                      const status = getCellStatus(expandedRow, col.id);
+                      const preview = extractPreviewText(val);
                       return (
                         <div key={col.id} className="min-w-0">
                           <div className="text-[10px] text-clay-300 mb-0.5 truncate">
                             {col.name}
                           </div>
-                          <div className="text-xs text-clay-100 truncate">
-                            {val !== null && val !== undefined
-                              ? typeof val === "object"
-                                ? JSON.stringify(val).slice(0, 100)
-                                : String(val)
-                              : <span className="text-clay-300">—</span>}
+                          <div
+                            className="text-xs text-clay-100 truncate"
+                            title={preview}
+                          >
+                            {preview || <span className="text-clay-300">—</span>}
                           </div>
                         </div>
                       );

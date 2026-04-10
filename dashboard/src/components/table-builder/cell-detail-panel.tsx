@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -8,11 +8,11 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Copy, Plus, RotateCcw, ChevronUp, ChevronDown, X } from "lucide-react";
+import { Copy, Plus, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import type { TableDefinition, TableRow, TableColumn, CellState } from "@/lib/types";
+import type { TableDefinition, TableRow } from "@/lib/types";
 import { getCellValue, getCellStatus, getCellError } from "@/hooks/use-table-builder";
+import { extractPreviewText } from "@/lib/cell-display";
 
 interface CellDetailPanelProps {
   open: boolean;
@@ -115,6 +115,69 @@ function JsonTree({
   return <span className="text-clay-300">{String(data)}</span>;
 }
 
+function formatFieldLabel(key: string): string {
+  return key.replace(/_/g, " ");
+}
+
+function ReadableValue({ data }: { data: unknown }) {
+  if (data === null || data === undefined) {
+    return <span className="text-clay-300 italic">No data</span>;
+  }
+  if (typeof data === "string") {
+    if (!data.trim()) return <span className="text-clay-300 italic">Empty</span>;
+    return <p className="text-clay-100 whitespace-pre-wrap leading-relaxed">{data}</p>;
+  }
+  if (typeof data === "number" || typeof data === "boolean") {
+    return <span className="text-clay-100">{String(data)}</span>;
+  }
+  if (Array.isArray(data)) {
+    if (data.length === 0) return <span className="text-clay-300 italic">Empty list</span>;
+    const allScalars = data.every(
+      (d) => typeof d === "string" || typeof d === "number" || typeof d === "boolean",
+    );
+    if (allScalars) {
+      return (
+        <ul className="list-disc list-inside space-y-1 text-clay-100">
+          {data.map((item, i) => (
+            <li key={i} className="whitespace-pre-wrap">{String(item)}</li>
+          ))}
+        </ul>
+      );
+    }
+    return (
+      <div className="space-y-3">
+        {data.map((item, i) => (
+          <div key={i} className="pl-3 border-l border-clay-700">
+            <div className="text-[10px] uppercase tracking-wide text-clay-300 mb-1">
+              Item {i + 1}
+            </div>
+            <ReadableValue data={item} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (typeof data === "object") {
+    const entries = Object.entries(data as Record<string, unknown>);
+    if (entries.length === 0) return <span className="text-clay-300 italic">Empty</span>;
+    return (
+      <div className="space-y-3">
+        {entries.map(([key, val]) => (
+          <div key={key}>
+            <div className="text-[11px] uppercase tracking-wide text-clay-300 mb-1">
+              {formatFieldLabel(key)}
+            </div>
+            <div className="text-xs text-clay-100">
+              <ReadableValue data={val} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <span className="text-clay-100">{String(data)}</span>;
+}
+
 export function CellDetailPanel({
   open,
   onClose,
@@ -128,6 +191,7 @@ export function CellDetailPanel({
     () => table.columns.find((c) => c.id === columnId),
     [table.columns, columnId],
   );
+  const [showRaw, setShowRaw] = useState(false);
 
   if (!row || !column) return null;
 
@@ -205,12 +269,26 @@ export function CellDetailPanel({
             </div>
           )}
 
-          {/* Value / JSON tree */}
+          {/* Result */}
           <div>
-            <h4 className="text-xs font-medium text-clay-200 mb-2">Result</h4>
-            <div className="px-3 py-2 rounded bg-clay-900 border border-clay-700 text-xs max-h-[400px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-medium text-clay-200">Result</h4>
+              {value !== undefined && value !== null && typeof value === "object" && (
+                <button
+                  onClick={() => setShowRaw((v) => !v)}
+                  className="text-[10px] text-clay-300 hover:text-clay-100"
+                >
+                  {showRaw ? "Show readable" : "Show raw JSON"}
+                </button>
+              )}
+            </div>
+            <div className="px-3 py-3 rounded bg-clay-900 border border-clay-700 text-xs max-h-[500px] overflow-y-auto">
               {value !== undefined && value !== null ? (
-                <JsonTree data={value} onAddAsColumn={onAddAsColumn} />
+                showRaw ? (
+                  <JsonTree data={value} onAddAsColumn={onAddAsColumn} />
+                ) : (
+                  <ReadableValue data={value} />
+                )
               ) : (
                 <span className="text-clay-300 italic">No data</span>
               )}
@@ -226,12 +304,8 @@ export function CellDetailPanel({
                 .map((col) => {
                   const cellVal = getCellValue(row, col.id);
                   const cellStatus = getCellStatus(row, col.id);
-                  const displayVal =
-                    cellVal === undefined || cellVal === null
-                      ? "—"
-                      : typeof cellVal === "object"
-                        ? JSON.stringify(cellVal).slice(0, 100)
-                        : String(cellVal).slice(0, 100);
+                  const preview = extractPreviewText(cellVal).slice(0, 100);
+                  const displayVal = preview || "—";
 
                   return (
                     <div
