@@ -3,6 +3,7 @@ import logging
 
 from app.core.agent_executor import AgentExecutor
 from app.core.claude_executor import ClaudeExecutor
+from app.core.telemetry import worker_span
 
 logger = logging.getLogger("clay-webhook-os")
 
@@ -32,6 +33,8 @@ class WorkerPool:
         max_turns: int = 1,
         allowed_tools: list[str] | None = None,
         raw_mode: bool = False,
+        skill_name: str | None = None,
+        job_id: str | None = None,
     ) -> dict:
         async with self._semaphore:
             self._active += 1
@@ -40,12 +43,18 @@ class WorkerPool:
                     "Worker acquired (%d/%d active, executor=%s)",
                     self._active, self._max_workers, executor_type,
                 )
-                if executor_type == "agent":
-                    return await self._agent_executor.execute(
+                with worker_span(job_id=job_id or "ad-hoc", skill=skill_name):
+                    if executor_type == "agent":
+                        return await self._agent_executor.execute(
+                            prompt, model, timeout,
+                            max_turns=max_turns,
+                            allowed_tools=allowed_tools,
+                            skill_name=skill_name,
+                        )
+                    return await self._executor.execute(
                         prompt, model, timeout,
-                        max_turns=max_turns,
-                        allowed_tools=allowed_tools,
+                        raw_mode=raw_mode,
+                        skill_name=skill_name,
                     )
-                return await self._executor.execute(prompt, model, timeout, raw_mode=raw_mode)
             finally:
                 self._active -= 1

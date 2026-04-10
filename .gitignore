@@ -1,6 +1,12 @@
 node_modules/
 .env
 .env.local
+.env.vercel-check
+.mcp.json
+.deepline/
+# Test fixtures and scratch data at project root
+/test_*.csv
+/test_*.json
 .DS_Store
 .next/
 __pycache__/

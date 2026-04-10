@@ -5,6 +5,8 @@ import os
 import re
 import time
 
+from app.core.telemetry import record_llm_error, record_llm_response, skill_span
+
 logger = logging.getLogger("clay-webhook-os")
 
 
@@ -23,92 +25,114 @@ class ClaudeExecutor:
     async def execute(
         self, prompt: str, model: str = "opus", timeout: int = 120,
         raw_mode: bool = False,
+        skill_name: str | None = None,
     ) -> dict:
         start = time.monotonic()
-
-        # Clean env: remove CLAUDECODE so nested claude doesn't conflict,
-        # and remove ANTHROPIC_API_KEY so it uses Max subscription auth.
-        env = {
-            k: v
-            for k, v in os.environ.items()
-            if k not in ("CLAUDECODE", "ANTHROPIC_API_KEY")
-        }
-
         resolved_model = self.MODEL_MAP.get(model, model)
 
-        args = [
-            "claude",
-            "--print",
-            "--output-format", "text",
-            "--model", resolved_model,
-            "--max-turns", "1",
-            "--dangerously-skip-permissions",
-            "-",
-        ]
+        with skill_span(
+            skill=skill_name,
+            model=resolved_model,
+            prompt=prompt,
+            executor="claude",
+            extra={"llm.max_turns": 1, "llm.raw_mode": raw_mode},
+        ) as span:
+            try:
+                # Clean env: remove CLAUDECODE so nested claude doesn't conflict,
+                # and remove ANTHROPIC_API_KEY so it uses Max subscription auth.
+                env = {
+                    k: v
+                    for k, v in os.environ.items()
+                    if k not in ("CLAUDECODE", "ANTHROPIC_API_KEY")
+                }
 
-        proc = await asyncio.create_subprocess_exec(
-            *args,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env,
-        )
+                args = [
+                    "claude",
+                    "--print",
+                    "--output-format", "text",
+                    "--model", resolved_model,
+                    "--max-turns", "1",
+                    "--dangerously-skip-permissions",
+                    "-",
+                ]
 
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(input=prompt.encode()),
-                timeout=timeout,
-            )
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
-            raise TimeoutError(f"claude --print timed out after {timeout}s")
-
-        if proc.returncode != 0:
-            err = stderr.decode().strip()
-            out = stdout.decode().strip()
-            logger.error("claude stderr: %s", err)
-
-            # Only flag subscription issues when rate limit keywords are present
-            rate_limit_keywords = ["rate limit", "quota", "capacity", "usage limit", "token limit"]
-            combined = (err + " " + out).lower()
-            if any(kw in combined for kw in rate_limit_keywords):
-                raise SubscriptionLimitError(
-                    f"Claude subscription limit likely reached (exit code {proc.returncode}). "
-                    "Check your Claude Code Max usage."
+                proc = await asyncio.create_subprocess_exec(
+                    *args,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=env,
                 )
 
-            # Include stdout in error when stderr is empty (CLI often reports errors there)
-            detail = err or out[:500] or "no output"
-            raise RuntimeError(f"claude exited with code {proc.returncode}: {detail}")
+                try:
+                    stdout, stderr = await asyncio.wait_for(
+                        proc.communicate(input=prompt.encode()),
+                        timeout=timeout,
+                    )
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    await proc.wait()
+                    err = TimeoutError(f"claude --print timed out after {timeout}s")
+                    record_llm_error(span, err)
+                    raise err
 
-        raw = stdout.decode().strip()
-        if not raw:
-            raise RuntimeError("Empty response from claude")
+                if proc.returncode != 0:
+                    err = stderr.decode().strip()
+                    out = stdout.decode().strip()
+                    logger.error("claude stderr: %s", err)
 
-        duration_ms = int((time.monotonic() - start) * 1000)
+                    # Only flag subscription issues when rate limit keywords are present
+                    rate_limit_keywords = ["rate limit", "quota", "capacity", "usage limit", "token limit"]
+                    combined = (err + " " + out).lower()
+                    if any(kw in combined for kw in rate_limit_keywords):
+                        exc = SubscriptionLimitError(
+                            f"Claude subscription limit likely reached (exit code {proc.returncode}). "
+                            "Check your Claude Code Max usage."
+                        )
+                        record_llm_error(span, exc)
+                        raise exc
 
-        if raw_mode:
-            return {
-                "result": raw,
-                "raw_output": raw,
-                "duration_ms": duration_ms,
-                "raw_length": len(raw),
-                "prompt_chars": len(prompt),
-                "response_chars": len(raw),
-                "usage": None,
-            }
+                    # Include stdout in error when stderr is empty (CLI often reports errors there)
+                    detail = err or out[:500] or "no output"
+                    exc = RuntimeError(f"claude exited with code {proc.returncode}: {detail}")
+                    record_llm_error(span, exc)
+                    raise exc
 
-        parsed = self._parse_json(raw)
+                raw = stdout.decode().strip()
+                if not raw:
+                    exc = RuntimeError("Empty response from claude")
+                    record_llm_error(span, exc)
+                    raise exc
 
-        return {
-            "result": parsed,
-            "duration_ms": duration_ms,
-            "raw_length": len(raw),
-            "prompt_chars": len(prompt),
-            "response_chars": len(raw),
-            "usage": None,
-        }
+                duration_ms = int((time.monotonic() - start) * 1000)
+                record_llm_response(span, raw, duration_ms=duration_ms)
+
+                if raw_mode:
+                    return {
+                        "result": raw,
+                        "raw_output": raw,
+                        "duration_ms": duration_ms,
+                        "raw_length": len(raw),
+                        "prompt_chars": len(prompt),
+                        "response_chars": len(raw),
+                        "usage": None,
+                    }
+
+                parsed = self._parse_json(raw)
+
+                return {
+                    "result": parsed,
+                    "duration_ms": duration_ms,
+                    "raw_length": len(raw),
+                    "prompt_chars": len(prompt),
+                    "response_chars": len(raw),
+                    "usage": None,
+                }
+            except Exception as e:
+                # Only record errors we haven't recorded yet (non-wrapped exceptions).
+                if span is not None and not getattr(e, "_telemetry_recorded", False):
+                    record_llm_error(span, e)
+                raise
 
     async def stream_execute(
         self, prompt: str, model: str = "opus", timeout: int = 120,

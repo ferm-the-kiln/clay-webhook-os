@@ -181,7 +181,7 @@ class TestBuild:
         (kb / "a.md").write_text("sales pipeline qualification methodology")
         (kb / "b.md").write_text("marketing pipeline content strategy")
 
-        idx = ContextIndex(dirs=[kb], base_dir=tmp_path)
+        idx = ContextIndex(dirs=[kb], base_dir=tmp_path, force_backend="tfidf")
         idx.build()
         # "pipeline" appears in both docs, IDF = log(2/2) = 0
         assert idx._idf["pipeline"] == 0.0
@@ -193,7 +193,7 @@ class TestBuild:
         kb.mkdir()
         (kb / "doc.md").write_text("sales sales sales marketing")
 
-        idx = ContextIndex(dirs=[kb], base_dir=tmp_path)
+        idx = ContextIndex(dirs=[kb], base_dir=tmp_path, force_backend="tfidf")
         idx.build()
         tf = idx._tf["knowledge_base/doc.md"]
         # "sales" appears 3 times in 4-token doc (after filtering)
